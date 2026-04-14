@@ -4,3 +4,4 @@ I'd like to add a link to
 https://ark.wiki.gg/wiki/Console_commands
 For all commands 
 Add another line ressembling the one for To use RCON,set...
+Instead of OK in running

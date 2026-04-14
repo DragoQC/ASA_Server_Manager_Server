@@ -27,7 +27,7 @@ public sealed class RconService(ServerConfigService serverConfigService)
         try
         {
             await using RconConnection connection = await ConnectAndAuthenticateAsync(resolved.Status.Port, resolved.Password, cancellationToken);
-            return new RconProbeResult(true, RconProtocolConstants.Host, resolved.Status.Port, "OK", "Connected.");
+            return new RconProbeResult(true, RconProtocolConstants.Host, resolved.Status.Port, "Connected", "Connected.");
         }
         catch (SocketException exception) when (exception.SocketErrorCode == SocketError.ConnectionRefused)
         {
