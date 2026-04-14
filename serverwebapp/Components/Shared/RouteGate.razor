@@ -24,7 +24,7 @@
         bool mustChangePassword = isAuthenticated && await AuthService.MustChangePasswordAsync(authenticationState.User);
 
         bool isLoginPage = RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.Login);
-        bool isSettingsPage = RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.Settings);
+        bool isResetPasswordPage = RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.ResetPassword);
         bool isPublicPage = RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.Home) ||
                             RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.NotFound) ||
                             RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.Error);
@@ -39,13 +39,13 @@
 
         if (isAuthenticated && isLoginPage)
         {
-            NavigationManager.NavigateTo(mustChangePassword ? "/admin/settings?firstLogin=true" : "/admin/dashboard", forceLoad: true);
+            NavigationManager.NavigateTo(mustChangePassword ? "/admin/reset-password?firstLogin=true" : "/admin/dashboard", forceLoad: true);
             return;
         }
 
-        if (mustChangePassword && !isSettingsPage)
+        if (mustChangePassword && !isResetPasswordPage)
         {
-            NavigationManager.NavigateTo("/admin/settings?firstLogin=true", forceLoad: true);
+            NavigationManager.NavigateTo("/admin/reset-password?firstLogin=true", forceLoad: true);
             return;
         }
 

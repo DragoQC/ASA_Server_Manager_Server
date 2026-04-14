@@ -36,8 +36,9 @@ builder.Services.AddAuthentication(options =>
     })
     .AddIdentityCookies();
 
-string connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+string databasePath = Path.Combine(builder.Environment.ContentRootPath, "Data", "asa-manager.db");
+Directory.CreateDirectory(Path.GetDirectoryName(databasePath) ?? builder.Environment.ContentRootPath);
+string connectionString = $"Data Source={databasePath}";
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
 builder.Services.AddDbContextFactory<AppDbContext>(
@@ -108,7 +109,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapPost("/auth/login",
-    async ([FromForm] LoginRequest request, SignInManager<ApplicationUser> signInManager) =>
+    async ([FromForm] LoginRequest request, SignInManager<ApplicationUser> signInManager, AuthService authService) =>
     {
         Microsoft.AspNetCore.Identity.SignInResult result = await signInManager.PasswordSignInAsync(
             request.Username ?? string.Empty,
@@ -116,8 +117,11 @@ app.MapPost("/auth/login",
             isPersistent: true,
             lockoutOnFailure: false);
 
+        bool mustChangePassword = result.Succeeded &&
+                                  await authService.MustChangePasswordAsync(request.Username);
+
         return result.Succeeded
-            ? Results.LocalRedirect("/admin/dashboard")
+            ? Results.LocalRedirect(mustChangePassword ? "/admin/reset-password?firstLogin=true" : "/admin/dashboard")
             : Results.LocalRedirect("/admin/login?error=Invalid%20username%20or%20password.");
     })
     .DisableAntiforgery();

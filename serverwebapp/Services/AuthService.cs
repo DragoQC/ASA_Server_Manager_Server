@@ -43,13 +43,23 @@ public sealed class AuthService(UserManager<ApplicationUser> userManager, IDbCon
 			return false;
 		}
 
-		bool isDefaultAdmin = string.Equals(user.UserName, "admin", StringComparison.OrdinalIgnoreCase);
-		if (!isDefaultAdmin)
+		return await MustChangePasswordAsync(user);
+	}
+
+	public async Task<bool> MustChangePasswordAsync(string? username)
+	{
+		if (string.IsNullOrWhiteSpace(username))
 		{
 			return false;
 		}
 
-		return await _userManager.CheckPasswordAsync(user, "admin");
+		ApplicationUser? user = await _userManager.FindByNameAsync(username);
+		if (user is null)
+		{
+			return false;
+		}
+
+		return await MustChangePasswordAsync(user);
 	}
 
 	public async Task<IdentityResult> ChangePasswordAsync(ClaimsPrincipal principal, string newPassword)
@@ -115,6 +125,17 @@ public sealed class AuthService(UserManager<ApplicationUser> userManager, IDbCon
 	{
 		byte[] bytes = RandomNumberGenerator.GetBytes(32);
 		return Convert.ToHexString(bytes);
+	}
+
+	private async Task<bool> MustChangePasswordAsync(ApplicationUser user)
+	{
+		bool isDefaultAdmin = string.Equals(user.UserName, "admin", StringComparison.OrdinalIgnoreCase);
+		if (!isDefaultAdmin)
+		{
+			return false;
+		}
+
+		return await _userManager.CheckPasswordAsync(user, "admin");
 	}
 
 	public async Task<bool> IsRemoteApiKeyValidAsync(string? apiKey, CancellationToken cancellationToken = default)

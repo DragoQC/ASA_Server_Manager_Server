@@ -1,5 +1,4 @@
 @page "/admin/settings"
-@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject AsaServerManager.Web.Services.AuthService AuthService
 @inject NavigationManager NavigationManager
 
@@ -9,13 +8,13 @@
     <div class="space-y-8">
         <div class="flex flex-wrap items-center gap-4">
             <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Settings</p>
-            <StatusTag Text="@(_firstLogin ? "Password change required" : "Account")" />
+            <StatusTag Text="Account" />
         </div>
 
         <div>
             <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Settings</h1>
             <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
-                Set a new password for this manager account.
+                Update account and remote access settings for this manager panel.
             </p>
         </div>
 
@@ -33,25 +32,27 @@
             </div>
         }
 
-        <EditForm Model="_model" OnValidSubmit="SaveAsync" class="max-w-2xl space-y-5">
-            <DataAnnotationsValidator />
+        <div class="max-w-2xl rounded-[1.6rem] border border-white/10 bg-black/30 p-6 shadow-[0_0_30px_rgba(0,255,255,0.08)] backdrop-blur-md">
+            <div class="space-y-6">
+                <div class="flex flex-wrap items-center gap-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Account</p>
+                    <StatusTag Text="Password" />
+                </div>
 
-            <TextField Label="New password"
-                       @bind-Value="_model.Password"
-                       Hint="Pick the password you want to use from now on."
-                       type="password"
-                       autocomplete="new-password" />
+                <div>
+                    <h2 class="text-2xl font-semibold text-white">Reset password</h2>
+                    <p class="mt-3 text-sm leading-6 text-neutral-300">
+                        Open the password reset page when you want to change the admin password.
+                    </p>
+                </div>
 
-            <TextField Label="Confirm password"
-                       @bind-Value="_model.ConfirmPassword"
-                       Hint="Enter the same password again."
-                       type="password"
-                       autocomplete="new-password" />
-
-            <button type="submit" class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
-                Save password
-            </button>
-        </EditForm>
+                <button type="button"
+                        @onclick="OpenResetPasswordPage"
+                        class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                    Open reset password
+                </button>
+            </div>
+        </div>
 
         <div class="max-w-2xl rounded-[1.6rem] border border-white/10 bg-black/30 p-6 shadow-[0_0_30px_rgba(0,255,255,0.08)] backdrop-blur-md">
             <div class="space-y-6">
@@ -91,46 +92,18 @@
 </section>
 
 @code {
-    private readonly PasswordChangeModel _model = new();
     private string? _message;
     private string? _error;
     private string? _apiKey;
-
-    [SupplyParameterFromQuery]
-    private bool _firstLogin { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
         _apiKey = await AuthService.LoadRemoteApiKeyAsync();
     }
 
-    private async Task SaveAsync()
+    private void OpenResetPasswordPage()
     {
-        _message = null;
-        _error = null;
-
-        if (string.IsNullOrWhiteSpace(_model.Password) || string.IsNullOrWhiteSpace(_model.ConfirmPassword))
-        {
-            _error = "Both password fields are required.";
-            return;
-        }
-
-        if (!string.Equals(_model.Password, _model.ConfirmPassword, StringComparison.Ordinal))
-        {
-            _error = "Passwords do not match.";
-            return;
-        }
-
-        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        Microsoft.AspNetCore.Identity.IdentityResult result = await AuthService.ChangePasswordAsync(authenticationState.User, _model.Password);
-        if (!result.Succeeded)
-        {
-            _error = string.Join(' ', result.Errors.Select(error => error.Description));
-            return;
-        }
-
-        _message = "Password updated.";
-        NavigationManager.NavigateTo("/admin/dashboard", forceLoad: true);
+        NavigationManager.NavigateTo("/admin/reset-password");
     }
 
     private void GenerateApiKey()
@@ -153,12 +126,5 @@
 
         await AuthService.SaveRemoteApiKeyAsync(_apiKey);
         _message = "API key updated.";
-    }
-
-    private sealed class PasswordChangeModel
-    {
-        public string? Password { get; set; }
-
-        public string? ConfirmPassword { get; set; }
     }
 }
