@@ -51,9 +51,43 @@
             <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
                 Sends game admin commands through RCON to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">127.0.0.1:@_rconPort</code>. Command history stays only on this page.
             </p>
+            <p class="mt-3 max-w-3xl text-sm leading-7 text-cyan-200/80 md:text-base">
+                To use RCON, set <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RCONEnabled=true</code>, <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RCONPort</code>, and <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RCONPassword</code> in <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">GameUserSettings.ini</code>. You can set those manually in <a href="/admin/game-config" class="font-semibold text-cyan-100 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-50">Game Config</a>.
+            </p>
         </div>
 
         <div class="rounded-[1.6rem] border border-white/10 bg-black/40 p-4 shadow-[0_0_30px_rgba(0,255,255,0.08)]">
+            <div class="mb-5 rounded-[1.2rem] border border-cyan-300/10 bg-cyan-400/5 p-4">
+                <p class="text-sm leading-7 text-cyan-200/80">
+                    The server must be instantiated at least one time before <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">GameUserSettings.ini</code> appears in the right place. You can set the required RCON values manually in <a href="/admin/game-config" class="font-semibold text-cyan-100 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-50">Game Config</a>.
+                </p>
+                <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">GameUserSettings.ini</p>
+                        <div class="mt-2 flex items-center gap-3">
+                            <StatusTag Text="@(_rconStatus.HasGameUserSettingsFile ? "OK" : "Missing")" />
+                        </div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">RCON enabled</p>
+                        <div class="mt-2 flex items-center gap-3">
+                            <StatusTag Text="@GetRconEnabledText()" />
+                        </div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">RCON password</p>
+                        <div class="mt-2 flex items-center gap-3">
+                            <StatusTag Text="@GetRconPasswordText()" />
+                        </div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">RCON port</p>
+                        <div class="mt-2 flex items-center gap-3">
+                            <StatusTag Text="@GetRconPortText()" />
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-3">
                     <StatusTag Text="@_asaServiceStatus.DisplayText" />
@@ -245,6 +279,41 @@
         {
             _isStoppingAsa = false;
         }
+    }
+
+    private string GetRconEnabledText()
+    {
+        if (!_rconStatus.HasGameUserSettingsFile)
+        {
+            return "Missing";
+        }
+
+        if (!_rconStatus.HasEnabledKey)
+        {
+            return "Missing";
+        }
+
+        return _rconStatus.IsEnabled ? "True" : "False";
+    }
+
+    private string GetRconPasswordText()
+    {
+        if (!_rconStatus.HasGameUserSettingsFile || !_rconStatus.HasEnabledKey || !_rconStatus.IsEnabled)
+        {
+            return "Missing";
+        }
+
+        if (!_rconStatus.HasPasswordKey || !_rconStatus.HasPassword)
+        {
+            return "Missing";
+        }
+
+        return "OK";
+    }
+
+    private string GetRconPortText()
+    {
+        return _rconStatus.HasPort ? _rconStatus.Port.ToString() : "Missing";
     }
 
     private void OnCommandInput(ChangeEventArgs eventArgs)

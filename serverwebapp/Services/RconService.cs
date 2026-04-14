@@ -67,6 +67,7 @@ public sealed class RconService(ServerConfigService serverConfigService)
                     false,
                     false,
                     false,
+                    false,
                     fallbackPort,
                     "Missing",
                     "GameUserSettings.ini missing."),
@@ -76,10 +77,12 @@ public sealed class RconService(ServerConfigService serverConfigService)
         string content = await File.ReadAllTextAsync(GameConfigConstants.GameUserSettingsIniPath, cancellationToken);
         Dictionary<string, string> values = ParseServerSettings(content);
         int port = fallbackPort;
+        int parsedPort = fallbackPort;
+        bool hasPort = values.TryGetValue("RCONPort", out string? configuredPort) &&
+                       int.TryParse(configuredPort, out parsedPort) &&
+                       parsedPort is > 0 and <= 65535;
 
-        if (values.TryGetValue("RCONPort", out string? configuredPort) &&
-            int.TryParse(configuredPort, out int parsedPort) &&
-            parsedPort is > 0 and <= 65535)
+        if (hasPort)
         {
             port = parsedPort;
         }
@@ -88,21 +91,28 @@ public sealed class RconService(ServerConfigService serverConfigService)
         if (!hasEnabledKey)
         {
             return new ResolvedRconSettings(
-                new RconStatus(true, false, false, false, false, port, "Missing", "RCONEnabled key missing."),
+                new RconStatus(true, false, false, hasPort, false, false, port, "Missing", "RCONEnabled key missing."),
                 string.Empty);
         }
 
         if (!bool.TryParse(enabledValue, out bool isEnabled))
         {
             return new ResolvedRconSettings(
-                new RconStatus(true, true, false, false, false, port, "Invalid", "RCONEnabled is invalid."),
+                new RconStatus(true, true, false, hasPort, false, false, port, "Invalid", "RCONEnabled is invalid."),
                 string.Empty);
         }
 
         if (!isEnabled)
         {
             return new ResolvedRconSettings(
-                new RconStatus(true, true, false, false, false, port, "Disabled", "RCON is disabled."),
+                new RconStatus(true, true, false, hasPort, false, false, port, "Disabled", "RCON is disabled."),
+                string.Empty);
+        }
+
+        if (!hasPort)
+        {
+            return new ResolvedRconSettings(
+                new RconStatus(true, true, true, false, false, false, port, "Missing", "RCONPort key missing or invalid."),
                 string.Empty);
         }
 
@@ -110,19 +120,19 @@ public sealed class RconService(ServerConfigService serverConfigService)
         if (!hasPasswordKey)
         {
             return new ResolvedRconSettings(
-                new RconStatus(true, true, true, false, false, port, "Missing", "RCONPassword key missing."),
+                new RconStatus(true, true, true, true, false, false, port, "Missing", "RCONPassword key missing."),
                 string.Empty);
         }
 
         if (string.IsNullOrWhiteSpace(password))
         {
             return new ResolvedRconSettings(
-                new RconStatus(true, true, true, true, false, port, "Missing", "RCON password missing."),
+                new RconStatus(true, true, true, true, true, false, port, "Missing", "RCON password missing."),
                 string.Empty);
         }
 
         return new ResolvedRconSettings(
-            new RconStatus(true, true, true, true, true, port, "Enabled", "RCON is enabled."),
+            new RconStatus(true, true, true, true, true, true, port, "Enabled", "RCON is enabled."),
             password);
     }
 
