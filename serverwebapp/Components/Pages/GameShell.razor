@@ -19,13 +19,6 @@
 
             <div class="flex flex-wrap items-center gap-3">
                 <button type="button"
-                        @onclick="RefreshAsync"
-                        disabled="@(_isRefreshingRcon || _isSendingCommand || _isStartingAsa || _isStoppingAsa)"
-                        class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-50">
-                    @(_isRefreshingRcon ? "Refreshing..." : "Refresh")
-                </button>
-
-                <button type="button"
                         @onclick="StartAsaServiceAsync"
                         disabled="@(_isStartingAsa || _isStoppingAsa || _isSendingCommand || !_asaServiceStatus.CanStart)"
                         class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-50">
@@ -147,6 +140,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        AsaManagerService.Changed += OnAsaManagerChanged;
+        await AsaManagerService.EnsureStartedAsync();
+        _asaServiceStatus = AsaManagerService.CurrentStatus;
         await RefreshAsync();
         _refreshLoopCancellationTokenSource = new CancellationTokenSource();
         _ = RunRefreshLoopAsync(_refreshLoopCancellationTokenSource.Token);
@@ -154,11 +150,15 @@
 
     private async Task RefreshAsync()
     {
+        if (_isRefreshingRcon)
+        {
+            return;
+        }
+
         _isRefreshingRcon = true;
 
         try
         {
-            await AsaManagerService.RefreshAsync();
             _asaServiceStatus = AsaManagerService.CurrentStatus;
 
             RconStatus status = await RconService.GetStatusAsync();
@@ -236,6 +236,11 @@
         {
             _isSendingCommand = false;
         }
+    }
+
+    private void OnAsaManagerChanged()
+    {
+        _ = InvokeAsync(RefreshAsync);
     }
 
     private async Task StartAsaServiceAsync()
