@@ -235,6 +235,12 @@ public sealed class InstallStateService(
 
     public async Task<string> StartAsaServiceAsync(CancellationToken cancellationToken = default)
     {
+        IReadOnlyList<string> missingItems = GetMissingValidationItems();
+        if (missingItems.Count > 0)
+        {
+            return $"asa cannot be started. Missing: {string.Join(", ", missingItems)}.";
+        }
+
         AsaServiceStatus status = await GetAsaServiceStatusAsync(cancellationToken);
         if (!status.CanStart)
         {
@@ -289,6 +295,8 @@ public sealed class InstallStateService(
 
     public async Task<AsaServiceStatus> GetAsaServiceStatusAsync(CancellationToken cancellationToken = default)
     {
+        IReadOnlyList<string> missingItems = GetMissingValidationItems();
+
         try
         {
             string output = await RunProcessForOutputAsync(
@@ -329,13 +337,15 @@ public sealed class InstallStateService(
                 : string.Empty;
 
             DateTimeOffset? activeSinceUtc = AsaServiceStatusFactory.TryParseSystemdTimestamp(activeEnterTimestamp);
-            return AsaServiceStatusFactory.Create(activeState, subState, result, unitFileState, activeSinceUtc);
+            AsaServiceStatus status = AsaServiceStatusFactory.Create(activeState, subState, result, unitFileState, activeSinceUtc);
+            return missingItems.Count > 0 ? status with { CanStart = false } : status;
         }
         catch
         {
             if (File.Exists(InstallStateConstants.ServiceFilePath))
             {
-                return AsaServiceStatusFactory.Create("inactive", "dead", "unknown", "unknown", null);
+                AsaServiceStatus status = AsaServiceStatusFactory.Create("inactive", "dead", "unknown", "unknown", null);
+                return missingItems.Count > 0 ? status with { CanStart = false } : status;
             }
 
             return AsaServiceStatus.Unknown("Unavailable");
