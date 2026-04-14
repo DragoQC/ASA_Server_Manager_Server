@@ -1,1 +1,6 @@
-also next thing is for the dialog theres like a problem i dont want to prevent user from moving trough the app. i think what we should do is in the navbar and also in a global state for the whole app we should add like in the nav bar if systemctl status asa is up down or starting always so we could hook to it from some page. how would that service work out can you help dp thjhat?
+Rcon seems to be working.
+Prombel when server didnt respond its because the command is likely wrong. so insted of message Server Received but no response. say like server didnt responde please check the syntax
+I'd like to add a link to
+https://ark.wiki.gg/wiki/Console_commands
+For all commands 
+Add another line ressembling the one for To use RCON,set...
