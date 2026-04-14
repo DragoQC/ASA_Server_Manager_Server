@@ -124,18 +124,18 @@ public sealed class RconService(ServerConfigService serverConfigService)
                 string.Empty);
         }
 
-        bool hasPasswordKey = values.TryGetValue("RCONPassword", out string? password);
+        bool hasPasswordKey = values.TryGetValue("ServerAdminPassword", out string? password);
         if (!hasPasswordKey)
         {
             return new ResolvedRconSettings(
-                new RconStatus(true, true, true, true, false, false, port, "Missing", "RCONPassword key missing."),
+                new RconStatus(true, true, true, true, false, false, port, "Missing", "ServerAdminPassword key missing."),
                 string.Empty);
         }
 
         if (string.IsNullOrWhiteSpace(password))
         {
             return new ResolvedRconSettings(
-                new RconStatus(true, true, true, true, true, false, port, "Missing", "RCON password missing."),
+                new RconStatus(true, true, true, true, true, false, port, "Missing", "Server admin password missing."),
                 string.Empty);
         }
 
