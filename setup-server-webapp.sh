@@ -51,7 +51,7 @@ REPO_DIR="${REPO_DIR:-$WEBAPP_ROOT/src}"
 PUBLISH_DIR="${PUBLISH_DIR:-$WEBAPP_ROOT/publish}"
 SERVICE_NAME="${SERVICE_NAME:-asa-webapp}"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-REPO_URL="${REPO_URL:-https://github.com/DragoQC/ASA_Server_Manager.git}"
+REPO_URL="${REPO_URL:-https://github.com/DragoQC/ASA_Server_Manager_Server.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 DOTNET_VERSION="${DOTNET_VERSION:-10.0.100-rc.2.25502.107}"
 DOTNET_ROOT="${DOTNET_ROOT:-/usr/share/dotnet}"
@@ -151,12 +151,12 @@ log_git "Fetching repository..."
 if [ ! -d "${REPO_DIR}/.git" ]; then
   rm -rf "${REPO_DIR}"
   mkdir -p "$(dirname "${REPO_DIR}")"
-  run_as_app_user git clone --branch "${REPO_BRANCH}" "${REPO_URL}" "${REPO_DIR}"
+  run_as_app_user env GIT_TERMINAL_PROMPT=0 git clone --branch "${REPO_BRANCH}" "${REPO_URL}" "${REPO_DIR}"
   log_ok "Cloned ${REPO_URL}."
 else
-  run_as_app_user git -C "${REPO_DIR}" fetch --all --prune
-  run_as_app_user git -C "${REPO_DIR}" checkout "${REPO_BRANCH}"
-  run_as_app_user git -C "${REPO_DIR}" reset --hard "origin/${REPO_BRANCH}"
+  run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" fetch --all --prune
+  run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" checkout "${REPO_BRANCH}"
+  run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" reset --hard "origin/${REPO_BRANCH}"
   log_ok "Updated local repository copy."
 fi
 

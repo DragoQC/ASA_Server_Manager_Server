@@ -67,7 +67,7 @@ It will:
 - install `.NET SDK 10.0.100-rc.2.25502.107`
 - create user `asa_web_app`
 - prepare `/opt/asa`
-- clone `DragoQC/ASA_Server_Manager`
+- clone `DragoQC/ASA_Server_Manager_Server`
 - publish the web app
 - create and start `asa-webapp.service`
 - prepare `/opt/asa/systemd/asa.service`
