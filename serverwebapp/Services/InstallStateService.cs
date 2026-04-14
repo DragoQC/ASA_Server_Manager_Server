@@ -289,45 +289,57 @@ public sealed class InstallStateService(
 
     public async Task<AsaServiceStatus> GetAsaServiceStatusAsync(CancellationToken cancellationToken = default)
     {
-        string output = await RunProcessForOutputAsync(
-            SystemCommandConstants.SudoPath,
-            ["-n", SystemCommandConstants.SystemctlPath, "show", "asa", "--property=ActiveState", "--property=SubState", "--property=Result", "--property=UnitFileState", "--property=ActiveEnterTimestamp"],
-            cancellationToken);
-
-        Dictionary<string, string> values = new(StringComparer.OrdinalIgnoreCase);
-        string[] lines = output.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n', StringSplitOptions.RemoveEmptyEntries);
-
-        foreach (string line in lines)
+        try
         {
-            int separatorIndex = line.IndexOf('=');
-            if (separatorIndex <= 0)
+            string output = await RunProcessForOutputAsync(
+                SystemCommandConstants.SudoPath,
+                ["-n", SystemCommandConstants.SystemctlPath, "show", "asa", "--property=ActiveState", "--property=SubState", "--property=Result", "--property=UnitFileState", "--property=ActiveEnterTimestamp"],
+                cancellationToken);
+
+            Dictionary<string, string> values = new(StringComparer.OrdinalIgnoreCase);
+            string[] lines = output.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (string line in lines)
             {
-                continue;
+                int separatorIndex = line.IndexOf('=');
+                if (separatorIndex <= 0)
+                {
+                    continue;
+                }
+
+                string key = line[..separatorIndex].Trim();
+                string value = line[(separatorIndex + 1)..].Trim();
+                values[key] = value;
             }
 
-            string key = line[..separatorIndex].Trim();
-            string value = line[(separatorIndex + 1)..].Trim();
-            values[key] = value;
+            string activeState = values.TryGetValue("ActiveState", out string? resolvedActiveState) && !string.IsNullOrWhiteSpace(resolvedActiveState)
+                ? resolvedActiveState
+                : "unknown";
+            string subState = values.TryGetValue("SubState", out string? resolvedSubState) && !string.IsNullOrWhiteSpace(resolvedSubState)
+                ? resolvedSubState
+                : "unknown";
+            string result = values.TryGetValue("Result", out string? resolvedResult) && !string.IsNullOrWhiteSpace(resolvedResult)
+                ? resolvedResult
+                : "unknown";
+            string unitFileState = values.TryGetValue("UnitFileState", out string? resolvedUnitFileState) && !string.IsNullOrWhiteSpace(resolvedUnitFileState)
+                ? resolvedUnitFileState
+                : "unknown";
+            string activeEnterTimestamp = values.TryGetValue("ActiveEnterTimestamp", out string? resolvedActiveEnterTimestamp) && !string.IsNullOrWhiteSpace(resolvedActiveEnterTimestamp)
+                ? resolvedActiveEnterTimestamp
+                : string.Empty;
+
+            DateTimeOffset? activeSinceUtc = AsaServiceStatusFactory.TryParseSystemdTimestamp(activeEnterTimestamp);
+            return AsaServiceStatusFactory.Create(activeState, subState, result, unitFileState, activeSinceUtc);
         }
+        catch
+        {
+            if (File.Exists(InstallStateConstants.ServiceFilePath))
+            {
+                return AsaServiceStatusFactory.Create("inactive", "dead", "unknown", "unknown", null);
+            }
 
-        string activeState = values.TryGetValue("ActiveState", out string? resolvedActiveState) && !string.IsNullOrWhiteSpace(resolvedActiveState)
-            ? resolvedActiveState
-            : "unknown";
-        string subState = values.TryGetValue("SubState", out string? resolvedSubState) && !string.IsNullOrWhiteSpace(resolvedSubState)
-            ? resolvedSubState
-            : "unknown";
-        string result = values.TryGetValue("Result", out string? resolvedResult) && !string.IsNullOrWhiteSpace(resolvedResult)
-            ? resolvedResult
-            : "unknown";
-        string unitFileState = values.TryGetValue("UnitFileState", out string? resolvedUnitFileState) && !string.IsNullOrWhiteSpace(resolvedUnitFileState)
-            ? resolvedUnitFileState
-            : "unknown";
-        string activeEnterTimestamp = values.TryGetValue("ActiveEnterTimestamp", out string? resolvedActiveEnterTimestamp) && !string.IsNullOrWhiteSpace(resolvedActiveEnterTimestamp)
-            ? resolvedActiveEnterTimestamp
-            : string.Empty;
-
-        DateTimeOffset? activeSinceUtc = AsaServiceStatusFactory.TryParseSystemdTimestamp(activeEnterTimestamp);
-        return AsaServiceStatusFactory.Create(activeState, subState, result, unitFileState, activeSinceUtc);
+            return AsaServiceStatus.Unknown("Unavailable");
+        }
     }
 
     public IReadOnlyList<string> GetMissingValidationItems()
