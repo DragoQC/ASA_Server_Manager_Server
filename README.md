@@ -1,240 +1,191 @@
-<p align="center">
-  <img alt="ASA Server Manager" src="https://img.shields.io/badge/ASA_Server_Manager-Neon_Control_Surface-00e5ff?style=for-the-badge&logo=windows-terminal&logoColor=06131a&labelColor=06131a" />
-</p>
+# ASA Server Manager Server
 
-<p align="center">
-  <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10-7df9ff?style=for-the-badge&logo=dotnet&logoColor=06131a&labelColor=06131a" />
-  <img alt="Blazor" src="https://img.shields.io/badge/Blazor-Web_App-37f3ff?style=for-the-badge&logo=blazor&logoColor=06131a&labelColor=06131a" />
-  <img alt="Tailwind v4" src="https://img.shields.io/badge/Tailwind-v4-00fff0?style=for-the-badge&logo=tailwindcss&logoColor=06131a&labelColor=06131a" />
-  <img alt="ASA" src="https://img.shields.io/badge/ARK-Survival_Ascended-9dff00?style=for-the-badge&logoColor=06131a&labelColor=06131a" />
-</p>
+Neon-style web panel for running an `ARK: Survival Ascended` Linux server fast.
 
-<h1 align="center">🦖 ASA Server Manager 🦕</h1>
+Main goal: one command -> working web panel in seconds -> manage one ASA server node cleanly.
 
-<p align="center">
-  Neon-styled web panel for running a single <b>ARK: Survival Ascended</b> server on Linux.
-</p>
-
-<p align="center">
-  Proton. SteamCMD. Config files. Validation. systemd. RCON. Logs.
-</p>
-
-<p align="center">
-  <b>Quick install:</b>
-</p>
+## One-line install
 
 ```bash
 apt update && apt upgrade -y && apt install curl -y
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/DragoQC/ASA_Server_Manager/main/setup-server-webapp.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/DragoQC/ASA_Server_Manager_Server/main/setup-server-webapp.sh)"
 ```
 
----
+After install:
 
-## 💠 What It Is
+- web app: `http://<server-ip>:8000`
+- default login: `admin / admin`
+- first step: change password in `/admin/settings`
 
-**ASA Server Manager** is a Blazor web app built to manage one ASA server with a cleaner workflow:
+## What this repo is
 
-- install the web app
-- prepare Proton and SteamCMD
-- manage `asa.service`
-- edit `asa.env`
-- edit `Game.ini` and `GameUserSettings.ini`
-- validate required runtime files
-- start / stop the server
-- send in-game commands through RCON
+This repo contains the server-side node for ASA Server Manager.
 
-Think:
+Current shape:
 
-> glowing dino control panel + server tooling
+- one installed node manages one ASA server
+- neon Blazor web UI
+- install workspace for Proton, SteamCMD, start script, service file
+- live `asa.env` editor
+- live `Game.ini` + `GameUserSettings.ini` editor
+- `asa.service` start / stop / restart
+- RCON command panel
+- live host metrics
+- service status + logs
+- remote API key support for admin API calls
+- public API for lightweight external reads
 
----
+## Product direction
 
-## 🧬 Repo Layout
+The center point stays simple:
 
-```text
-ASA_Server_Manager/
-├── serverwebapp/
-│   ├── AsaServerManager.Web.csproj
-│   ├── Components/
-│   ├── Data/
-│   ├── Models/
-│   ├── Services/
-│   ├── Styles/
-│   ├── Templates/
-│   └── wwwroot/
-├── managerwebapp/
-│   ├── Components/
-│   ├── Properties/
-│   ├── wwwroot/
-│   └── managerwebapp.csproj
-├── Utils/
-│   ├── ClusterHelper.txt
-│   ├── Game.ini
-│   └── GameUserSettings.ini
-├── setup-server-webapp.sh
-├── setup-manager-webapp.sh
-├── ASA_Server_Manager.sln
-└── README.md
-```
+- paste one command
+- get a working server manager fast
+- expose an API on each server node
+- use those APIs later for easy server-to-server / manager-to-server calls
 
----
+Today this repo already exposes a small per-server API. Multi-server orchestration is the next layer, not the current claim.
 
-## 🌐 Web App
+## Stack
 
-App root:
+- `.NET 10.0`
+- Blazor Web App
+- Interactive Server components
+- ASP.NET Core controllers + SignalR
+- SQLite
+- systemd
+
+Project file: [serverwebapp/AsaServerManager.Web.csproj](/home/drago/Git/ASA_Server_Manager_Server/serverwebapp/AsaServerManager.Web.csproj)
+
+## What the installer does
+
+Script: [setup-server-webapp.sh](/home/drago/Git/ASA_Server_Manager_Server/setup-server-webapp.sh)
+
+It will:
+
+- install Linux deps
+- install `.NET SDK 10.0.100-rc.2.25502.107`
+- create user `asa_web_app`
+- prepare `/opt/asa`
+- clone `DragoQC/ASA_Server_Manager`
+- publish the web app
+- create and start `asa-webapp.service`
+- prepare `/opt/asa/systemd/asa.service`
+- symlink `/etc/systemd/system/asa.service`
+- grant limited sudo/systemctl access needed by the panel
+
+It does not auto-start the game server. It prepares the files and web app first.
+
+## Runtime paths
+
+- web app publish: `/opt/asa/webapp/publish`
+- app DB: `/opt/asa/webapp/publish/Data/asa-manager.db`
+- server env: `/opt/asa/server/asa.env`
+- proton env: `/opt/asa/proton/proton.env`
+- start script: `/opt/asa/start-asa.sh`
+- service template: `/opt/asa/systemd/asa.service`
+- live systemd link: `/etc/systemd/system/asa.service`
+- game config dir: `/opt/asa/server/ShooterGame/Saved/Config/WindowsServer`
+
+## Web routes
+
+Public:
+
+- `/` public server page
+
+Admin:
+
+- `/admin/login`
+- `/admin/dashboard`
+- `/admin/install`
+- `/admin/validate`
+- `/admin/server-config`
+- `/admin/game-config`
+- `/admin/game-shell`
+- `/admin/host-shell`
+- `/admin/logs`
+- `/admin/email`
+- `/admin/settings`
+
+## API
+
+Current per-server API:
+
+Public endpoints:
+
+- `GET /api/state`
+- `GET /api/mods`
+
+Admin endpoints:
+
+- `POST /api/admin/start`
+- `POST /api/admin/stop`
+- `POST /api/admin/rcon`
+
+Admin API auth:
+
+- header: `X-Api-Key`
+- key is managed in `/admin/settings`
+
+Example:
 
 ```bash
-serverwebapp/
+curl http://127.0.0.1:8000/api/state
 ```
 
-Stack:
+```bash
+curl http://127.0.0.1:8000/api/mods
+```
 
-- .NET 10
-- Blazor Web App
-- Interactive Server rendering
-- Tailwind CSS v4 standalone CLI
-- SQLite
+```bash
+curl -X POST http://127.0.0.1:8000/api/admin/start \
+  -H "X-Api-Key: YOUR_KEY"
+```
 
-Current pages:
+```bash
+curl -X POST http://127.0.0.1:8000/api/admin/rcon \
+  -H "Content-Type: application/json" \
+  -H "X-Api-Key: YOUR_KEY" \
+  -d '{"command":"ListPlayers"}'
+```
 
-- `Dashboard` -> host metrics
-- `Install` -> Proton, SteamCMD, start script, service file
-- `Validate` -> install readiness checks
-- `Server Config` -> live `asa.env`
-- `Game Config` -> `Game.ini` / `GameUserSettings.ini`
-- `Game Shell` -> RCON console
-- `Host Shell` -> Linux shell as `asa_web_app`
-- `Logs` -> `asa.service` status view
+SignalR hub:
 
----
+- `/hubs/asa-state`
 
-## ⚡ Quick Start
-
-Run locally:
+## Local dev
 
 ```bash
 cd serverwebapp
 dotnet watch
 ```
 
-Default URL:
+Default app URL:
 
 ```text
-http://localhost:8000
+http://0.0.0.0:8000
 ```
 
----
+SQLite connection string is in [serverwebapp/appsettings.json](/home/drago/Git/ASA_Server_Manager_Server/serverwebapp/appsettings.json).
 
-## 🎨 Tailwind v4
-
-Expected binary path:
+## Repo layout
 
 ```text
-serverwebapp/tools/tailwindcss
+ASA_Server_Manager_Server/
+├── serverwebapp/
+├── Utils/
+├── setup-server-webapp.sh
+├── ASA_Server_Manager_Server.sln
+├── Notes.md
+└── README.md
 ```
 
-Install it:
+## Utils
 
-```bash
-cd serverwebapp
-mkdir -p tools
-curl -fsSL -o tools/tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v4.2.2/tailwindcss-linux-x64
-chmod +x tools/tailwindcss
-```
+Reference files in [Utils](/home/drago/Git/ASA_Server_Manager_Server/Utils):
 
-`managerwebapp/` is a fresh Blazor scaffold reserved for the future global multi-server manager.
+- `Game.ini`
+- `GameUserSettings.ini`
+- `ClusterHelper.txt`
 
----
-
-## 🚀 Server Setup
-
-Installer script:
-
-```text
-setup-server-webapp.sh
-```
-
-Run from local clone:
-
-```bash
-chmod +x setup-server-webapp.sh
-sudo bash setup-server-webapp.sh
-```
-
-Run direct from GitHub:
-
-What it does:
-
-- creates `asa_web_app`
-- prepares `/opt/asa`
-- installs Linux + .NET deps
-- clones the repo
-- publishes the web app
-- creates and starts `asa-webapp.service`
-- prepares the `asa.service` symlink
-- grants the limited `systemctl` access the panel needs
-
----
-
-## 📁 Utils
-
-`Utils/` contains helper/reference files:
-
-- `Utils/Game.ini`
-- `Utils/GameUserSettings.ini`
-- `Utils/ClusterHelper.txt`
-
-These are not the live runtime files.
-
-Live files are managed under `/opt/asa/...`.
-
----
-
-## 📦 Runtime Paths
-
-Important runtime locations:
-
-- `/opt/asa/server/asa.env`
-- `/opt/asa/proton/proton.env`
-- `/opt/asa/start-asa.sh`
-- `/opt/asa/systemd/asa.service`
-- `/opt/asa/server/ShooterGame/Saved/Config/WindowsServer`
-
----
-
-## 🛠️ Build
-
-Release:
-
-```bash
-dotnet build serverwebapp/AsaServerManager.Web.csproj -c Release
-```
-
-Solution:
-
-```bash
-dotnet build ASA_Server_Manager.sln
-```
-
----
-
-## 🦴 Service Notes
-
-- `asa-webapp.service` = the web panel
-- `asa.service` = the ASA game server
-- `Game Shell` = RCON, not bash
-- `Host Shell` = Linux shell
-- config files can always be updated later from the panel
-
----
-
-## ✨ Theme
-
-This project is intentionally aiming for:
-
-- neon turquoise
-- dark sci-fi control panels
-- sharp operational tooling
-- dinosaur energy
-
-If it feels like a cyberpunk ARK terminal, good. 🦖
+These are helper/reference files, not guaranteed live runtime files.
