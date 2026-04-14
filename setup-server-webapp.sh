@@ -121,7 +121,7 @@ log_ok "Prepared ${BASE_DIR}."
 cat <<EOF > "${SUDOERS_FILE}"
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl enable asa
-${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl show asa --property=ActiveState --property=SubState --property=Result --property=UnitFileState
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl show asa --property=ActiveState --property=SubState --property=Result --property=UnitFileState --property=ActiveEnterTimestamp
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl status asa --no-pager --full
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u asa -n 80 --no-pager
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start asa
