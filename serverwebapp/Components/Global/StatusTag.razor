@@ -1,0 +1,40 @@
+@{
+    string text = (Text ?? Label ?? Status ?? "Unknown").Trim();
+    string normalized = text.ToUpperInvariant();
+
+    bool isOk = normalized == "OK";
+    bool isMissing = normalized.Contains("MISSING", StringComparison.Ordinal);
+    bool isWarning = normalized.Contains("WARN", StringComparison.Ordinal) ||
+                     normalized.Contains("STARTING", StringComparison.Ordinal) ||
+                     normalized.Contains("STOPPING", StringComparison.Ordinal);
+    bool isBad = normalized.Contains("FAILED", StringComparison.Ordinal) ||
+                 normalized.Contains("ERROR", StringComparison.Ordinal) ||
+                 normalized.Contains("FAULT", StringComparison.Ordinal) ||
+                 normalized.Contains("FAULTED", StringComparison.Ordinal) ||
+                 normalized.Contains("WRONG", StringComparison.Ordinal) ||
+                 normalized.Contains("INVALID", StringComparison.Ordinal) ||
+                 normalized.Contains("UNAVAILABLE", StringComparison.Ordinal);
+
+    string css = isOk
+        ? "rounded-full border border-emerald-300/30 bg-emerald-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.35)]"
+        : isMissing
+            ? "rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 shadow-[0_0_18px_rgba(255,255,255,0.18)]"
+            : isWarning
+                ? "rounded-full border border-amber-300/30 bg-amber-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-200 shadow-[0_0_18px_rgba(251,191,36,0.35)]"
+                : isBad
+                    ? "rounded-full border border-red-300/30 bg-red-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-200 shadow-[0_0_18px_rgba(248,113,113,0.35)]"
+                    : "rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.35)]";
+}
+
+<span class="@css">@text</span>
+
+@code {
+    [Parameter]
+    public string? Text { get; set; }
+
+    [Parameter]
+    public string? Status { get; set; }
+
+    [Parameter]
+    public string? Label { get; set; }
+}

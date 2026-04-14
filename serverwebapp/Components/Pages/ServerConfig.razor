@@ -1,0 +1,215 @@
+@page "/admin/server-config"
+@inject AsaServerManager.Web.Services.ServerConfigService ServerConfigService
+@inject AsaServerManager.Web.Services.InstallStateService InstallStateService
+@inject AsaServerManager.Web.Services.AsaManagerService AsaManagerService
+
+<PageTitle>Server Config</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-cyan-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center gap-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Server config</p>
+            <StatusTag Text="asa.env" />
+        </div>
+
+        <EditForm Model="_model" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Server config</h1>
+                    <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
+                        These are the live values from <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/server/asa.env</code>. If the file does not exist yet, built-in defaults are shown until you save.
+                    </p>
+                    <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-400">
+                        You can always come back later to update these values. Saving again will write the latest values back into <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.env</code>.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap gap-3">
+                    <button type="submit" class="inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                        Save server config
+                    </button>
+                    <button type="button" @onclick="ResetDefaults" class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
+                        Reset defaults
+                    </button>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_statusMessage))
+            {
+                <div class="@GetStatusMessageClass()">
+                    @_statusMessage
+                </div>
+            }
+
+            <div class="grid gap-6">
+                <div class="space-y-6">
+                    <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                        <div class="mb-5">
+                            <h2 class="text-2xl font-semibold text-white">Core values</h2>
+                            <p class="mt-2 text-sm text-neutral-400">Main startup settings from the env file.</p>
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <TextField Label="Map name" @bind-Value="_model.MapName" Hint="Default: TheIsland_WP" />
+                            <TextField Label="Server name" @bind-Value="_model.ServerName" />
+                            <NumberField Label="Max players" @bind-Value="_model.MaxPlayers" />
+                            <NumberField Label="Game port" @bind-Value="_model.GamePort" />
+                            <NumberField Label="Query port" @bind-Value="_model.QueryPort" />
+                            <NumberField Label="RCON port" @bind-Value="_model.RconPort" />
+                        </div>
+                    </section>
+
+                    <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                        <div class="mb-5">
+                            <h2 class="text-2xl font-semibold text-white">Mods and cluster</h2>
+                            <p class="mt-2 text-sm text-neutral-400">Comma-separated mods and optional cluster setup.</p>
+                            <a href="https://www.curseforge.com/ark-survival-ascended"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="mt-3 inline-flex text-sm font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
+                                Find mods on CurseForge
+                            </a>
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div class="md:col-span-2">
+                                <TextField Label="Mod IDs" @bind-Value="_model.ModIds" IsTextArea="true" Hint="Example: 12345,67890" />
+                            </div>
+                            <TextField Label="Cluster ID" @bind-Value="_model.ClusterId" />
+                            <TextField Label="Cluster dir" @bind-Value="_model.ClusterDir" />
+                        </div>
+                    </section>
+
+                    <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                        <div class="mb-5">
+                            <h2 class="text-2xl font-semibold text-white">Extra flags</h2>
+                            <p class="mt-2 text-sm text-neutral-400">Raw <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">EXTRA_ARGS</code> from the env file.</p>
+                        </div>
+
+                        <div class="grid gap-4">
+                            <TextField Label="Custom extra args" @bind-Value="_model.CustomExtraArgs" IsTextArea="true" Hint="Example: -NoBattlEye -crossplay" />
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+        </EditForm>
+    </div>
+</section>
+
+<ConfirmationDialog IsOpen="@_showRestartDialog"
+                    IsBusy="@_isRestartingAsa"
+                    Eyebrow="Restart"
+                    Title="Do you want to restart the server right now to apply updates?"
+                    Message="A restart is required to apply updates. You can also do it later from the Game Shell page."
+                    ConfirmText="Yes"
+                    CancelText="Later"
+                    OnConfirm="RestartAsaAsync"
+                    OnCancel="CloseRestartDialog" />
+
+@code {
+    private AsaServerManager.Web.Models.ServerConfig.ServerConfigSettings _model = AsaServerManager.Web.Models.ServerConfig.ServerConfigSettings.Default();
+    private string? _statusMessage;
+    private bool _statusIsError;
+    private bool _hasConfigFile;
+    private bool _showRestartDialog;
+    private bool _isRestartingAsa;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _hasConfigFile = ServerConfigService.HasConfigFile();
+            _model = await ServerConfigService.LoadAsync();
+            _statusMessage = _hasConfigFile ? null : "asa.env is missing. Showing built-in defaults until you save.";
+            _statusIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _model = AsaServerManager.Web.Models.ServerConfig.ServerConfigSettings.Default();
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        bool hadConfigFile = _hasConfigFile;
+
+        try
+        {
+            await ServerConfigService.SaveAsync(_model);
+            _statusMessage = "asa.env saved.";
+            _statusIsError = false;
+            _hasConfigFile = true;
+            await OpenRestartDialogIfNeededAsync(hadConfigFile);
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private async Task ResetDefaults()
+    {
+        _model = AsaServerManager.Web.Models.ServerConfig.ServerConfigSettings.Default();
+        _statusMessage = null;
+        _statusIsError = false;
+    }
+
+    private string GetStatusMessageClass()
+    {
+        return _statusIsError
+            ? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100 my-4"
+            : "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100 my-4";
+    }
+
+    private async Task OpenRestartDialogIfNeededAsync(bool hadConfigFile)
+    {
+        if (!hadConfigFile)
+        {
+            return;
+        }
+
+        await AsaManagerService.RefreshAsync();
+        _showRestartDialog = AsaManagerService.ShouldPromptForRestart;
+    }
+
+    private Task RestartAsaAsync()
+    {
+        _showRestartDialog = false;
+        _isRestartingAsa = true;
+        _statusMessage = "Restart requested.";
+        _statusIsError = false;
+        _ = RestartAsaInBackgroundAsync();
+        return Task.CompletedTask;
+    }
+
+    private async Task RestartAsaInBackgroundAsync()
+    {
+        try
+        {
+            _statusMessage = await AsaManagerService.RestartAsync();
+            _statusIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isRestartingAsa = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private Task CloseRestartDialog()
+    {
+        _showRestartDialog = false;
+        return Task.CompletedTask;
+    }
+}

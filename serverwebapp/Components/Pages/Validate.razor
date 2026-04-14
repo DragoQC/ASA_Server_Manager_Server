@@ -1,0 +1,162 @@
+@page "/admin/validate"
+@inject AsaServerManager.Web.Services.InstallStateService InstallStateService
+@inject AsaServerManager.Web.Services.AsaManagerService AsaManagerService
+
+<PageTitle>Validate</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-cyan-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Validate</p>
+                <StatusTag Text="Install state" />
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button"
+                        @onclick="EnableAsaServiceAsync"
+                        disabled="@_isEnablingAsaService"
+                        class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                    @(_isEnablingAsaService ? "Enabling..." : "Enable systemd")
+                </button>
+
+                <button type="button"
+                        @onclick="RefreshChecks"
+                        class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25">
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_systemdMessage))
+        {
+            <p class="@GetSystemdMessageClass()">@_systemdMessage</p>
+        }
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Validate</h1>
+            <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
+                Quick readiness checks for the required install files. This page only checks whether everything is in place to start the server.
+            </p>
+            <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-400">
+                You can come back here later after changing install or config files and refresh the checks again at any time.
+            </p>
+        </div>
+
+        <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            @foreach (InstallCheckCard check in _checks)
+            {
+                <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6 shadow-[0_0_40px_rgba(0,255,255,0.08)] backdrop-blur">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.3em] text-cyan-200/70">Required component</p>
+                            <h3 class="mt-2 text-2xl font-semibold text-white">@check.Title</h3>
+                        </div>
+                        <StatusTag Text="@check.StatusText" />
+                    </div>
+
+                    <p class="mt-6 text-sm leading-6 text-neutral-300">@check.Description</p>
+
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    private IReadOnlyList<InstallCheckCard> _checks = Array.Empty<InstallCheckCard>();
+		private bool _isEnablingAsaService;
+    private string? _systemdMessage;
+    private bool _systemdMessageIsError;
+
+    protected override Task OnInitializedAsync()
+    {
+        RefreshChecks();
+        return Task.CompletedTask;
+    }
+		private async Task EnableAsaServiceAsync()
+    {
+        if (_isEnablingAsaService)
+        {
+            return;
+        }
+
+        IReadOnlyList<string> missingItems = InstallStateService.GetMissingValidationItems();
+        if (missingItems.Count > 0)
+        {
+            _systemdMessage = $"Cannot enable asa. Missing: {string.Join(", ", missingItems)}.";
+            _systemdMessageIsError = true;
+            return;
+        }
+
+        _isEnablingAsaService = true;
+
+        try
+        {
+            _systemdMessage = await AsaManagerService.EnableAsync();
+            _systemdMessageIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _systemdMessage = exception.Message;
+            _systemdMessageIsError = true;
+        }
+        finally
+        {
+            _isEnablingAsaService = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetSystemdMessageClass()
+    {
+        return _systemdMessageIsError
+            ? "text-sm text-red-200"
+            : "text-sm text-cyan-100";
+    }
+
+    private void RefreshChecks()
+    {
+        _checks =
+        [
+            CreateCheck(
+                title: "Proton",
+                description: "Checks whether a Proton version folder exists and contains the Proton launcher binary.",
+                AsaServerManager.Web.Services.InstallStateService.HasInstalledProton()),
+            CreateCheck(
+                title: "SteamCMD",
+                description: "Checks whether steamcmd.sh exists at the Steam root and the linux32 runtime folder is present.",
+                AsaServerManager.Web.Services.InstallStateService.HasSteamInstall()),
+            CreateCheck(
+                title: "Start script",
+                description: "Checks whether /opt/asa/start-asa.sh is present.",
+                File.Exists(InstallStateConstants.StartScriptPath)),
+            CreateCheck(
+                title: "asa.service",
+                description: "Checks whether /opt/asa/systemd/asa.service is present.",
+                File.Exists(InstallStateConstants.ServiceFilePath)),
+            CreateCheck(
+                title: "proton.env",
+                description: "Checks whether /opt/asa/proton/proton.env is present.",
+                File.Exists(ProtonConfigConstants.ProtonEnvFilePath)),
+            CreateCheck(
+                title: "asa.env",
+                description: "Checks whether /opt/asa/server/asa.env is present.",
+                File.Exists(ServerConfigConstants.EnvFilePath))
+        ];
+    }
+
+    private static InstallCheckCard CreateCheck(string title, string description, bool isReady)
+    {
+        return new InstallCheckCard(
+            title,
+            description,
+            isReady ? "OK" : "Missing");
+    }
+
+    private sealed record InstallCheckCard(
+        string Title,
+        string Description,
+        string StatusText);
+}
+@using AsaServerManager.Web.Constants

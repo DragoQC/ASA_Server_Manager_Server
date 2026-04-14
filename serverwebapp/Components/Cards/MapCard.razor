@@ -1,0 +1,9 @@
+<BaseCard Title="Map" Subtitle="Current world" Stat="@MapName" StatHint="session" Status="@Status" />
+
+@code {
+    [Parameter]
+    public string MapName { get; set; } = "Unknown";
+
+    [Parameter]
+    public string? Status { get; set; }
+}

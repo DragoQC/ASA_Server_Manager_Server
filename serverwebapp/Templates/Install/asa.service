@@ -1,0 +1,21 @@
+[Unit]
+Description=ARK Survival Ascended Server
+After=network.target
+
+[Service]
+TimeoutStartSec=0
+Type=simple
+User=asa_web_app
+Group=asa_web_app
+WorkingDirectory=/opt/asa
+Environment=HOME=/opt/asa/steam
+ExecStartPre=/opt/asa/steam/steamcmd.sh +@sSteamCmdForcePlatformType windows +force_install_dir /opt/asa/server +login anonymous +app_update 2430930 validate +quit
+ExecStart=/opt/asa/start-asa.sh
+Restart=on-failure
+SuccessExitStatus=0 3
+RestartSec=10
+TimeoutStopSec=120
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

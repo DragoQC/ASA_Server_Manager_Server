@@ -1,0 +1,164 @@
+@page "/admin/settings"
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject AsaServerManager.Web.Services.AuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Settings</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-cyan-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center gap-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Settings</p>
+            <StatusTag Text="@(_firstLogin ? "Password change required" : "Account")" />
+        </div>
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Settings</h1>
+            <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
+                Set a new password for this manager account.
+            </p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <div class="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 px-5 py-4 text-sm text-cyan-100">
+                @_message
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <div class="rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100">
+                @_error
+            </div>
+        }
+
+        <EditForm Model="_model" OnValidSubmit="SaveAsync" class="max-w-2xl space-y-5">
+            <DataAnnotationsValidator />
+
+            <TextField Label="New password"
+                       @bind-Value="_model.Password"
+                       Hint="Pick the password you want to use from now on."
+                       type="password"
+                       autocomplete="new-password" />
+
+            <TextField Label="Confirm password"
+                       @bind-Value="_model.ConfirmPassword"
+                       Hint="Enter the same password again."
+                       type="password"
+                       autocomplete="new-password" />
+
+            <button type="submit" class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                Save password
+            </button>
+        </EditForm>
+
+        <div class="max-w-2xl rounded-[1.6rem] border border-white/10 bg-black/30 p-6 shadow-[0_0_30px_rgba(0,255,255,0.08)] backdrop-blur-md">
+            <div class="space-y-6">
+                <div class="flex flex-wrap items-center gap-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Remote API</p>
+                    <StatusTag Text="API key" />
+                </div>
+
+                <div>
+                    <h2 class="text-2xl font-semibold text-white">Remote key</h2>
+                    <p class="mt-3 text-sm leading-6 text-neutral-300">
+                        Generate or paste an API key for external tools. This key is stored in the app database and is used for admin API calls.
+                    </p>
+                </div>
+
+                <TextField Label="API key"
+                           @bind-Value="_apiKey"
+                           Hint="You can paste your own key or generate a new one."
+                           autocomplete="off" />
+
+                <div class="flex flex-wrap gap-3">
+                    <button type="button"
+                            @onclick="GenerateApiKey"
+                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
+                        Generate key
+                    </button>
+
+                    <button type="button"
+                            @onclick="SaveApiKeyAsync"
+                            class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                        Save API key
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly PasswordChangeModel _model = new();
+    private string? _message;
+    private string? _error;
+    private string? _apiKey;
+
+    [SupplyParameterFromQuery]
+    private bool _firstLogin { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _apiKey = await AuthService.LoadRemoteApiKeyAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        _message = null;
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(_model.Password) || string.IsNullOrWhiteSpace(_model.ConfirmPassword))
+        {
+            _error = "Both password fields are required.";
+            return;
+        }
+
+        if (!string.Equals(_model.Password, _model.ConfirmPassword, StringComparison.Ordinal))
+        {
+            _error = "Passwords do not match.";
+            return;
+        }
+
+        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        Microsoft.AspNetCore.Identity.IdentityResult result = await AuthService.ChangePasswordAsync(authenticationState.User, _model.Password);
+        if (!result.Succeeded)
+        {
+            _error = string.Join(' ', result.Errors.Select(error => error.Description));
+            return;
+        }
+
+        _message = "Password updated.";
+        NavigationManager.NavigateTo("/admin/dashboard", forceLoad: true);
+    }
+
+    private void GenerateApiKey()
+    {
+        _apiKey = AsaServerManager.Web.Services.AuthService.GenerateRemoteApiKey();
+        _message = "Generated a new API key. Save it to apply.";
+        _error = null;
+    }
+
+    private async Task SaveApiKeyAsync()
+    {
+        _message = null;
+        _error = null;
+
+        if (string.IsNullOrWhiteSpace(_apiKey))
+        {
+            _error = "API key is required.";
+            return;
+        }
+
+        await AuthService.SaveRemoteApiKeyAsync(_apiKey);
+        _message = "API key updated.";
+    }
+
+    private sealed class PasswordChangeModel
+    {
+        public string? Password { get; set; }
+
+        public string? ConfirmPassword { get; set; }
+    }
+}

@@ -1,0 +1,31 @@
+﻿@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>Error</PageTitle>
+
+<section class="rounded-[1.5rem] border border-red-400/20 bg-red-500/10 p-8">
+    <p class="text-xs uppercase tracking-[0.35em] text-red-200">Error</p>
+    <h1 class="mt-4 text-4xl font-semibold text-white">The ASA manager hit an error.</h1>
+    <p class="mt-4 max-w-2xl text-neutral-300">
+        Something went wrong while processing this request. Reload the page or check the app logs.
+    </p>
+
+    @if (ShowRequestId)
+    {
+        <p class="mt-6 text-sm text-neutral-300">
+            Request ID:
+            <code class="rounded bg-black/20 px-2 py-1 text-neutral-100">@RequestId</code>
+        </p>
+    }
+</section>
+
+@code{
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

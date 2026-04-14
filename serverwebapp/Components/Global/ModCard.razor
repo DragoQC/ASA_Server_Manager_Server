@@ -1,0 +1,88 @@
+<div class="group overflow-hidden rounded-[1.6rem] border border-cyan-200/12 bg-black/40 shadow-[0_0_40px_rgba(0,255,255,0.08)] backdrop-blur-md">
+    <div class="relative h-40 overflow-hidden border-b border-cyan-200/10 bg-gradient-to-br from-cyan-400/15 via-[#07121d] to-emerald-400/10">
+        @if (!string.IsNullOrWhiteSpace(ImageUrl))
+        {
+            <img src="@ImageUrl" alt="@ResolvedTitle" class="h-full w-full object-cover opacity-90 transition duration-300 group-hover:scale-[1.03]" />
+            <div class="absolute inset-0 bg-gradient-to-t from-[#05070d] via-[#05070d]/20 to-transparent"></div>
+        }
+        else
+        {
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.22),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(52,211,153,0.18),transparent_35%)]"></div>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <span class="rounded-full border border-cyan-300/25 bg-cyan-400/10 px-4 py-2 text-sm font-semibold uppercase tracking-[0.28em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.25)]">
+                    Mod
+                </span>
+            </div>
+        }
+
+        <div class="absolute left-4 top-4 flex flex-wrap items-center gap-2">
+            @if (!string.IsNullOrWhiteSpace(SourceLabel))
+            {
+                <StatusTag Text="@SourceLabel" />
+            }
+        </div>
+    </div>
+
+    <div class="space-y-4 p-6">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-xs uppercase tracking-[0.3em] text-cyan-200/70">Mod</p>
+                <h3 class="mt-2 text-2xl font-semibold text-white">@ResolvedTitle</h3>
+            </div>
+            <StatusTag Text="@StatusText" />
+        </div>
+
+        <div class="rounded-2xl border border-cyan-300/10 bg-black/20 px-4 py-3">
+            <p class="text-xs uppercase tracking-[0.28em] text-cyan-200/70">Mod ID</p>
+            <p class="mt-2 font-mono text-sm text-cyan-100">@ModId</p>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <p class="text-sm leading-6 text-neutral-300">@Description</p>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(ResolvedUrl))
+        {
+            <a href="@ResolvedUrl"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25">
+                Open mod page
+            </a>
+        }
+    </div>
+</div>
+
+@code {
+    public const string CurseForgeProjectBaseUrl = "https://www.curseforge.com/ark-survival-ascended/";
+
+    [Parameter]
+    public string ModId { get; set; } = "";
+
+    [Parameter]
+    public string? Name { get; set; }
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public string? ImageUrl { get; set; }
+
+    [Parameter]
+    public string? Url { get; set; }
+
+    [Parameter]
+    public string SourceLabel { get; set; } = "Configured";
+
+    [Parameter]
+    public string StatusText { get; set; } = "OK";
+
+    private string ResolvedTitle => string.IsNullOrWhiteSpace(Name) ? $"Mod {ModId}" : Name!;
+
+    private string? ResolvedUrl => !string.IsNullOrWhiteSpace(Url)
+        ? Url
+        : string.IsNullOrWhiteSpace(ModId)
+            ? null
+            : $"{CurseForgeProjectBaseUrl}{ModId}";
+}

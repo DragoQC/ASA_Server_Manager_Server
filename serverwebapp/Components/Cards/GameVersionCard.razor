@@ -1,0 +1,9 @@
+<BaseCard Title="Game version" Subtitle="ASA build" Stat="@Version" StatHint="server" Status="@Status" />
+
+@code {
+    [Parameter]
+    public string Version { get; set; } = "Unknown";
+
+    [Parameter]
+    public string? Status { get; set; }
+}

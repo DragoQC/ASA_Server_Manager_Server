@@ -1,0 +1,9 @@
+<BaseCard Title="Current user" Subtitle="Signed in" Stat="@UserLabel" StatHint="admin" Status="@Status" />
+
+@code {
+    [Parameter]
+    public string UserLabel { get; set; } = "Unknown";
+
+    [Parameter]
+    public string? Status { get; set; }
+}

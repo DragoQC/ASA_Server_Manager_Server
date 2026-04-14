@@ -1,0 +1,128 @@
+@page "/admin/dashboard"
+@implements IAsyncDisposable
+@inject AsaServerManager.Web.Services.SystemMetricsService SystemMetricsService
+
+
+<PageTitle>ASA Dashboard</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-cyan-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Dashboard</p>
+                <StatusTag Text="Live" />
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button"
+                        @onclick="RefreshAsync"
+                        disabled="@_isRefreshing"
+                        class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                    @(_isRefreshing ? "Refreshing..." : "Refresh")
+                </button>
+            </div>
+        </div>
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Dashboard</h1>
+            <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
+                Host machine totals and live throughput values for the ASA environment.
+            </p>
+        </div>
+
+        @if (_snapshot is null)
+        {
+            <div class="rounded-[1.6rem] border border-white/12 bg-black/35 p-6 text-neutral-300 backdrop-blur-md">
+                Loading dashboard...
+            </div>
+        }
+        else
+        {
+            <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                <DashboardValueCard Title="CPU total"
+                                    Subtitle="System"
+                                    Value="@_snapshot.CpuTotal"
+                                    Description="Logical CPU count available to the host." />
+                <DashboardValueCard Title="CPU usage"
+                                    Subtitle="System"
+                                    Value="@_snapshot.CpuUsage"
+                                    Description="Current total CPU usage on the host." />
+                <DashboardValueCard Title="Disk"
+                                    Subtitle="Storage"
+                                    Value="@($"{_snapshot.DiskUsed} /\n{_snapshot.DiskTotal}")"
+                                    Description="Used and total space on the root filesystem.">
+                </DashboardValueCard>
+                <DashboardValueCard Title="Network"
+                                    Subtitle="Network throughput"
+                                    Value="@($"{_snapshot.DownloadSpeed} / {_snapshot.UploadSpeed}")"
+                                    Description="Current host network throughput.">
+                </DashboardValueCard>
+                <DashboardValueCard Title="RAM"
+                                    Subtitle="Memory"
+                                    Value="@($"{_snapshot.RamUsed} /\n {_snapshot.RamTotal}")"
+                                    Description="Used and total system memory on the host.">
+                </DashboardValueCard>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private AsaServerManager.Web.Models.SystemMetrics.SystemMetricsSnapshot? _snapshot;
+    private CancellationTokenSource? _refreshLoopCancellationTokenSource;
+    private bool _isRefreshing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        _refreshLoopCancellationTokenSource = new CancellationTokenSource();
+        _ = RunRefreshLoopAsync(_refreshLoopCancellationTokenSource.Token);
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_isRefreshing)
+        {
+            return;
+        }
+
+        _isRefreshing = true;
+
+        try
+        {
+            _snapshot = await SystemMetricsService.LoadAsync();
+        }
+        finally
+        {
+            _isRefreshing = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RunRefreshLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using PeriodicTimer timer = new(TimeSpan.FromSeconds(2));
+
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await RefreshAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (_refreshLoopCancellationTokenSource is not null)
+        {
+            _refreshLoopCancellationTokenSource.Cancel();
+            _refreshLoopCancellationTokenSource.Dispose();
+            _refreshLoopCancellationTokenSource = null;
+        }
+
+        return ValueTask.CompletedTask;
+    }
+}

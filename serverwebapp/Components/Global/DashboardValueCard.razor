@@ -1,0 +1,41 @@
+<div class="rounded-[1.6rem] border border-cyan-200/12 bg-black/40 p-6 shadow-[0_0_40px_rgba(0,255,255,0.08)] backdrop-blur-md">
+    <div class="flex items-start justify-between gap-4">
+        <div>
+            <p class="text-xs uppercase tracking-[0.3em] text-cyan-200/70">@Subtitle</p>
+            <h3 class="mt-2 text-2xl font-semibold text-white">@Title</h3>
+        </div>
+    </div>
+
+    <div class="mt-6 text-3xl font-semibold text-white drop-shadow-[0_0_16px_rgba(0,255,255,0.35)]">
+        @Value
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <p class="mt-4 text-sm leading-6 text-neutral-300">@Description</p>
+    }
+
+    @if (ChildContent is not null)
+    {
+        <div class="mt-6">
+            @ChildContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public string Subtitle { get; set; } = "";
+
+    [Parameter]
+    public string Value { get; set; } = "--";
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

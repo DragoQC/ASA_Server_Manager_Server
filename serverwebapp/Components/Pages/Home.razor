@@ -1,0 +1,87 @@
+@page "/"
+@inject AsaServerManager.Web.Services.ServerConfigService ServerConfigService
+@inject AsaServerManager.Web.Services.AsaManagerService AsaManagerService
+
+<PageTitle>ASA Server</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-cyan-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Public status</p>
+                <StatusTag Text="@AsaManagerService.CurrentStatus.DisplayText" />
+            </div>
+
+            <a href="/admin/login"
+               class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25">
+                Admin login
+            </a>
+        </div>
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">@_settings.ServerName</h1>
+            <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
+                Public server information page for this ASA instance.
+            </p>
+        </div>
+
+        <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            <DashboardValueCard Title="Server name"
+                                Subtitle="Public"
+                                Value="@_settings.ServerName"
+                                Description="Current configured ASA server name." />
+            <DashboardValueCard Title="Server state"
+                                Subtitle="systemd"
+                                Value="@AsaManagerService.CurrentStatus.DisplayText"
+                                Description="Current asa.service state." />
+            <DashboardValueCard Title="Time up"
+                                Subtitle="systemd"
+                                Value="@AsaManagerService.CurrentStatus.UptimeText"
+                                Description="Current uptime from asa.service when available." />
+            <DashboardValueCard Title="Mods"
+                                Subtitle="Configuration"
+                                Value="@_mods.Count.ToString()"
+                                Description="Configured mod count from asa.env." />
+        </div>
+
+        <div class="rounded-[1.6rem] border border-white/10 bg-black/40 p-6 shadow-[0_0_30px_rgba(0,255,255,0.08)] backdrop-blur-md">
+            <div class="flex flex-wrap items-center gap-3">
+                <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Configured mods</p>
+                <StatusTag Text="@(_mods.Count == 0 ? "Missing" : "OK")" />
+            </div>
+
+            @if (_mods.Count == 0)
+            {
+                <p class="mt-4 text-sm leading-6 text-neutral-300">No mods configured.</p>
+            }
+            else
+            {
+                <div class="mt-5 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                    @foreach (string modId in _mods)
+                    {
+                        <ModCard ModId="@modId"
+                                 SourceLabel="Configured"
+                                 StatusText="OK" />
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    private AsaServerManager.Web.Models.ServerConfig.ServerConfigSettings _settings = AsaServerManager.Web.Models.ServerConfig.ServerConfigSettings.Default();
+    private List<string> _mods = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _settings = await ServerConfigService.LoadAsync();
+        _mods = _settings.ModIds
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .ToList();
+
+        await AsaManagerService.EnsureStartedAsync();
+        await AsaManagerService.RefreshAsync();
+    }
+}

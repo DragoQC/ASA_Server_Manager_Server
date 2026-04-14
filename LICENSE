@@ -1,0 +1,38 @@
+ASA Server Manager License
+
+Copyright (c) 2026 DragoQC
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this repository and its code, to use, copy, modify, merge, publish,
+distribute, sublicense, fork, remake, improve, and sell copies of it, and to
+permit other people to do the same.
+
+In short:
+
+- copy it
+- reuse it
+- fork it
+- remake it
+- improve it
+- make money with it
+- do whatever you want with this code
+
+This repository is provided "as is", without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose, and noninfringement. In no event shall the
+authors or copyright holders be liable for any claim, damages, or other
+liability, whether in an action of contract, tort, or otherwise, arising from,
+out of, or in connection with the software or the use or other dealings in the
+software.
+
+Important limitation:
+
+This license applies only to the code and original content contained in this
+repository.
+
+It does not grant any rights to ARK: Survival Ascended, Studio Wildcard, Snail
+Games, their assets, trademarks, logos, game files, or any other third-party
+content.
+
+This project only provides code and helpers for setting up and managing a
+server on Debian. It does not include or license the game itself.

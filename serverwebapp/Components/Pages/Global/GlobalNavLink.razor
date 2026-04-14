@@ -1,0 +1,17 @@
+<NavLink href="@Href"
+         Match="@Match"
+         class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.15)] transition hover:bg-cyan-400/15"
+         ActiveClass="border-cyan-300/40 bg-cyan-400/20 text-white shadow-[0_0_22px_rgba(34,211,238,0.35)]">
+    @Label
+</NavLink>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Href { get; set; } = "/";
+
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    [Parameter]
+    public NavLinkMatch Match { get; set; }
+}

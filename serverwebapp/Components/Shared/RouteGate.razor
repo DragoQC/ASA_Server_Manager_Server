@@ -1,0 +1,54 @@
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject AsaServerManager.Web.Services.AuthService AuthService
+
+@if (_canRender)
+{
+    <RouteView RouteData="RouteData" DefaultLayout="@DefaultLayout" />
+    <FocusOnNavigate RouteData="RouteData" Selector="h1" />
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public RouteData RouteData { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public Type DefaultLayout { get; set; } = default!;
+
+    private bool _canRender;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        bool isAuthenticated = authenticationState.User.Identity?.IsAuthenticated == true;
+        bool mustChangePassword = isAuthenticated && await AuthService.MustChangePasswordAsync(authenticationState.User);
+
+        bool isLoginPage = RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.Login);
+        bool isSettingsPage = RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.Settings);
+        bool isPublicPage = RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.Home) ||
+                            RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.NotFound) ||
+                            RouteData.PageType == typeof(AsaServerManager.Web.Components.Pages.Error);
+
+        _canRender = false;
+
+        if (!isAuthenticated && !isLoginPage && !isPublicPage)
+        {
+            NavigationManager.NavigateTo("/admin/login", forceLoad: true);
+            return;
+        }
+
+        if (isAuthenticated && isLoginPage)
+        {
+            NavigationManager.NavigateTo(mustChangePassword ? "/admin/settings?firstLogin=true" : "/admin/dashboard", forceLoad: true);
+            return;
+        }
+
+        if (mustChangePassword && !isSettingsPage)
+        {
+            NavigationManager.NavigateTo("/admin/settings?firstLogin=true", forceLoad: true);
+            return;
+        }
+
+        _canRender = true;
+    }
+}

@@ -1,0 +1,38 @@
+<BaseCard Title="@Title" Subtitle="@Eyebrow" Stat="@StatText" Status="@Status">
+    <div class="flex items-center justify-between gap-4">
+        <p class="text-sm text-neutral-300">@BodyText</p>
+        @if (Enabled)
+        {
+            <NavLink href="@Href" class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25">
+                Open
+            </NavLink>
+        }
+        else
+        {
+            <span class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300">
+                Offline
+            </span>
+        }
+    </div>
+</BaseCard>
+
+@code {
+    [Parameter]
+    public string Eyebrow { get; set; } = "";
+
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public string Description { get; set; } = "";
+
+    [Parameter]
+    public string Href { get; set; } = "/";
+
+    [Parameter]
+    public bool Enabled { get; set; }
+
+    private string Status => Enabled ? "OK" : "FAILED";
+    private string StatText => Enabled ? "Ready" : "Blocked";
+    private string BodyText => Enabled ? Description : "You must connect to a server to manage it first.";
+}

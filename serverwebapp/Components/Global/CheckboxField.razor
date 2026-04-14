@@ -1,0 +1,34 @@
+<label class="flex items-start gap-3 rounded-[1.3rem] border border-white/10 bg-white/5 p-4">
+    <input type="checkbox"
+           checked="@Value"
+           @onchange="OnCheckedChanged"
+           class="mt-1 h-4 w-4 rounded border-white/20 bg-black/20 text-cyan-300" />
+    <span>
+        <span class="block text-sm font-medium text-white">@Label</span>
+        @if (!string.IsNullOrWhiteSpace(Hint))
+        {
+            <span class="mt-1 block text-sm text-neutral-400">@Hint</span>
+        }
+    </span>
+</label>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    [Parameter]
+    public bool Value { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> ValueChanged { get; set; }
+
+    [Parameter]
+    public string? Hint { get; set; }
+
+    private Task OnCheckedChanged(ChangeEventArgs eventArgs)
+    {
+        bool nextValue = eventArgs.Value is bool boolValue && boolValue;
+        Value = nextValue;
+        return ValueChanged.InvokeAsync(nextValue);
+    }
+}

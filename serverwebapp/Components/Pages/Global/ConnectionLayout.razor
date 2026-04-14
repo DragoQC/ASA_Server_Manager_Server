@@ -1,0 +1,12 @@
+@inherits LayoutComponentBase
+
+<div class="relative min-h-screen overflow-hidden bg-transparent text-neutral-100">
+    <div class="pointer-events-none absolute inset-0 overflow-hidden">
+        <div class="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl"></div>
+        <div class="absolute right-0 top-24 h-80 w-80 rounded-full bg-emerald-400/10 blur-3xl"></div>
+    </div>
+
+    <main class="relative z-10 flex min-h-screen items-center justify-center px-6 py-10">
+        @Body
+    </main>
+</div>

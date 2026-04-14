@@ -1,0 +1,49 @@
+<div>
+    <label class="mb-2 block text-sm font-medium text-neutral-300">@Label</label>
+    @if (IsTextArea)
+    {
+        <textarea value="@Value"
+                  @oninput="OnTextChanged"
+                  class="min-h-28 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none"
+                  @attributes="AdditionalAttributes"></textarea>
+    }
+    else
+    {
+        <input value="@Value"
+               @oninput="OnTextChanged"
+               class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none"
+               @attributes="AdditionalAttributes" />
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Hint))
+    {
+        <p class="mt-2 text-sm text-neutral-400">@Hint</p>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    [Parameter]
+    public string? Value { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> ValueChanged { get; set; }
+
+    [Parameter]
+    public bool IsTextArea { get; set; }
+
+    [Parameter]
+    public string? Hint { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private Task OnTextChanged(ChangeEventArgs eventArgs)
+    {
+        string? nextValue = eventArgs.Value?.ToString();
+        Value = nextValue;
+        return ValueChanged.InvokeAsync(nextValue);
+    }
+}

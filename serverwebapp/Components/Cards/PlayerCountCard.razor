@@ -1,0 +1,12 @@
+<BaseCard Title="Players" Subtitle="Online now" Stat="@($"{Current}/{Max}")" StatHint="max players" Status="@Status" />
+
+@code {
+    [Parameter]
+    public int Current { get; set; }
+
+    [Parameter]
+    public int Max { get; set; } = 30;
+
+    [Parameter]
+    public string? Status { get; set; }
+}

@@ -1,0 +1,9 @@
+<BaseCard Title="Service" Subtitle="Active state" Stat="@State" StatHint="systemd" Status="@Status" />
+
+@code {
+    [Parameter]
+    public string State { get; set; } = "Unknown";
+
+    [Parameter]
+    public string? Status { get; set; }
+}
