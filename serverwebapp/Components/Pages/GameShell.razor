@@ -49,7 +49,7 @@
         <div>
             <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Game shell</h1>
             <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
-                Sends game admin commands through RCON to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">127.0.0.1:@_rconPort</code>. Command history stays only on this page.
+                Sends game admin commands through RCON on <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">port @GetDisplayedRconPortText()</code>. Command history stays only on this page.
             </p>
             <p class="mt-3 max-w-3xl text-sm leading-7 text-cyan-200/80 md:text-base">
                 To use RCON, set <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RCONEnabled=true</code>, <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RCONPort</code>, and <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RCONPassword</code> in <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">GameUserSettings.ini</code>. You can set those manually in <a href="/admin/game-config" class="font-semibold text-cyan-100 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-50">Game Config</a>.
@@ -93,7 +93,7 @@
                     <StatusTag Text="@_asaServiceStatus.DisplayText" />
                     <StatusTag Text="@_rconStatus.StateLabel" />
                     <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-neutral-300">
-                        127.0.0.1:@_rconPort
+                        Port @GetDisplayedRconPortText()
                     </span>
                 </div>
 
@@ -139,7 +139,7 @@
     private bool _serviceMessageIsError;
     private string _connectionMessage = "Checking RCON connection...";
     private string? _serviceMessage;
-    private int _rconPort = 27020;
+    private int _rconPort;
     private readonly List<string> _history = [];
     private int _historyIndex;
     private string _draftCommand = string.Empty;
@@ -181,6 +181,7 @@
         finally
         {
             _isRefreshingRcon = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -309,6 +310,11 @@
         }
 
         return "OK";
+    }
+
+    private string GetDisplayedRconPortText()
+    {
+        return _rconStatus.HasPort ? _rconStatus.Port.ToString() : "Missing";
     }
 
     private string GetRconPortText()

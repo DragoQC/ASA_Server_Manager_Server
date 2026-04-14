@@ -29,6 +29,14 @@ public sealed class RconService(ServerConfigService serverConfigService)
             await using RconConnection connection = await ConnectAndAuthenticateAsync(resolved.Status.Port, resolved.Password, cancellationToken);
             return new RconProbeResult(true, RconProtocolConstants.Host, resolved.Status.Port, "OK", "Connected.");
         }
+        catch (SocketException exception) when (exception.SocketErrorCode == SocketError.ConnectionRefused)
+        {
+            return new RconProbeResult(false, RconProtocolConstants.Host, resolved.Status.Port, "Waiting", "RCON is not reachable yet.");
+        }
+        catch (SocketException exception) when (exception.SocketErrorCode == SocketError.TimedOut)
+        {
+            return new RconProbeResult(false, RconProtocolConstants.Host, resolved.Status.Port, "Waiting", "RCON timed out.");
+        }
         catch (Exception exception)
         {
             return new RconProbeResult(false, RconProtocolConstants.Host, resolved.Status.Port, "Unavailable", exception.Message);
