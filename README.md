@@ -17,23 +17,42 @@ After install:
 - default login: `admin / admin`
 - first step: change password in `/admin/settings`
 
+## 🧭 Project philosophy
+
+- This tool is designed with strict constraints:
+
+- ⚡ fast to deploy
+- 🧩 simple to configure
+- 💾 low footprint (disk + dependencies)
+- 🎨 visually clean (neon UI)
+
+Design decisions follow this:
+
+avoid unnecessary complexity
+keep everything local (no external dependencies required)
+
 ## What this repo is
 
 This repo contains the server-side node for ASA Server Manager.
 
-Current shape:
+- 1 node = 1 ASA server
+- Blazor-based web UI
+- Full local management (no external services required)
 
-- one installed node manages one ASA server
-- neon Blazor web UI
-- install workspace for Proton, SteamCMD, start script, service file
-- live `asa.env` editor
-- live `Game.ini` + `GameUserSettings.ini` editor
-- `asa.service` start / stop / restart
-- RCON command panel
-- live host metrics
-- service status + logs
-- remote API key support for admin API calls
-- public API for lightweight external reads
+Features
+- ⚙️ install workspace (Proton, SteamCMD, scripts, services)
+- 📄 live config editors:
+- asa.env
+- Game.ini
+- GameUserSettings.ini
+- 🔁 systemd integration:
+- start / stop / restart
+- 📡 RCON panel (commands executed automatically via UI/API)
+- 📊 live host metrics
+- 📜 logs + service state
+- 🔐 API key authentication
+- 🌐 public + admin API
+- 🔄 SignalR real-time updates
 
 ## Product direction
 
