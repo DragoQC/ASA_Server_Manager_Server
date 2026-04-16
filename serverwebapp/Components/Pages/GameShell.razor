@@ -3,7 +3,8 @@
 @using AsaServerManager.Web.Models.Asa
 @using AsaServerManager.Web.Models.Rcon
 @inject AsaServerManager.Web.Services.InstallStateService InstallStateService
-@inject AsaServerManager.Web.Services.AsaManagerService AsaManagerService
+@inject AsaServerManager.Web.Services.GameConfigService GameConfigService
+@inject AsaServerManager.Web.Services.ManagerService ManagerService
 @inject AsaServerManager.Web.Services.RconService RconService
 
 <PageTitle>Game Shell</PageTitle>
@@ -41,10 +42,13 @@
         <div>
             <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Game shell</h1>
             <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
-                Sends game admin commands through RCON on <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">port @GetDisplayedRconPortText()</code>. Command history stays only on this page.
+                Sends game admin commands through RCON on <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">port @DisplayedRconPortText</code>. Command history stays only on this page.
             </p>
             <p class="mt-3 max-w-3xl text-sm leading-7 text-cyan-200/80 md:text-base">
                 To use RCON, set <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RCONEnabled=true</code>, <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RCONPort</code>, and <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">ServerAdminPassword</code> in <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">GameUserSettings.ini</code>. You can set those manually in <a href="/admin/game-config" class="font-semibold text-cyan-100 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-50">Game Config</a>.
+            </p>
+            <p class="mt-3 max-w-3xl text-sm leading-7 text-cyan-200/80 md:text-base">
+                For a full list of ASA console commands, see <a href="https://ark.wiki.gg/wiki/Console_commands" target="_blank" rel="noopener noreferrer" class="font-semibold text-cyan-100 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-50">ark.wiki.gg Console commands</a>.
             </p>
         </div>
 
@@ -57,25 +61,25 @@
                     <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
                         <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">GameUserSettings.ini</p>
                         <div class="mt-2 flex items-center gap-3">
-                            <StatusTag Text="@(_rconStatus.HasGameUserSettingsFile ? "OK" : "Missing")" />
+                            <StatusTag Text="@GameUserSettingsFileText" />
                         </div>
                     </div>
                     <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
                         <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">RCON enabled</p>
                         <div class="mt-2 flex items-center gap-3">
-                            <StatusTag Text="@GetRconEnabledText()" />
+                            <StatusTag Text="@RconEnabledText" />
                         </div>
                     </div>
                     <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
                         <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">Server admin password</p>
                         <div class="mt-2 flex items-center gap-3">
-                            <StatusTag Text="@GetRconPasswordText()" />
+                            <StatusTag Text="@RconPasswordText" />
                         </div>
                     </div>
                     <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
                         <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">RCON port</p>
                         <div class="mt-2 flex items-center gap-3">
-                            <StatusTag Text="@GetRconPortText()" />
+                            <StatusTag Text="@RconPortText" />
                         </div>
                     </div>
                 </div>
@@ -84,7 +88,7 @@
                 <div class="flex flex-wrap items-center gap-3">
                     <StatusTag Text="@_rconStatus.StateLabel" />
                     <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-neutral-300">
-                        Port @GetDisplayedRconPortText()
+                        Port @DisplayedRconPortText
                     </span>
                 </div>
 
@@ -122,6 +126,8 @@
     private string _transcript = string.Empty;
     private AsaServiceStatus _asaServiceStatus = AsaServiceStatus.Unknown();
     private RconStatus _rconStatus = RconStatus.Unknown();
+    private RconSettings _rconSettings = RconSettings.Default();
+    private bool _hasGameUserSettingsFile;
     private bool _isRconConnected;
     private bool _isRefreshingRcon;
     private bool _isSendingCommand;
@@ -130,17 +136,27 @@
     private bool _serviceMessageIsError;
     private string _connectionMessage = "Checking RCON connection...";
     private string? _serviceMessage;
-    private int _rconPort;
     private readonly List<string> _history = [];
     private int _historyIndex;
     private string _draftCommand = string.Empty;
     private CancellationTokenSource? _refreshLoopCancellationTokenSource;
+    private string GameUserSettingsFileText => _hasGameUserSettingsFile ? "OK" : "Missing";
+    private string RconEnabledText => !_hasGameUserSettingsFile || !_rconStatus.HasEnabledKey
+        ? "Missing"
+        : _rconSettings.IsEnabled ? "True" : "False";
+    private string RconPasswordText => !_hasGameUserSettingsFile || !_rconStatus.HasEnabledKey || !_rconSettings.IsEnabled || !_rconStatus.HasPasswordKey || !_rconStatus.HasPassword
+        ? "Missing"
+        : "OK";
+    private string DisplayedRconPortText => _hasGameUserSettingsFile && _rconStatus.HasPort
+        ? _rconSettings.Port.ToString()
+        : "Missing";
+    private string RconPortText => DisplayedRconPortText;
 
     protected override async Task OnInitializedAsync()
     {
-        AsaManagerService.Changed += OnAsaManagerChanged;
-        await AsaManagerService.EnsureStartedAsync();
-        _asaServiceStatus = AsaManagerService.CurrentStatus;
+        ManagerService.Changed += OnAsaManagerChanged;
+        await ManagerService.EnsureStartedAsync();
+        _asaServiceStatus = ManagerService.CurrentStatus;
         await RefreshAsync();
         _refreshLoopCancellationTokenSource = new CancellationTokenSource();
         _ = RunRefreshLoopAsync(_refreshLoopCancellationTokenSource.Token);
@@ -157,8 +173,23 @@
 
         try
         {
-            _asaServiceStatus = AsaManagerService.CurrentStatus;
+            _asaServiceStatus = ManagerService.CurrentStatus;
 
+            _hasGameUserSettingsFile = GameConfigService.HasGameUserSettingsIniFile();
+            if (!_hasGameUserSettingsFile)
+            {
+                _rconStatus = RconStatus.Unknown() with
+                {
+                    StateLabel = "Missing",
+                    Message = "GameUserSettings.ini missing."
+                };
+                _rconSettings = RconSettings.Default();
+                _isRconConnected = false;
+                _connectionMessage = "GameUserSettings.ini missing.";
+                return;
+            }
+
+            _rconSettings = await RconService.GetSettingsAsync();
             RconStatus status = await RconService.GetStatusAsync();
             RconProbeResult probe = await RconService.ProbeAsync();
             _rconStatus = status with
@@ -168,11 +199,10 @@
             };
             _isRconConnected = probe.IsConnected;
             _connectionMessage = probe.Message;
-            _rconPort = probe.Port;
         }
         catch (Exception exception)
         {
-            _rconStatus = RconStatus.Unknown(_rconPort) with { StateLabel = "Unavailable", Message = exception.Message };
+            _rconStatus = RconStatus.Unknown() with { StateLabel = "Unavailable", Message = exception.Message };
             _isRconConnected = false;
             _connectionMessage = exception.Message;
         }
@@ -247,7 +277,7 @@
 
         try
         {
-            _serviceMessage = await AsaManagerService.StartAsync();
+            _serviceMessage = await ManagerService.StartAsync();
             _serviceMessageIsError = false;
             await RefreshAsync();
         }
@@ -268,7 +298,7 @@
 
         try
         {
-            _serviceMessage = await AsaManagerService.StopAsync();
+            _serviceMessage = await ManagerService.StopAsync();
             _serviceMessageIsError = false;
             _isRconConnected = false;
             _connectionMessage = "ASA stopped.";
@@ -283,46 +313,6 @@
         {
             _isStoppingAsa = false;
         }
-    }
-
-    private string GetRconEnabledText()
-    {
-        if (!_rconStatus.HasGameUserSettingsFile)
-        {
-            return "Missing";
-        }
-
-        if (!_rconStatus.HasEnabledKey)
-        {
-            return "Missing";
-        }
-
-        return _rconStatus.IsEnabled ? "True" : "False";
-    }
-
-    private string GetRconPasswordText()
-    {
-        if (!_rconStatus.HasGameUserSettingsFile || !_rconStatus.HasEnabledKey || !_rconStatus.IsEnabled)
-        {
-            return "Missing";
-        }
-
-        if (!_rconStatus.HasPasswordKey || !_rconStatus.HasPassword)
-        {
-            return "Missing";
-        }
-
-        return "OK";
-    }
-
-    private string GetDisplayedRconPortText()
-    {
-        return _rconStatus.HasPort ? _rconStatus.Port.ToString() : "Missing";
-    }
-
-    private string GetRconPortText()
-    {
-        return _rconStatus.HasPort ? _rconStatus.Port.ToString() : "Missing";
     }
 
     private void OnCommandInput(ChangeEventArgs eventArgs)

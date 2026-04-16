@@ -1,7 +1,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@inject AsaServerManager.Web.Services.AsaManagerService AsaManagerService
+@inject AsaServerManager.Web.Services.ManagerService ManagerService
 
 <div
 	class="relative grid min-h-screen grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-transparent text-neutral-100">
@@ -28,7 +28,7 @@
 				<span class="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-cyan-200/75">
 					Server state
 				</span>
-				<StatusTag Text="@AsaManagerService.CurrentStatus.DisplayText" />
+				<StatusTag Text="@ManagerService.CurrentStatus.DisplayText" />
 			</div>
 		</div>
 
@@ -96,6 +96,7 @@
 			new NavigationItem(Href: "/admin/dashboard", Label: "Dashboard", NavLinkMatch.All),
 			new NavigationItem(Href: "/admin/install", Label: "Install"),
 			new NavigationItem(Href: "/admin/server-config", Label: "Server Config"),
+			new NavigationItem(Href: "/admin/vpn", Label: "VPN"),
 			new NavigationItem(Href: "/admin/validate", Label: "Validate"),
 			new NavigationItem(Href: "/admin/game-config", Label: "Game Config"),
 			new NavigationItem(Href: "/admin/logs", Label: "Logs"),
@@ -111,8 +112,8 @@
 	{
 		AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
 		_isAuthenticated = authenticationState.User.Identity?.IsAuthenticated == true;
-		AsaManagerService.Changed += HandleAsaServiceStateChanged;
-		await AsaManagerService.EnsureStartedAsync();
+		ManagerService.Changed += HandleAsaServiceStateChanged;
+		await ManagerService.EnsureStartedAsync();
 	}
 
 	private void HandleAsaServiceStateChanged()
@@ -122,7 +123,7 @@
 
 	public void Dispose()
 	{
-		AsaManagerService.Changed -= HandleAsaServiceStateChanged;
+		ManagerService.Changed -= HandleAsaServiceStateChanged;
 	}
 
 	private sealed record NavigationItem(string Href, string Label, NavLinkMatch Match = NavLinkMatch.Prefix);

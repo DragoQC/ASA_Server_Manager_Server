@@ -1,6 +1,6 @@
 @page "/admin/validate"
 @inject AsaServerManager.Web.Services.InstallStateService InstallStateService
-@inject AsaServerManager.Web.Services.AsaManagerService AsaManagerService
+@inject AsaServerManager.Web.Services.ManagerService ManagerService
 
 <PageTitle>Validate</PageTitle>
 
@@ -93,7 +93,7 @@
 
         try
         {
-            _systemdMessage = await AsaManagerService.EnableAsync();
+            _systemdMessage = await ManagerService.EnableAsync();
             _systemdMessageIsError = false;
         }
         catch (Exception exception)

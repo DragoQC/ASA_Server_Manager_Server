@@ -5,6 +5,16 @@ namespace AsaServerManager.Web.Services;
 
 public sealed class GameConfigService
 {
+    public bool HasGameIniFile()
+    {
+        return File.Exists(GameConfigConstants.GameIniPath);
+    }
+
+    public bool HasGameUserSettingsIniFile()
+    {
+        return File.Exists(GameConfigConstants.GameUserSettingsIniPath);
+    }
+
     public Task<IReadOnlyList<GameConfigFileState>> LoadStatesAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -13,16 +23,8 @@ public sealed class GameConfigService
 
         IReadOnlyList<GameConfigFileState> states =
         [
-            BuildFileState(
-                title: "Game.ini",
-                description: "Advanced server gameplay rules, overrides, and mod configuration values.",
-                filePath: GameConfigConstants.GameIniPath,
-                hasConfigDirectory),
-            BuildFileState(
-                title: "GameUserSettings.ini",
-                description: "Main server settings such as session options and gameplay tuning values.",
-                filePath: GameConfigConstants.GameUserSettingsIniPath,
-                hasConfigDirectory)
+            GetGameIniFileState(hasConfigDirectory),
+            GetGameUserSettingsIniFileState(hasConfigDirectory)
         ];
 
         return Task.FromResult(states);
@@ -46,19 +48,29 @@ public sealed class GameConfigService
         await File.WriteAllTextAsync(filePath, NormalizeContent(content), cancellationToken);
     }
 
-    private static GameConfigFileState BuildFileState(
-        string title,
-        string description,
-        string filePath,
-        bool hasConfigDirectory)
+    private GameConfigFileState GetGameIniFileState(bool hasConfigDirectory)
     {
-        bool exists = File.Exists(filePath);
+        bool exists = HasGameIniFile();
         string stateLabel = exists ? "OK" : "Missing";
 
         return new GameConfigFileState(
-            title,
-            description,
-            filePath,
+            "Game.ini",
+            "Advanced server gameplay rules, overrides, and mod configuration values.",
+            GameConfigConstants.GameIniPath,
+            stateLabel,
+            hasConfigDirectory,
+            exists);
+    }
+
+    private GameConfigFileState GetGameUserSettingsIniFileState(bool hasConfigDirectory)
+    {
+        bool exists = HasGameUserSettingsIniFile();
+        string stateLabel = exists ? "OK" : "Missing";
+
+        return new GameConfigFileState(
+            "GameUserSettings.ini",
+            "Main server settings such as session options and gameplay tuning values.",
+            GameConfigConstants.GameUserSettingsIniPath,
             stateLabel,
             hasConfigDirectory,
             exists);

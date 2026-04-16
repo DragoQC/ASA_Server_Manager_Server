@@ -59,13 +59,15 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddSingleton<AsaServerMonitor>();
-builder.Services.AddHostedService(services => services.GetRequiredService<AsaServerMonitor>());
-builder.Services.AddSingleton<AsaStateHubPublisher>();
-builder.Services.AddHostedService(services => services.GetRequiredService<AsaStateHubPublisher>());
+builder.Services.AddSingleton<ServerMonitorService>();
+builder.Services.AddHostedService(services => services.GetRequiredService<ServerMonitorService>());
+builder.Services.AddSingleton<PlayerCountMonitorService>();
+builder.Services.AddHostedService(services => services.GetRequiredService<PlayerCountMonitorService>());
+builder.Services.AddSingleton<StateHubPublisherService>();
+builder.Services.AddHostedService(services => services.GetRequiredService<StateHubPublisherService>());
 builder.Services.AddScoped<ActionMappingService>();
-builder.Services.AddScoped<AsaLogsService>();
-builder.Services.AddScoped<AsaManagerService>();
+builder.Services.AddScoped<LogsService>();
+builder.Services.AddScoped<ManagerService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<EmailSettingsService>();
 builder.Services.AddScoped<EmailService>();
@@ -74,7 +76,7 @@ builder.Services.AddScoped<InstallStateService>();
 builder.Services.AddScoped<ProtonConfigService>();
 builder.Services.AddScoped<RconService>();
 builder.Services.AddScoped<ShellConsoleService>();
-builder.Services.AddScoped<ServerConfigService>();
+builder.Services.AddSingleton<ServerConfigService>();
 builder.Services.AddScoped<SystemMetricsService>();
 
 WebApplication app = builder.Build();

@@ -6,11 +6,12 @@ namespace AsaServerManager.Web.Controllers;
 
 [ApiController]
 [Route("api/admin")]
-public sealed class ServerController(AsaManagerService asaManagerService, AuthService authService, RconService rconService) : ControllerBase
+public sealed class ServerController(ManagerService managerService, AuthService authService, RconService rconService, GameConfigService gameConfigService) : ControllerBase
 {
-	private readonly AsaManagerService _asaManagerService = asaManagerService;
+	private readonly ManagerService _managerService = managerService;
 	private readonly AuthService _authService = authService;
 	private readonly RconService _rconService = rconService;
+	private readonly GameConfigService _gameConfigService = gameConfigService;
 
 	[HttpPost("start")]
 	public async Task<IActionResult> Start(CancellationToken cancellationToken)
@@ -26,12 +27,12 @@ public sealed class ServerController(AsaManagerService asaManagerService, AuthSe
 			});
 		}
 
-		string message = await _asaManagerService.StartAsync(cancellationToken);
+		string message = await _managerService.StartAsync(cancellationToken);
 		return Ok(new
 		{
 			success = true,
 			message,
-			state = _asaManagerService.CurrentStatus.DisplayText
+			state = _managerService.CurrentStatus.DisplayText
 		});
 	}
 
@@ -49,12 +50,12 @@ public sealed class ServerController(AsaManagerService asaManagerService, AuthSe
 			});
 		}
 
-		string message = await _asaManagerService.StopAsync(cancellationToken);
+		string message = await _managerService.StopAsync(cancellationToken);
 		return Ok(new
 		{
 			success = true,
 			message,
-			state = _asaManagerService.CurrentStatus.DisplayText
+			state = _managerService.CurrentStatus.DisplayText
 		});
 	}
 
@@ -81,8 +82,19 @@ public sealed class ServerController(AsaManagerService asaManagerService, AuthSe
 			});
 		}
 
+		if (!_gameConfigService.HasGameUserSettingsIniFile())
+		{
+			return BadRequest(new
+			{
+				success = false,
+				state = "Missing",
+				message = "GameUserSettings.ini missing."
+			});
+		}
+
+		AsaServerManager.Web.Models.Rcon.RconSettings rconSettings = await _rconService.GetSettingsAsync(cancellationToken);
 		AsaServerManager.Web.Models.Rcon.RconStatus rconStatus = await _rconService.GetStatusAsync(cancellationToken);
-		if (!rconStatus.CanExecute)
+		if (!rconStatus.CanExecute(rconSettings))
 		{
 			return BadRequest(new
 			{

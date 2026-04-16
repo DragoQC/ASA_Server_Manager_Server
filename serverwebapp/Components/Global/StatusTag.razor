@@ -2,7 +2,9 @@
     string text = (Text ?? Label ?? Status ?? "Unknown").Trim();
     string normalized = text.ToUpperInvariant();
 
-    bool isOk = normalized == "OK";
+    bool isOk = normalized == "OK" ||
+                normalized == "RUNNING" ||
+                normalized == "CONNECTED";
     bool isMissing = normalized.Contains("MISSING", StringComparison.Ordinal);
     bool isWarning = normalized.Contains("WARN", StringComparison.Ordinal) ||
                      normalized.Contains("STARTING", StringComparison.Ordinal) ||

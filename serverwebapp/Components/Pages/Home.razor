@@ -1,6 +1,6 @@
 @page "/"
 @inject AsaServerManager.Web.Services.ServerConfigService ServerConfigService
-@inject AsaServerManager.Web.Services.AsaManagerService AsaManagerService
+@inject AsaServerManager.Web.Services.ManagerService ManagerService
 
 <PageTitle>ASA Server</PageTitle>
 
@@ -9,7 +9,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex flex-wrap items-center gap-4">
                 <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Public status</p>
-                <StatusTag Text="@AsaManagerService.CurrentStatus.DisplayText" />
+                <StatusTag Text="@ManagerService.CurrentStatus.DisplayText" />
             </div>
 
             <a href="/admin/login"
@@ -32,11 +32,11 @@
                                 Description="Current configured ASA server name." />
             <DashboardValueCard Title="Server state"
                                 Subtitle="systemd"
-                                Value="@AsaManagerService.CurrentStatus.DisplayText"
+                                Value="@ManagerService.CurrentStatus.DisplayText"
                                 Description="Current asa.service state." />
             <DashboardValueCard Title="Time up"
                                 Subtitle="systemd"
-                                Value="@AsaManagerService.CurrentStatus.UptimeText"
+                                Value="@ManagerService.CurrentStatus.UptimeText"
                                 Description="Current uptime from asa.service when available." />
             <DashboardValueCard Title="Mods"
                                 Subtitle="Configuration"
@@ -81,7 +81,7 @@
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .ToList();
 
-        await AsaManagerService.EnsureStartedAsync();
-        await AsaManagerService.RefreshAsync();
+        await ManagerService.EnsureStartedAsync();
+        await ManagerService.RefreshAsync();
     }
 }

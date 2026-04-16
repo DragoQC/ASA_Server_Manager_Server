@@ -1,27 +1,22 @@
 namespace AsaServerManager.Web.Models.Rcon;
 
 public sealed record RconStatus(
-		bool HasGameUserSettingsFile,
-		bool HasEnabledKey,
-		bool IsEnabled,
-		bool HasPort,
-		bool HasPasswordKey,
-		bool HasPassword,
-		int Port,
-		string StateLabel,
-		string Message)
+    bool HasEnabledKey,
+    bool HasPort,
+    bool HasPasswordKey,
+    bool HasPassword,
+    string StateLabel,
+    string Message)
 {
-	public bool CanExecute => HasGameUserSettingsFile && IsEnabled && HasPort && HasPassword;
+    public bool CanExecute(RconSettings settings) =>
+        settings.IsEnabled && HasPort && HasPassword;
 
-	public static RconStatus Unknown(int port = 27020) =>
-			new(
-					false,
-					false,
-					false,
-					false,
-					false,
-					false,
-					port,
-					"Missing",
-					"Checking RCON...");
+    public static RconStatus Unknown() =>
+        new(
+            false,
+            false,
+            false,
+            false,
+            "Missing",
+            "Checking RCON...");
 }

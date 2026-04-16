@@ -6,142 +6,80 @@ using AsaServerManager.Web.Models.Rcon;
 
 namespace AsaServerManager.Web.Services;
 
-public sealed class RconService(ServerConfigService serverConfigService)
+public sealed class RconService(ServerConfigService serverConfigService, GameConfigService gameConfigService)
 {
     private readonly ServerConfigService _serverConfigService = serverConfigService;
+    private readonly GameConfigService _gameConfigService = gameConfigService;
+
+    public async Task<RconSettings> GetSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        RconContext context = await LoadContextAsync(cancellationToken);
+        return context.Settings;
+    }
 
     public async Task<RconStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
-        ResolvedRconSettings resolved = await ResolveAsync(cancellationToken);
-        return resolved.Status;
+        RconContext context = await LoadContextAsync(cancellationToken);
+        return context.Status;
     }
 
     public async Task<RconProbeResult> ProbeAsync(CancellationToken cancellationToken = default)
     {
-        ResolvedRconSettings resolved = await ResolveAsync(cancellationToken);
-        if (!resolved.Status.CanExecute)
+        int fallbackPort = await _serverConfigService.GetRconPortAsync(cancellationToken);
+        if (!_gameConfigService.HasGameUserSettingsIniFile())
         {
-            return new RconProbeResult(false, RconProtocolConstants.Host, resolved.Status.Port, resolved.Status.StateLabel, resolved.Status.Message);
+            return new RconProbeResult(false, RconProtocolConstants.Host, fallbackPort, "Missing", "GameUserSettings.ini missing.");
+        }
+
+        RconContext context = await LoadContextAsync(cancellationToken);
+        if (!context.Status.CanExecute(context.Settings))
+        {
+            return new RconProbeResult(false, RconProtocolConstants.Host, context.Settings.Port, context.Status.StateLabel, context.Status.Message);
         }
 
         try
         {
-            await using RconConnection connection = await ConnectAndAuthenticateAsync(resolved.Status.Port, resolved.Password, cancellationToken);
-            return new RconProbeResult(true, RconProtocolConstants.Host, resolved.Status.Port, "Connected", "Connected.");
+            await using RconConnection connection = await ConnectAndAuthenticateAsync(context.Settings.Port, context.Settings.Password, cancellationToken);
+            return new RconProbeResult(true, RconProtocolConstants.Host, context.Settings.Port, "Running", "Connected.");
         }
         catch (SocketException exception) when (exception.SocketErrorCode == SocketError.ConnectionRefused)
         {
-            return new RconProbeResult(false, RconProtocolConstants.Host, resolved.Status.Port, "Waiting", "RCON is not reachable yet.");
+            return new RconProbeResult(false, RconProtocolConstants.Host, context.Settings.Port, "Waiting", "RCON is not reachable yet.");
         }
         catch (SocketException exception) when (exception.SocketErrorCode == SocketError.TimedOut)
         {
-            return new RconProbeResult(false, RconProtocolConstants.Host, resolved.Status.Port, "Waiting", "RCON timed out.");
+            return new RconProbeResult(false, RconProtocolConstants.Host, context.Settings.Port, "Waiting", "RCON timed out.");
         }
         catch (Exception exception)
         {
-            return new RconProbeResult(false, RconProtocolConstants.Host, resolved.Status.Port, "Unavailable", exception.Message);
+            return new RconProbeResult(false, RconProtocolConstants.Host, context.Settings.Port, "Unavailable", exception.Message);
         }
     }
 
     public async Task<string> ExecuteAsync(string command, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(command))
-        {
-            throw new InvalidOperationException("Command is required.");
-        }
-
-        ResolvedRconSettings resolved = await ResolveAsync(cancellationToken);
-        if (!resolved.Status.CanExecute)
-        {
-            throw new InvalidOperationException(resolved.Status.Message);
-        }
-
-        await using RconConnection connection = await ConnectAndAuthenticateAsync(resolved.Status.Port, resolved.Password, cancellationToken);
-        string response = await connection.ExecuteAsync(command.Trim(), cancellationToken);
-        return string.IsNullOrWhiteSpace(response)
-            ? "(No response)"
-            : response.TrimEnd();
+        return await ExecuteCoreAsync(command, formatEmptyResponse: true, cancellationToken);
     }
 
-    private async Task<ResolvedRconSettings> ResolveAsync(CancellationToken cancellationToken)
+    public async Task<int> GetOnlinePlayerCountAsync(CancellationToken cancellationToken = default)
     {
-        int fallbackPort = (await _serverConfigService.LoadAsync(cancellationToken)).RconPort;
-        if (!File.Exists(GameConfigConstants.GameUserSettingsIniPath))
+        string response = await ExecuteCoreAsync("ListPlayers", formatEmptyResponse: false, cancellationToken);
+        return ParseOnlinePlayerCount(response);
+    }
+
+    private async Task<RconContext> LoadContextAsync(CancellationToken cancellationToken)
+    {
+        int fallbackPort = await _serverConfigService.GetRconPortAsync(cancellationToken);
+        if (!_gameConfigService.HasGameUserSettingsIniFile())
         {
-            return new ResolvedRconSettings(
-                new RconStatus(
-                    false,
-                    false,
-                    false,
-                    false,
-                    false,
-                    false,
-                    fallbackPort,
-                    "Missing",
-                    "GameUserSettings.ini missing."),
-                string.Empty);
+            throw new InvalidOperationException("GameUserSettings.ini missing.");
         }
 
         string content = await File.ReadAllTextAsync(GameConfigConstants.GameUserSettingsIniPath, cancellationToken);
         Dictionary<string, string> values = ParseServerSettings(content);
-        int port = fallbackPort;
-        int parsedPort = fallbackPort;
-        bool hasPort = values.TryGetValue("RCONPort", out string? configuredPort) &&
-                       int.TryParse(configuredPort, out parsedPort) &&
-                       parsedPort is > 0 and <= 65535;
-
-        if (hasPort)
-        {
-            port = parsedPort;
-        }
-
-        bool hasEnabledKey = values.TryGetValue("RCONEnabled", out string? enabledValue);
-        if (!hasEnabledKey)
-        {
-            return new ResolvedRconSettings(
-                new RconStatus(true, false, false, hasPort, false, false, port, "Missing", "RCONEnabled key missing."),
-                string.Empty);
-        }
-
-        if (!bool.TryParse(enabledValue, out bool isEnabled))
-        {
-            return new ResolvedRconSettings(
-                new RconStatus(true, true, false, hasPort, false, false, port, "Invalid", "RCONEnabled is invalid."),
-                string.Empty);
-        }
-
-        if (!isEnabled)
-        {
-            return new ResolvedRconSettings(
-                new RconStatus(true, true, false, hasPort, false, false, port, "Disabled", "RCON is disabled."),
-                string.Empty);
-        }
-
-        if (!hasPort)
-        {
-            return new ResolvedRconSettings(
-                new RconStatus(true, true, true, false, false, false, port, "Missing", "RCONPort key missing or invalid."),
-                string.Empty);
-        }
-
-        bool hasPasswordKey = values.TryGetValue("ServerAdminPassword", out string? password);
-        if (!hasPasswordKey)
-        {
-            return new ResolvedRconSettings(
-                new RconStatus(true, true, true, true, false, false, port, "Missing", "ServerAdminPassword key missing."),
-                string.Empty);
-        }
-
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            return new ResolvedRconSettings(
-                new RconStatus(true, true, true, true, true, false, port, "Missing", "Server admin password missing."),
-                string.Empty);
-        }
-
-        return new ResolvedRconSettings(
-            new RconStatus(true, true, true, true, true, true, port, "Enabled", "RCON is enabled."),
-            password);
+        RconSettings settings = BuildSettings(values, fallbackPort);
+        RconStatus status = BuildStatus(values, settings);
+        return new RconContext(settings, status);
     }
 
     private static Dictionary<string, string> ParseServerSettings(string content)
@@ -192,6 +130,157 @@ public sealed class RconService(ServerConfigService serverConfigService)
         return value;
     }
 
+    private static RconSettings BuildSettings(IReadOnlyDictionary<string, string> values, int fallbackPort)
+    {
+        int port = fallbackPort;
+        if (values.TryGetValue("RCONPort", out string? configuredPort) &&
+            int.TryParse(configuredPort, out int parsedPort) &&
+            parsedPort is > 0 and <= 65535)
+        {
+            port = parsedPort;
+        }
+
+        bool isEnabled = values.TryGetValue("RCONEnabled", out string? enabledValue) &&
+                         bool.TryParse(enabledValue, out bool parsedEnabled) &&
+                         parsedEnabled;
+
+        string password = values.TryGetValue("ServerAdminPassword", out string? configuredPassword)
+            ? configuredPassword ?? string.Empty
+            : string.Empty;
+
+        return new RconSettings(port, password, isEnabled);
+    }
+
+    private static RconStatus BuildStatus(IReadOnlyDictionary<string, string> values, RconSettings settings)
+    {
+        bool hasEnabledKey = values.TryGetValue("RCONEnabled", out string? enabledValue);
+        if (!hasEnabledKey)
+        {
+            return new RconStatus(false, false, false, false, "Missing", "RCONEnabled key missing.");
+        }
+
+        if (!bool.TryParse(enabledValue, out _))
+        {
+            return new RconStatus(true, false, false, false, "Invalid", "RCONEnabled is invalid.");
+        }
+
+        bool hasPort = values.TryGetValue("RCONPort", out string? configuredPort) &&
+                       int.TryParse(configuredPort, out int parsedPort) &&
+                       parsedPort is > 0 and <= 65535;
+        if (!settings.IsEnabled)
+        {
+            return new RconStatus(true, hasPort, false, false, "Disabled", "RCON is disabled.");
+        }
+
+        if (!hasPort)
+        {
+            return new RconStatus(true, false, false, false, "Missing", "RCONPort key missing or invalid.");
+        }
+
+        bool hasPasswordKey = values.TryGetValue("ServerAdminPassword", out _);
+        if (!hasPasswordKey)
+        {
+            return new RconStatus(true, true, false, false, "Missing", "ServerAdminPassword key missing.");
+        }
+
+        bool hasPassword = !string.IsNullOrWhiteSpace(settings.Password);
+        if (!hasPassword)
+        {
+            return new RconStatus(true, true, true, false, "Missing", "Server admin password missing.");
+        }
+
+        return new RconStatus(true, true, true, true, "Enabled", "RCON is enabled.");
+    }
+
+    private async Task<string> ExecuteCoreAsync(string command, bool formatEmptyResponse, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            throw new InvalidOperationException("Command is required.");
+        }
+
+        if (!_gameConfigService.HasGameUserSettingsIniFile())
+        {
+            throw new InvalidOperationException("GameUserSettings.ini missing.");
+        }
+
+        RconContext context = await LoadContextAsync(cancellationToken);
+        if (!context.Status.CanExecute(context.Settings))
+        {
+            throw new InvalidOperationException(context.Status.Message);
+        }
+
+        await using RconConnection connection = await ConnectAndAuthenticateAsync(context.Settings.Port, context.Settings.Password, cancellationToken);
+        string response = await connection.ExecuteAsync(command.Trim(), cancellationToken).ConfigureAwait(false);
+        string trimmedResponse = response.TrimEnd();
+
+        if (formatEmptyResponse && string.IsNullOrWhiteSpace(trimmedResponse))
+        {
+            return "Server did not respond. Please check the command syntax.";
+        }
+
+        return trimmedResponse;
+    }
+
+    private static int ParseOnlinePlayerCount(string response)
+    {
+        string[] lines = response
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (lines.Length == 0)
+        {
+            return 0;
+        }
+
+        List<string> meaningfulLines = lines
+            .Where(line => !IsNonPlayerLine(line))
+            .ToList();
+
+        if (meaningfulLines.Count == 0)
+        {
+            return 0;
+        }
+
+        int structuredPlayerLines = meaningfulLines.Count(IsStructuredPlayerLine);
+        return structuredPlayerLines > 0
+            ? structuredPlayerLines
+            : meaningfulLines.Count;
+    }
+
+    private static bool IsNonPlayerLine(string line)
+    {
+        string normalized = line.Trim().ToUpperInvariant();
+
+        return normalized.Length == 0 ||
+               normalized.Contains("NO PLAYERS", StringComparison.Ordinal) ||
+               normalized.Contains("NO ONE", StringComparison.Ordinal) ||
+               normalized.StartsWith("CONNECTED PLAYERS", StringComparison.Ordinal) ||
+               normalized.StartsWith("CURRENT PLAYERS", StringComparison.Ordinal) ||
+               normalized.StartsWith("PLAYERS ONLINE", StringComparison.Ordinal) ||
+               normalized.StartsWith("NAME,", StringComparison.Ordinal) ||
+               normalized.StartsWith("INDEX,", StringComparison.Ordinal);
+    }
+
+    private static bool IsStructuredPlayerLine(string line)
+    {
+        string trimmed = line.Trim();
+
+        int dotIndex = trimmed.IndexOf('.');
+        if (dotIndex > 0 && int.TryParse(trimmed[..dotIndex], out _))
+        {
+            return true;
+        }
+
+        int spaceIndex = trimmed.IndexOf(' ');
+        if (spaceIndex > 0 && int.TryParse(trimmed[..spaceIndex], out _))
+        {
+            return true;
+        }
+
+        return trimmed.Contains(',', StringComparison.Ordinal);
+    }
+
     private static async Task<RconConnection> ConnectAndAuthenticateAsync(int port, string password, CancellationToken cancellationToken)
     {
         TcpClient tcpClient = new();
@@ -206,4 +295,8 @@ public sealed class RconService(ServerConfigService serverConfigService)
         await connection.AuthenticateAsync(password, cancellationToken);
         return connection;
     }
+
+    private sealed record RconContext(
+        RconSettings Settings,
+        RconStatus Status);
 }

@@ -2,7 +2,7 @@
 @page "/admin/game-config"
 @inject AsaServerManager.Web.Services.GameConfigService GameConfigService
 @inject AsaServerManager.Web.Services.InstallStateService InstallStateService
-@inject AsaServerManager.Web.Services.AsaManagerService AsaManagerService
+@inject AsaServerManager.Web.Services.ManagerService ManagerService
 
 <PageTitle>Game Config</PageTitle>
 
@@ -218,8 +218,8 @@
             return;
         }
 
-        await AsaManagerService.RefreshAsync();
-        _showRestartDialog = AsaManagerService.ShouldPromptForRestart;
+        await ManagerService.RefreshAsync();
+        _showRestartDialog = ManagerService.ShouldPromptForRestart;
     }
 
     private Task RestartAsaAsync()
@@ -236,7 +236,7 @@
     {
         try
         {
-            _editorMessage = await AsaManagerService.RestartAsync();
+            _editorMessage = await ManagerService.RestartAsync();
             _editorMessageIsError = false;
         }
         catch (Exception exception)

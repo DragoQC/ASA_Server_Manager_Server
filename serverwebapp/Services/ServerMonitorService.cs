@@ -5,11 +5,11 @@ using AsaServerManager.Web.Models;
 
 namespace AsaServerManager.Web.Services;
 
-public sealed class AsaServerMonitor(ILogger<AsaServerMonitor> logger) : BackgroundService
+public sealed class ServerMonitorService(ILogger<ServerMonitorService> logger) : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
 
-    private readonly ILogger<AsaServerMonitor> _logger = logger;
+    private readonly ILogger<ServerMonitorService> _logger = logger;
     private volatile AsaServerStatusSnapshot _current = AsaServerStatusSnapshot.Default(AsaServiceConstants.ServiceName);
 
     public event Action? StatusChanged;

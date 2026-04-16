@@ -5,13 +5,13 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace AsaServerManager.Web.Hubs;
 
-public sealed class AsaStateHub(AsaServerMonitor asaServerMonitor) : Hub
+public sealed class AsaStateHub(ServerMonitorService serverMonitorService) : Hub
 {
-    private readonly AsaServerMonitor _asaServerMonitor = asaServerMonitor;
+    private readonly ServerMonitorService _serverMonitorService = serverMonitorService;
 
     public override async Task OnConnectedAsync()
     {
-        AsaServiceStatus status = AsaServiceStatusFactory.FromSnapshot(_asaServerMonitor.GetSnapshot());
+        AsaServiceStatus status = AsaServiceStatusFactory.FromSnapshot(_serverMonitorService.GetSnapshot());
         await Clients.Caller.SendAsync(AsaStateHubConstants.StateUpdatedMethod, status);
         await base.OnConnectedAsync();
     }

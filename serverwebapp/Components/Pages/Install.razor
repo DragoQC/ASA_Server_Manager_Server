@@ -1,7 +1,7 @@
 @page "/admin/install"
 @using AsaServerManager.Web.Constants
 @inject AsaServerManager.Web.Services.InstallStateService InstallStateService
-@inject AsaServerManager.Web.Services.AsaManagerService AsaManagerService
+@inject AsaServerManager.Web.Services.ManagerService ManagerService
 
 <PageTitle>Install</PageTitle>
 
@@ -609,8 +609,8 @@
             return;
         }
 
-        await AsaManagerService.RefreshAsync();
-        _showRestartDialog = AsaManagerService.ShouldPromptForRestart;
+        await ManagerService.RefreshAsync();
+        _showRestartDialog = ManagerService.ShouldPromptForRestart;
     }
 
     private Task RestartAsaAsync()
@@ -626,7 +626,7 @@
     {
         try
         {
-            string message = await AsaManagerService.RestartAsync();
+            string message = await ManagerService.RestartAsync();
             SetRestartMessage(message);
         }
         catch (Exception exception)

@@ -2,7 +2,7 @@ using AsaServerManager.Web.Models.Asa;
 
 namespace AsaServerManager.Web.Services;
 
-public sealed class AsaManagerService(InstallStateService installStateService) : IAsyncDisposable
+public sealed class ManagerService(InstallStateService installStateService) : IAsyncDisposable
 {
     private readonly InstallStateService _installStateService = installStateService;
     private CancellationTokenSource? _pollingCancellationTokenSource;

@@ -5,22 +5,22 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace AsaServerManager.Web.Services;
 
-public sealed class AsaStateHubPublisher(
-    AsaServerMonitor asaServerMonitor,
+public sealed class StateHubPublisherService(
+    ServerMonitorService serverMonitorService,
     IHubContext<AsaStateHub> hubContext) : IHostedService
 {
-    private readonly AsaServerMonitor _asaServerMonitor = asaServerMonitor;
+    private readonly ServerMonitorService _serverMonitorService = serverMonitorService;
     private readonly IHubContext<AsaStateHub> _hubContext = hubContext;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _asaServerMonitor.StatusChanged += OnStatusChanged;
+        _serverMonitorService.StatusChanged += OnStatusChanged;
         return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        _asaServerMonitor.StatusChanged -= OnStatusChanged;
+        _serverMonitorService.StatusChanged -= OnStatusChanged;
         return Task.CompletedTask;
     }
 
@@ -31,7 +31,7 @@ public sealed class AsaStateHubPublisher(
 
     private async Task BroadcastAsync()
     {
-        AsaServiceStatus status = AsaServiceStatusFactory.FromSnapshot(_asaServerMonitor.GetSnapshot());
+        AsaServiceStatus status = AsaServiceStatusFactory.FromSnapshot(_serverMonitorService.GetSnapshot());
         await _hubContext.Clients.All.SendAsync(AsaStateHubConstants.StateUpdatedMethod, status);
     }
 }

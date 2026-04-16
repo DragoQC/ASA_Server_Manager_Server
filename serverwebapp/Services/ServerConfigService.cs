@@ -5,43 +5,57 @@ namespace AsaServerManager.Web.Services;
 
 public sealed class ServerConfigService
 {
+    private readonly SemaphoreSlim _sync = new(1, 1);
+    private ServerConfigSettings? _cachedSettings;
+    private bool _hasConfigFile;
+    private DateTimeOffset _lastLoadedWriteTimeUtc;
+
 	public async Task<ServerConfigSettings> LoadAsync(CancellationToken cancellationToken = default)
 	{
-		if (!File.Exists(ServerConfigConstants.EnvFilePath))
-		{
-			return GetSettings(null);
-		}
+        await _sync.WaitAsync(cancellationToken);
+        try
+        {
+            DateTimeOffset currentWriteTimeUtc = File.Exists(ServerConfigConstants.EnvFilePath)
+                ? File.GetLastWriteTimeUtc(ServerConfigConstants.EnvFilePath)
+                : DateTimeOffset.MinValue;
 
-		string content = await File.ReadAllTextAsync(ServerConfigConstants.EnvFilePath, cancellationToken);
-		ServerConfigSettings settings = GetSettings(content);
-		string normalizedContent = NormalizeLineEndings(content);
-		string expectedContent = NormalizeLineEndings(BuildEnvContent(settings));
+            bool needsReload = _cachedSettings is null ||
+                               _hasConfigFile != File.Exists(ServerConfigConstants.EnvFilePath) ||
+                               (_hasConfigFile && currentWriteTimeUtc != _lastLoadedWriteTimeUtc);
 
-		if (!string.Equals(normalizedContent, expectedContent, StringComparison.Ordinal))
-		{
-			await SaveAsync(settings, cancellationToken);
-		}
+            if (needsReload)
+            {
+                await ReloadCacheAsync(cancellationToken);
+            }
 
-		return settings;
+            return (_cachedSettings ?? ServerConfigSettings.Default()).Clone();
+        }
+        finally
+        {
+            _sync.Release();
+        }
 	}
 
 	public bool HasConfigFile()
 	{
-		return File.Exists(ServerConfigConstants.EnvFilePath);
+        return _cachedSettings is not null
+            ? _hasConfigFile
+            : File.Exists(ServerConfigConstants.EnvFilePath);
 	}
 
 	public async Task SaveAsync(ServerConfigSettings settings, CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(settings);
 
-		string? directoryPath = Path.GetDirectoryName(ServerConfigConstants.EnvFilePath);
-		if (!string.IsNullOrWhiteSpace(directoryPath))
-		{
-			Directory.CreateDirectory(directoryPath);
-		}
-
-		string content = BuildEnvContent(settings);
-		await File.WriteAllTextAsync(ServerConfigConstants.EnvFilePath, content, cancellationToken);
+        await _sync.WaitAsync(cancellationToken);
+        try
+        {
+            await SaveInternalAsync(settings.Clone(), cancellationToken);
+        }
+        finally
+        {
+            _sync.Release();
+        }
 	}
 
 	public async Task<List<string>> LoadModIdsAsync(CancellationToken cancellationToken = default)
@@ -52,6 +66,60 @@ public sealed class ServerConfigService
 				.Where(value => !string.IsNullOrWhiteSpace(value))
 				.ToList();
 	}
+
+    public async Task<int> GetMaxPlayersAsync(CancellationToken cancellationToken = default)
+    {
+        ServerConfigSettings settings = await LoadAsync(cancellationToken);
+        return settings.MaxPlayers;
+    }
+
+    public async Task<int> GetRconPortAsync(CancellationToken cancellationToken = default)
+    {
+        ServerConfigSettings settings = await LoadAsync(cancellationToken);
+        return settings.RconPort;
+    }
+
+    private async Task ReloadCacheAsync(CancellationToken cancellationToken)
+    {
+        if (!File.Exists(ServerConfigConstants.EnvFilePath))
+        {
+            _cachedSettings = ServerConfigSettings.Default();
+            _hasConfigFile = false;
+            _lastLoadedWriteTimeUtc = DateTimeOffset.MinValue;
+            return;
+        }
+
+        string content = await File.ReadAllTextAsync(ServerConfigConstants.EnvFilePath, cancellationToken);
+        ServerConfigSettings settings = GetSettings(content);
+        string normalizedContent = NormalizeLineEndings(content);
+        string expectedContent = NormalizeLineEndings(BuildEnvContent(settings));
+
+        if (!string.Equals(normalizedContent, expectedContent, StringComparison.Ordinal))
+        {
+            await SaveInternalAsync(settings.Clone(), cancellationToken);
+            return;
+        }
+
+        _cachedSettings = settings;
+        _hasConfigFile = true;
+        _lastLoadedWriteTimeUtc = File.GetLastWriteTimeUtc(ServerConfigConstants.EnvFilePath);
+    }
+
+    private async Task SaveInternalAsync(ServerConfigSettings settings, CancellationToken cancellationToken)
+    {
+        string? directoryPath = Path.GetDirectoryName(ServerConfigConstants.EnvFilePath);
+        if (!string.IsNullOrWhiteSpace(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
+
+        string content = BuildEnvContent(settings);
+        await File.WriteAllTextAsync(ServerConfigConstants.EnvFilePath, content, cancellationToken);
+
+        _cachedSettings = settings.Clone();
+        _hasConfigFile = true;
+        _lastLoadedWriteTimeUtc = File.GetLastWriteTimeUtc(ServerConfigConstants.EnvFilePath);
+    }
 
 	private static ServerConfigSettings GetSettings(string? content)
 	{

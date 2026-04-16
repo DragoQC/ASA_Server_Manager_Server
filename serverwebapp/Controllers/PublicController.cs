@@ -5,10 +5,10 @@ namespace AsaServerManager.Web.Controllers;
 
 [ApiController]
 [Route("api")]
-public sealed class PublicController(ServerConfigService serverConfigService, AsaManagerService asaManagerService) : ControllerBase
+public sealed class PublicController(ServerConfigService serverConfigService, ManagerService managerService) : ControllerBase
 {
     private readonly ServerConfigService _serverConfigService = serverConfigService;
-    private readonly AsaManagerService _asaManagerService = asaManagerService;
+    private readonly ManagerService _managerService = managerService;
 
     [HttpGet("mods")]
     public async Task<IActionResult> GetMods(CancellationToken cancellationToken)
@@ -25,18 +25,18 @@ public sealed class PublicController(ServerConfigService serverConfigService, As
     [HttpGet("state")]
     public async Task<IActionResult> State(CancellationToken cancellationToken)
     {
-        await _asaManagerService.RefreshAsync(cancellationToken);
+        await _managerService.RefreshAsync(cancellationToken);
 
         return Ok(new
         {
             success = true,
-            activeState = _asaManagerService.CurrentStatus.ActiveState,
-            subState = _asaManagerService.CurrentStatus.SubState,
-            result = _asaManagerService.CurrentStatus.Result,
-            displayText = _asaManagerService.CurrentStatus.DisplayText,
-            canStart = _asaManagerService.CurrentStatus.CanStart,
-            canStop = _asaManagerService.CurrentStatus.CanStop,
-            uptime = _asaManagerService.CurrentStatus.UptimeText
+            activeState = _managerService.CurrentStatus.ActiveState,
+            subState = _managerService.CurrentStatus.SubState,
+            result = _managerService.CurrentStatus.Result,
+            displayText = _managerService.CurrentStatus.DisplayText,
+            canStart = _managerService.CurrentStatus.CanStart,
+            canStop = _managerService.CurrentStatus.CanStop,
+            uptime = _managerService.CurrentStatus.UptimeText
         });
     }
 }

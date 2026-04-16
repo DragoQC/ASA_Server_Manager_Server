@@ -36,4 +36,19 @@ public sealed class ServerConfigSettings
 	public string CustomExtraArgs { get; set; } = "-crossplay -NoBattlEye";
 
 	public static ServerConfigSettings Default() => new();
+
+	public ServerConfigSettings Clone() =>
+		new()
+		{
+			MapName = MapName,
+			ServerName = ServerName,
+			MaxPlayers = MaxPlayers,
+			GamePort = GamePort,
+			QueryPort = QueryPort,
+			RconPort = RconPort,
+			ModIds = ModIds,
+			ClusterId = ClusterId,
+			ClusterDir = ClusterDir,
+			CustomExtraArgs = CustomExtraArgs
+		};
 }

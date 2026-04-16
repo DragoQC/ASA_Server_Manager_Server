@@ -2,7 +2,7 @@
 @implements IAsyncDisposable
 @using AsaServerManager.Web.Models.Asa
 @using AsaServerManager.Web.Models.AsaLogs
-@inject AsaServerManager.Web.Services.AsaLogsService AsaLogsService
+@inject AsaServerManager.Web.Services.LogsService LogsService
 
 <PageTitle>Logs</PageTitle>
 
@@ -76,7 +76,7 @@
 
         try
         {
-            _snapshot = await AsaLogsService.LoadAsync();
+            _snapshot = await LogsService.LoadAsync();
             _loadError = null;
         }
         catch (Exception exception)

@@ -4,7 +4,7 @@ using AsaServerManager.Web.Models.AsaLogs;
 
 namespace AsaServerManager.Web.Services;
 
-public sealed class AsaLogsService(InstallStateService installStateService)
+public sealed class LogsService(InstallStateService installStateService)
 {
     private readonly InstallStateService _installStateService = installStateService;
 

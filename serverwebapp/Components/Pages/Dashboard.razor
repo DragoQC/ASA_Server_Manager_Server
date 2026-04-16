@@ -1,5 +1,6 @@
 @page "/admin/dashboard"
 @implements IAsyncDisposable
+@inject AsaServerManager.Web.Services.PlayerCountMonitorService PlayerCountMonitorService
 @inject AsaServerManager.Web.Services.SystemMetricsService SystemMetricsService
 
 
@@ -25,7 +26,7 @@
         <div>
             <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Dashboard</h1>
             <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
-                Host machine totals and live throughput values for the ASA environment.
+                Host machine totals and live ASA player activity for this node.
             </p>
         </div>
 
@@ -38,6 +39,9 @@
         else
         {
             <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                <PlayerCountCard Current="@_playerCountSnapshot.CurrentPlayers"
+                                 Max="@_playerCountSnapshot.MaxPlayers"
+                                 Status="@_playerCountSnapshot.StatusLabel" />
                 <DashboardValueCard Title="CPU total"
                                     Subtitle="System"
                                     Value="@_snapshot.CpuTotal"
@@ -68,11 +72,16 @@
 
 @code {
     private AsaServerManager.Web.Models.SystemMetrics.SystemMetricsSnapshot? _snapshot;
+    private AsaServerManager.Web.Models.Players.PlayerCountSnapshot _playerCountSnapshot =
+        AsaServerManager.Web.Models.Players.PlayerCountSnapshot.Default();
     private CancellationTokenSource? _refreshLoopCancellationTokenSource;
     private bool _isRefreshing;
 
     protected override async Task OnInitializedAsync()
     {
+        _playerCountSnapshot = PlayerCountMonitorService.GetSnapshot();
+        PlayerCountMonitorService.Changed += OnPlayerCountChanged;
+        await PlayerCountMonitorService.RefreshNowAsync();
         await RefreshAsync();
         _refreshLoopCancellationTokenSource = new CancellationTokenSource();
         _ = RunRefreshLoopAsync(_refreshLoopCancellationTokenSource.Token);
@@ -114,8 +123,19 @@
         }
     }
 
+    private void OnPlayerCountChanged()
+    {
+        _ = InvokeAsync(() =>
+        {
+            _playerCountSnapshot = PlayerCountMonitorService.GetSnapshot();
+            StateHasChanged();
+        });
+    }
+
     public ValueTask DisposeAsync()
     {
+        PlayerCountMonitorService.Changed -= OnPlayerCountChanged;
+
         if (_refreshLoopCancellationTokenSource is not null)
         {
             _refreshLoopCancellationTokenSource.Cancel();

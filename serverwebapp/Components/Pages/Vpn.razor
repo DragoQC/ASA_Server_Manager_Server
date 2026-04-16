@@ -1,0 +1,141 @@
+@page "/admin/vpn"
+
+<PageTitle>VPN</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-cyan-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center gap-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">VPN</p>
+            <StatusTag Text="Planning" />
+        </div>
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">VPN configuration</h1>
+            <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
+                Draft page for the one-to-one VPN setup between this server node and the control machine that will stay publicly reachable and orchestrate cluster folders, VPN links, and node coordination.
+            </p>
+            <p class="mt-3 max-w-3xl text-sm leading-6 text-cyan-200/80">
+                This page is UI-only for now. Nothing here is stored or applied yet while the final VPN approach is still being decided.
+            </p>
+        </div>
+
+        <div class="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_24rem]">
+            <section class="space-y-6 rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                <div class="space-y-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h2 class="text-3xl font-semibold text-white">Connection layout</h2>
+                        <StatusTag Text="Placeholder" />
+                    </div>
+
+                    <p class="max-w-3xl text-base leading-7 text-neutral-300">
+                        Expected model: each ASA node connects to exactly one control machine over a private VPN link. The control machine remains the stable public entry point and handles orchestration duties for the cluster.
+                    </p>
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Control machine</p>
+                        <p class="mt-3 text-sm leading-6 text-neutral-300">Public endpoint, peer key, allowed routes, and shared cluster path details will live here.</p>
+                    </div>
+                    <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Server node</p>
+                        <p class="mt-3 text-sm leading-6 text-neutral-300">Local interface info, node VPN address, keepalive, and node-specific routing will be configured here.</p>
+                    </div>
+                </div>
+
+                <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                    <div class="mb-5">
+                        <h3 class="text-2xl font-semibold text-white">WireGuard draft</h3>
+                        <p class="mt-2 text-sm text-neutral-400">Placeholder fields for a file-based setup such as <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg0.conf</code>.</p>
+                    </div>
+
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <TextField Label="Interface name"
+                                   Value=""
+                                   placeholder="wg0"
+                                   disabled />
+                        <TextField Label="Node VPN address"
+                                   Value=""
+                                   placeholder="10.90.0.2/32"
+                                   disabled />
+                        <TextField Label="Control endpoint"
+                                   Value=""
+                                   placeholder="control.example.com:51820"
+                                   disabled />
+                        <TextField Label="Allowed IPs"
+                                   Value=""
+                                   placeholder="10.90.0.1/32, 10.91.0.0/24"
+                                   disabled />
+                        <TextField Label="Persistent keepalive"
+                                   Value=""
+                                   placeholder="25"
+                                   disabled />
+                        <TextField Label="Cluster mount path"
+                                   Value=""
+                                   placeholder="/opt/asa/cluster"
+                                   disabled />
+                        <div class="md:col-span-2">
+                            <TextField Label="Notes"
+                                       Value=""
+                                       IsTextArea="true"
+                                       placeholder="Reserved for peer mapping, failover rules, or future automation notes."
+                                       disabled />
+                        </div>
+                    </div>
+                </section>
+
+                <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                    <div class="mb-5">
+                        <h3 class="text-2xl font-semibold text-white">Config preview</h3>
+                        <p class="mt-2 text-sm text-neutral-400">Example structure only. Final content depends on the VPN option you choose.</p>
+                    </div>
+
+                    <pre class="overflow-auto rounded-[1.3rem] border border-white/10 bg-[#05070d] p-4 font-mono text-sm leading-6 whitespace-pre-wrap text-cyan-100 shadow-[inset_0_0_25px_rgba(34,211,238,0.08)]">[Interface]
+PrivateKey = &lt;node-private-key&gt;
+Address = &lt;node-vpn-address&gt;
+
+[Peer]
+PublicKey = &lt;control-public-key&gt;
+PresharedKey = &lt;optional-preshared-key&gt;
+Endpoint = &lt;control-endpoint&gt;
+AllowedIPs = &lt;allowed-routes&gt;
+PersistentKeepalive = &lt;keepalive&gt;</pre>
+                </section>
+            </section>
+
+            <aside class="space-y-4 rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Current status</p>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <StatusTag Text="UI only" />
+                        <StatusTag Text="No storage" />
+                    </div>
+                    <p class="mt-4 text-sm leading-6 text-neutral-300">
+                        No file write, no DB write, no install action yet.
+                    </p>
+                </div>
+
+                <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Likely file target</p>
+                    <p class="mt-3 text-sm leading-6 text-neutral-300">
+                        If you go file-based, this page can later drive a generated <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg0.conf</code> or similar node config file.
+                    </p>
+                </div>
+
+                <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Cluster intent</p>
+                    <p class="mt-3 text-sm leading-6 text-neutral-300">
+                        The design assumes the control machine owns the always-online surface while server nodes connect inward over private tunnels.
+                    </p>
+                </div>
+
+                <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Next step</p>
+                    <p class="mt-3 text-sm leading-6 text-neutral-300">
+                        Once you choose WireGuard or another approach, this page can be wired to real file generation and validation.
+                    </p>
+                </div>
+            </aside>
+        </div>
+    </div>
+</section>
