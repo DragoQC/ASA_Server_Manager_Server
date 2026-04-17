@@ -1,4 +1,7 @@
-<BaseCard Title="Players" Subtitle="Online now" Stat="@($"{Current}/{Max}")" StatHint="max players" Status="@Status" />
+<DashboardValueCard Title="Players"
+                    Subtitle="Online now"
+                    Value="@(IsLoading ? "Loading..." : $"{Current}/{Max}")"
+                    Description="Current online players out of the configured max player count." />
 
 @code {
     [Parameter]
@@ -8,5 +11,5 @@
     public int Max { get; set; } = 30;
 
     [Parameter]
-    public string? Status { get; set; }
+    public bool IsLoading { get; set; }
 }

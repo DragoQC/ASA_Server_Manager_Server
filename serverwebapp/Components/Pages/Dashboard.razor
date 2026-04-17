@@ -30,43 +30,34 @@
             </p>
         </div>
 
-        @if (_snapshot is null)
-        {
-            <div class="rounded-[1.6rem] border border-white/12 bg-black/35 p-6 text-neutral-300 backdrop-blur-md">
-                Loading dashboard...
-            </div>
-        }
-        else
-        {
-            <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                <PlayerCountCard Current="@_playerCountSnapshot.CurrentPlayers"
-                                 Max="@_playerCountSnapshot.MaxPlayers"
-                                 Status="@_playerCountSnapshot.StatusLabel" />
-                <DashboardValueCard Title="CPU total"
-                                    Subtitle="System"
-                                    Value="@_snapshot.CpuTotal"
-                                    Description="Logical CPU count available to the host." />
-                <DashboardValueCard Title="CPU usage"
-                                    Subtitle="System"
-                                    Value="@_snapshot.CpuUsage"
-                                    Description="Current total CPU usage on the host." />
-                <DashboardValueCard Title="Disk"
-                                    Subtitle="Storage"
-                                    Value="@($"{_snapshot.DiskUsed} /\n{_snapshot.DiskTotal}")"
-                                    Description="Used and total space on the root filesystem.">
-                </DashboardValueCard>
-                <DashboardValueCard Title="Network"
-                                    Subtitle="Network throughput"
-                                    Value="@($"{_snapshot.DownloadSpeed} / {_snapshot.UploadSpeed}")"
-                                    Description="Current host network throughput.">
-                </DashboardValueCard>
-                <DashboardValueCard Title="RAM"
-                                    Subtitle="Memory"
-                                    Value="@($"{_snapshot.RamUsed} /\n {_snapshot.RamTotal}")"
-                                    Description="Used and total system memory on the host.">
-                </DashboardValueCard>
-            </div>
-        }
+        <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <PlayerCountCard Current="@_playerCountSnapshot.CurrentPlayers"
+                             Max="@_playerCountSnapshot.MaxPlayers"
+                             IsLoading="@IsPlayerCountLoading" />
+            <DashboardValueCard Title="CPU total"
+                                Subtitle="System"
+                                Value="@CpuTotalValue"
+                                Description="Logical CPU count available to the host." />
+            <DashboardValueCard Title="CPU usage"
+                                Subtitle="System"
+                                Value="@CpuUsageValue"
+                                Description="Current total CPU usage on the host." />
+            <DashboardValueCard Title="Disk"
+                                Subtitle="Storage"
+                                Value="@DiskValue"
+                                Description="Used and total space on the root filesystem.">
+            </DashboardValueCard>
+            <DashboardValueCard Title="Network"
+                                Subtitle="Network throughput"
+                                Value="@NetworkValue"
+                                Description="Current host network throughput.">
+            </DashboardValueCard>
+            <DashboardValueCard Title="RAM"
+                                Subtitle="Memory"
+                                Value="@RamValue"
+                                Description="Used and total system memory on the host.">
+            </DashboardValueCard>
+        </div>
     </div>
 </section>
 
@@ -77,13 +68,20 @@
     private CancellationTokenSource? _refreshLoopCancellationTokenSource;
     private bool _isRefreshing;
 
-    protected override async Task OnInitializedAsync()
+    private bool IsPlayerCountLoading => string.Equals(_playerCountSnapshot.StatusLabel, "Waiting", StringComparison.OrdinalIgnoreCase);
+    private string CpuTotalValue => _snapshot?.CpuTotal ?? "Loading...";
+    private string CpuUsageValue => _snapshot?.CpuUsage ?? "Loading...";
+    private string DiskValue => _snapshot is null ? "Loading..." : $"{_snapshot.DiskUsed} /\n{_snapshot.DiskTotal}";
+    private string NetworkValue => _snapshot is null ? "Loading..." : $"{_snapshot.DownloadSpeed} / {_snapshot.UploadSpeed}";
+    private string RamValue => _snapshot is null ? "Loading..." : $"{_snapshot.RamUsed} /\n {_snapshot.RamTotal}";
+
+    protected override void OnInitialized()
     {
         _playerCountSnapshot = PlayerCountMonitorService.GetSnapshot();
         PlayerCountMonitorService.Changed += OnPlayerCountChanged;
-        await PlayerCountMonitorService.RefreshNowAsync();
-        await RefreshAsync();
         _refreshLoopCancellationTokenSource = new CancellationTokenSource();
+        _ = PlayerCountMonitorService.RefreshNowAsync();
+        _ = RefreshAsync();
         _ = RunRefreshLoopAsync(_refreshLoopCancellationTokenSource.Token);
     }
 
@@ -99,6 +97,9 @@
         try
         {
             _snapshot = await SystemMetricsService.LoadAsync();
+        }
+        catch
+        {
         }
         finally
         {

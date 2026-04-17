@@ -22,6 +22,7 @@
     let viewportHeight = 0;
     let deviceScale = 1;
     let lastFrameTime = performance.now();
+    let palette = readPalette();
 
     function clamp(value, min, max) {
         return Math.max(min, Math.min(max, value));
@@ -40,6 +41,19 @@
         context.setTransform(deviceScale, 0, 0, deviceScale, 0, 0);
         createParticles();
         drawFrame(0);
+    }
+
+    function readPalette() {
+        const styles = window.getComputedStyle(document.documentElement);
+        const rawHue = Number.parseFloat(styles.getPropertyValue("--theme-hue"));
+        const hue = Number.isFinite(rawHue) ? rawHue : 191;
+
+        return {
+            lineHue: hue + 10,
+            mouseHue: hue - 6,
+            particleHue: hue - 12,
+            shadowHue: hue + 4
+        };
     }
 
     function createParticles() {
@@ -92,7 +106,7 @@
                 }
 
                 const alpha = 1 - distance / connectionDistance;
-                context.strokeStyle = `rgba(64, 244, 255, ${alpha * 0.28})`;
+                context.strokeStyle = `hsla(${palette.lineHue}, 100%, 68%, ${alpha * 0.28})`;
                 context.lineWidth = 1;
                 context.beginPath();
                 context.moveTo(particle.x, particle.y);
@@ -111,7 +125,7 @@
                     const alpha = 1 - mouseRange / mouseDistance;
                     glowBoost = alpha;
 
-                    context.strokeStyle = `rgba(118, 255, 255, ${alpha * 0.52})`;
+                    context.strokeStyle = `hsla(${palette.mouseHue}, 100%, 78%, ${alpha * 0.52})`;
                     context.lineWidth = 1.35;
                     context.beginPath();
                     context.moveTo(mouse.x, mouse.y);
@@ -121,9 +135,9 @@
             }
 
             context.beginPath();
-            context.fillStyle = `rgba(174, 255, 255, ${0.62 + glowBoost * 0.38})`;
+            context.fillStyle = `hsla(${palette.particleHue}, 100%, 84%, ${0.62 + glowBoost * 0.38})`;
             context.shadowBlur = 18 + glowBoost * 26;
-            context.shadowColor = "rgba(46, 241, 255, 0.9)";
+            context.shadowColor = `hsla(${palette.shadowHue}, 100%, 62%, 0.9)`;
             context.arc(particle.x, particle.y, particle.radius + glowBoost * 0.7, 0, Math.PI * 2);
             context.fill();
         }
@@ -152,6 +166,9 @@
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("mouseleave", handleMouseLeave, { passive: true });
     window.addEventListener("blur", handleMouseLeave, { passive: true });
+    window.addEventListener("asa-theme-change", () => {
+        palette = readPalette();
+    });
 
     resize();
     animationFrameId = window.requestAnimationFrame(tick);

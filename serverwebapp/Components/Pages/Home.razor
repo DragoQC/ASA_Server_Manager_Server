@@ -1,6 +1,8 @@
 @page "/"
+@implements IAsyncDisposable
 @inject AsaServerManager.Web.Services.ServerConfigService ServerConfigService
 @inject AsaServerManager.Web.Services.ManagerService ManagerService
+@inject AsaServerManager.Web.Services.PlayerCountMonitorService PlayerCountMonitorService
 
 <PageTitle>ASA Server</PageTitle>
 
@@ -19,16 +21,19 @@
         </div>
 
         <div>
-            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">@_settings.ServerName</h1>
+            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">@DisplayServerName</h1>
             <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
                 Public server information page for this ASA instance.
             </p>
         </div>
 
-        <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-5">
+            <PlayerCountCard Current="@_playerCountSnapshot.CurrentPlayers"
+                             Max="@_playerCountSnapshot.MaxPlayers"
+                             IsLoading="@IsPlayerCountLoading" />
             <DashboardValueCard Title="Server name"
                                 Subtitle="Public"
-                                Value="@_settings.ServerName"
+                                Value="@DisplayServerName"
                                 Description="Current configured ASA server name." />
             <DashboardValueCard Title="Server state"
                                 Subtitle="systemd"
@@ -40,17 +45,21 @@
                                 Description="Current uptime from asa.service when available." />
             <DashboardValueCard Title="Mods"
                                 Subtitle="Configuration"
-                                Value="@_mods.Count.ToString()"
+                                Value="@ModsCountValue"
                                 Description="Configured mod count from asa.env." />
         </div>
 
         <div class="rounded-[1.6rem] border border-white/10 bg-black/40 p-6 shadow-[0_0_30px_rgba(0,255,255,0.08)] backdrop-blur-md">
             <div class="flex flex-wrap items-center gap-3">
                 <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Configured mods</p>
-                <StatusTag Text="@(_mods.Count == 0 ? "Missing" : "OK")" />
+                <StatusTag Text="@ModsStatusText" />
             </div>
 
-            @if (_mods.Count == 0)
+            @if (_isLoadingConfig)
+            {
+                <p class="mt-4 text-sm leading-6 text-neutral-300">Loading configured mods...</p>
+            }
+            else if (_mods.Count == 0)
             {
                 <p class="mt-4 text-sm leading-6 text-neutral-300">No mods configured.</p>
             }
@@ -71,17 +80,61 @@
 
 @code {
     private AsaServerManager.Web.Models.ServerConfig.ServerConfigSettings _settings = AsaServerManager.Web.Models.ServerConfig.ServerConfigSettings.Default();
+    private AsaServerManager.Web.Models.Players.PlayerCountSnapshot _playerCountSnapshot =
+        AsaServerManager.Web.Models.Players.PlayerCountSnapshot.Default();
     private List<string> _mods = [];
+    private bool _isLoadingConfig = true;
 
-    protected override async Task OnInitializedAsync()
+    private bool IsPlayerCountLoading => string.Equals(_playerCountSnapshot.StatusLabel, "Waiting", StringComparison.OrdinalIgnoreCase);
+    private string DisplayServerName => _isLoadingConfig ? "Loading..." : _settings.ServerName;
+    private string ModsCountValue => _isLoadingConfig ? "Loading..." : _mods.Count.ToString();
+    private string ModsStatusText => _isLoadingConfig ? "Waiting" : _mods.Count == 0 ? "Missing" : "OK";
+
+    protected override void OnInitialized()
     {
-        _settings = await ServerConfigService.LoadAsync();
-        _mods = _settings.ModIds
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .ToList();
+        _playerCountSnapshot = PlayerCountMonitorService.GetSnapshot();
+        PlayerCountMonitorService.Changed += OnPlayerCountChanged;
+        ManagerService.Changed += OnManagerChanged;
+        _ = LoadPublicDataAsync();
+        _ = PlayerCountMonitorService.RefreshNowAsync();
+        _ = ManagerService.EnsureStartedAsync();
+    }
 
-        await ManagerService.EnsureStartedAsync();
-        await ManagerService.RefreshAsync();
+    private void OnPlayerCountChanged()
+    {
+        _ = InvokeAsync(() =>
+        {
+            _playerCountSnapshot = PlayerCountMonitorService.GetSnapshot();
+            StateHasChanged();
+        });
+    }
+
+    private void OnManagerChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadPublicDataAsync()
+    {
+        try
+        {
+            _settings = await ServerConfigService.LoadAsync();
+            _mods = _settings.ModIds
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToList();
+        }
+        finally
+        {
+            _isLoadingConfig = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        PlayerCountMonitorService.Changed -= OnPlayerCountChanged;
+        ManagerService.Changed -= OnManagerChanged;
+        return ValueTask.CompletedTask;
     }
 }

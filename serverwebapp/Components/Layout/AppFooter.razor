@@ -1,0 +1,160 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JSRuntime
+
+<footer class="relative z-10 border-t border-white/10 bg-black/20">
+    <div class="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 text-sm text-neutral-400 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div class="space-y-2">
+            <p>Single-server neon control surface for ASA.</p>
+            <p class="flex flex-wrap items-center gap-x-3 gap-y-2 text-app-100/70">
+                <span>Original panel made by Alex / DragoQC 🐉</span>
+                <a href="https://github.com/DragoQC"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="transition hover:text-app-100">
+                    GitHub
+                </a>
+                <a href="https://github.com/DragoQC/ASA_Server_Manager"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="transition hover:text-app-100">
+                    ASA Server Manager repo
+                </a>
+            </p>
+        </div>
+
+        <div class="rounded-[1.3rem] border border-app-300/20 bg-white/5 px-4 py-3 shadow-[0_0_18px_rgba(34,211,238,0.15)] backdrop-blur-sm">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div>
+                    <p class="text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-app-200/75">Theme tone</p>
+                    <div class="mt-2 flex items-center gap-3">
+                        <input type="range"
+                               min="0"
+                               max="359"
+                               step="1"
+                               value="@_themeHue"
+                               @oninput="HandleThemeHueInput"
+                               class="theme-hue-slider" />
+                        <span class="min-w-[2.75rem] text-right text-xs font-semibold text-app-100">@_themeHue</span>
+                    </div>
+                </div>
+
+                <label class="inline-flex select-none items-center gap-3 rounded-full border border-app-300/20 bg-app-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.15)]">
+                    <input type="checkbox"
+                           checked="@_isPartyModeEnabled"
+                           @onchange="HandlePartyModeChanged"
+                           class="h-4 w-4 rounded border-white/20 bg-black/20 text-app-300" />
+                    Party mode
+                </label>
+            </div>
+        </div>
+    </div>
+</footer>
+
+@code {
+    private const int DefaultHue = 191;
+    private static readonly TimeSpan PartyTickInterval = TimeSpan.FromMilliseconds(180);
+
+    private CancellationTokenSource? _partyLoopCancellationTokenSource;
+    private int _themeHue = DefaultHue;
+    private bool _isPartyModeEnabled;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        ThemeState state = await JSRuntime.InvokeAsync<ThemeState>("asaTheme.getState", DefaultHue);
+        _themeHue = state.Hue;
+        _isPartyModeEnabled = state.IsPartyModeEnabled;
+
+        if (_isPartyModeEnabled)
+        {
+            StartPartyLoop();
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleThemeHueInput(ChangeEventArgs args)
+    {
+        if (!int.TryParse(args.Value?.ToString(), out int hue))
+        {
+            return;
+        }
+
+        _themeHue = hue;
+        await JSRuntime.InvokeVoidAsync("asaTheme.setHue", hue);
+    }
+
+    private async Task HandlePartyModeChanged(ChangeEventArgs args)
+    {
+        if (!bool.TryParse(args.Value?.ToString(), out bool isEnabled))
+        {
+            isEnabled = false;
+        }
+
+        _isPartyModeEnabled = isEnabled;
+        await JSRuntime.InvokeVoidAsync("asaTheme.setPartyMode", isEnabled);
+
+        if (isEnabled)
+        {
+            StartPartyLoop();
+        }
+        else
+        {
+            StopPartyLoop();
+        }
+    }
+
+    private void StartPartyLoop()
+    {
+        StopPartyLoop();
+        _partyLoopCancellationTokenSource = new CancellationTokenSource();
+        _ = RunPartyLoopAsync(_partyLoopCancellationTokenSource.Token);
+    }
+
+    private void StopPartyLoop()
+    {
+        if (_partyLoopCancellationTokenSource is null)
+        {
+            return;
+        }
+
+        _partyLoopCancellationTokenSource.Cancel();
+        _partyLoopCancellationTokenSource.Dispose();
+        _partyLoopCancellationTokenSource = null;
+    }
+
+    private async Task RunPartyLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using PeriodicTimer timer = new(PartyTickInterval);
+
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                _themeHue = (_themeHue + 1) % 360;
+                await JSRuntime.InvokeVoidAsync("asaTheme.setHue", cancellationToken, _themeHue);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        StopPartyLoop();
+        return ValueTask.CompletedTask;
+    }
+
+    private sealed class ThemeState
+    {
+        public int Hue { get; set; }
+
+        public bool IsPartyModeEnabled { get; set; }
+    }
+}
