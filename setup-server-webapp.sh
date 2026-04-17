@@ -65,6 +65,9 @@ GAME_SERVICE_TEMPLATE_RELATIVE_PATH="serverwebapp/Templates/Install/asa.service"
 GAME_SERVICE_DIR="${BASE_DIR}/systemd"
 GAME_SERVICE_FILE="${GAME_SERVICE_DIR}/asa.service"
 SYSTEMD_GAME_SERVICE_FILE="/etc/systemd/system/asa.service"
+VPN_DIR="${BASE_DIR}/vpn"
+VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="serverwebapp/Templates/Vpn/prepare-wireguard-client.sh"
+VPN_PREP_SCRIPT_PATH="${VPN_DIR}/prepare-wireguard-client.sh"
 
 if [ "${EUID}" -ne 0 ]; then
   log_error "This script must be run as root."
@@ -110,6 +113,7 @@ mkdir -p \
   "${BASE_DIR}/proton" \
   "${BASE_DIR}/server" \
   "${BASE_DIR}/steam" \
+  "${BASE_DIR}/vpn" \
   "${GAME_SERVICE_DIR}" \
   "${WEBAPP_ROOT}" \
   "${PUBLISH_DIR}"
@@ -127,10 +131,14 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u asa -n 80 --no-pager
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start asa
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl stop asa
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart asa
+${USER_NAME} ALL=(root) NOPASSWD: ${VPN_PREP_SCRIPT_PATH}
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl enable wg-quick@wg0
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@wg0
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl stop wg-quick@wg0
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
-log_ok "Granted ${USER_NAME} access to query systemd, read asa logs, reload systemd, enable asa, start asa, stop asa, and restart asa."
+log_ok "Granted ${USER_NAME} access to query systemd, read asa logs, manage asa, run the WireGuard prep script, and control wg-quick@wg0."
 
 if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_VERSION}\\."; then
   log_dotnet "Installing latest .NET SDK ${DOTNET_VERSION}..."
@@ -174,6 +182,12 @@ fi
 
 if [ ! -f "${GAME_SERVICE_FILE}" ] && [ -f "${REPO_DIR}/${GAME_SERVICE_TEMPLATE_RELATIVE_PATH}" ]; then
   cp "${REPO_DIR}/${GAME_SERVICE_TEMPLATE_RELATIVE_PATH}" "${GAME_SERVICE_FILE}"
+fi
+
+if [ -f "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${VPN_PREP_SCRIPT_PATH}"
+  chown root:root "${VPN_DIR}" "${VPN_PREP_SCRIPT_PATH}"
+  chmod 0755 "${VPN_DIR}" "${VPN_PREP_SCRIPT_PATH}"
 fi
 
 chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"

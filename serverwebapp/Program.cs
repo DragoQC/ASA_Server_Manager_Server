@@ -79,6 +79,7 @@ builder.Services.AddScoped<ShellConsoleService>();
 builder.Services.AddSingleton<ServerConfigService>();
 builder.Services.AddScoped<SystemMetricsService>();
 builder.Services.AddScoped<UploadedFileService>();
+builder.Services.AddScoped<VpnConfigService>();
 
 WebApplication app = builder.Build();
 

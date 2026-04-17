@@ -1,141 +1,168 @@
 @page "/admin/vpn"
+@inject AsaServerManager.Web.Services.InstallStateService InstallStateService
 
 <PageTitle>VPN</PageTitle>
 
-<section class="rounded-b-[2rem] border-x border-b border-cyan-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
+<section class="rounded-b-[2rem] border-x border-b border-app-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
     <div class="space-y-8">
         <div class="flex flex-wrap items-center gap-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">VPN</p>
-            <StatusTag Text="Planning" />
+            <p class="text-xs font-semibold uppercase tracking-[0.45em] text-app-300">VPN</p>
+            <StatusTag Text="WireGuard client" />
         </div>
 
         <div>
-            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">VPN configuration</h1>
+            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Enable VPN connection</h1>
             <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
-                Draft page for the one-to-one VPN setup between this server node and the control machine that will stay publicly reachable and orchestrate cluster folders, VPN links, and node coordination.
+                This node can be prepared as a WireGuard client for the control machine. Nothing is installed until you confirm the action below.
             </p>
-            <p class="mt-3 max-w-3xl text-sm leading-6 text-cyan-200/80">
-                This page is UI-only for now. Nothing here is stored or applied yet while the final VPN approach is still being decided.
+            <p class="mt-3 max-w-3xl text-sm leading-6 text-app-200/80">
+                Enabling VPN here installs WireGuard client tools and prepares the node to receive its configuration later from the control side.
             </p>
         </div>
 
-        <div class="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_24rem]">
-            <section class="space-y-6 rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
-                <div class="space-y-3">
+        @if (!string.IsNullOrWhiteSpace(_statusMessage))
+        {
+            <div class="@GetStatusMessageClass()">
+                @_statusMessage
+            </div>
+        }
+
+        <div class="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_24rem]">
+            <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                <div class="space-y-4">
                     <div class="flex flex-wrap items-center gap-3">
-                        <h2 class="text-3xl font-semibold text-white">Connection layout</h2>
-                        <StatusTag Text="Placeholder" />
+                        <h2 class="text-3xl font-semibold text-white">Node preparation</h2>
+                        <StatusTag Text="Manual confirmation" />
                     </div>
 
                     <p class="max-w-3xl text-base leading-7 text-neutral-300">
-                        Expected model: each ASA node connects to exactly one control machine over a private VPN link. The control machine remains the stable public entry point and handles orchestration duties for the cluster.
+                        Use this once per node when you want to make it ready for the control machine VPN. This does not install a VPN by default and it does not push any peer configuration yet.
                     </p>
-                </div>
 
-                <div class="grid gap-4 md:grid-cols-2">
-                    <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Control machine</p>
-                        <p class="mt-3 text-sm leading-6 text-neutral-300">Public endpoint, peer key, allowed routes, and shared cluster path details will live here.</p>
-                    </div>
-                    <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Server node</p>
-                        <p class="mt-3 text-sm leading-6 text-neutral-300">Local interface info, node VPN address, keepalive, and node-specific routing will be configured here.</p>
-                    </div>
-                </div>
+                    <div class="rounded-[1.6rem] border border-app-300/20 bg-app-400/10 p-6 shadow-[0_0_24px_rgba(34,211,238,0.12)]">
+                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">What this does</p>
+                        <div class="mt-4 grid gap-3 md:grid-cols-3">
+                            <div class="rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
+                                <p class="text-sm font-medium text-white">Install client</p>
+                                <p class="mt-2 text-sm leading-6 text-neutral-300">Installs WireGuard client tools on this machine.</p>
+                            </div>
+                            <div class="rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
+                                <p class="text-sm font-medium text-white">Prepare service control</p>
+                                <p class="mt-2 text-sm leading-6 text-neutral-300">Allows the panel to start, stop, and enable <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg-quick@wg0</code>.</p>
+                            </div>
+                            <div class="rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
+                                <p class="text-sm font-medium text-white">Wait for config</p>
+                                <p class="mt-2 text-sm leading-6 text-neutral-300">The actual peer config still comes later from the control machine.</p>
+                            </div>
+                        </div>
 
-                <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
-                    <div class="mb-5">
-                        <h3 class="text-2xl font-semibold text-white">WireGuard draft</h3>
-                        <p class="mt-2 text-sm text-neutral-400">Placeholder fields for a file-based setup such as <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg0.conf</code>.</p>
-                    </div>
-
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <TextField Label="Interface name"
-                                   Value=""
-                                   placeholder="wg0"
-                                   disabled />
-                        <TextField Label="Node VPN address"
-                                   Value=""
-                                   placeholder="10.90.0.2/32"
-                                   disabled />
-                        <TextField Label="Control endpoint"
-                                   Value=""
-                                   placeholder="control.example.com:51820"
-                                   disabled />
-                        <TextField Label="Allowed IPs"
-                                   Value=""
-                                   placeholder="10.90.0.1/32, 10.91.0.0/24"
-                                   disabled />
-                        <TextField Label="Persistent keepalive"
-                                   Value=""
-                                   placeholder="25"
-                                   disabled />
-                        <TextField Label="Cluster mount path"
-                                   Value=""
-                                   placeholder="/opt/asa/cluster"
-                                   disabled />
-                        <div class="md:col-span-2">
-                            <TextField Label="Notes"
-                                       Value=""
-                                       IsTextArea="true"
-                                       placeholder="Reserved for peer mapping, failover rules, or future automation notes."
-                                       disabled />
+                        <div class="mt-6">
+                            <button type="button"
+                                    @onclick="OpenEnableDialog"
+                                    disabled="@_isEnablingVpn"
+                                    class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                @(_isEnablingVpn ? "Enabling VPN..." : "Enable VPN")
+                            </button>
                         </div>
                     </div>
-                </section>
-
-                <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
-                    <div class="mb-5">
-                        <h3 class="text-2xl font-semibold text-white">Config preview</h3>
-                        <p class="mt-2 text-sm text-neutral-400">Example structure only. Final content depends on the VPN option you choose.</p>
-                    </div>
-
-                    <pre class="overflow-auto rounded-[1.3rem] border border-white/10 bg-[#05070d] p-4 font-mono text-sm leading-6 whitespace-pre-wrap text-cyan-100 shadow-[inset_0_0_25px_rgba(34,211,238,0.08)]">[Interface]
-PrivateKey = &lt;node-private-key&gt;
-Address = &lt;node-vpn-address&gt;
-
-[Peer]
-PublicKey = &lt;control-public-key&gt;
-PresharedKey = &lt;optional-preshared-key&gt;
-Endpoint = &lt;control-endpoint&gt;
-AllowedIPs = &lt;allowed-routes&gt;
-PersistentKeepalive = &lt;keepalive&gt;</pre>
-                </section>
+                </div>
             </section>
 
             <aside class="space-y-4 rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
                 <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Current status</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">Current step</p>
                     <div class="mt-4 flex flex-wrap gap-2">
-                        <StatusTag Text="UI only" />
-                        <StatusTag Text="No storage" />
+                        <StatusTag Text="Opt-in" />
+                        <StatusTag Text="No config yet" />
                     </div>
                     <p class="mt-4 text-sm leading-6 text-neutral-300">
-                        No file write, no DB write, no install action yet.
+                        This page only prepares the node. It does not create or apply <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg0.conf</code> yet.
                     </p>
                 </div>
 
                 <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Likely file target</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">Future service</p>
                     <p class="mt-3 text-sm leading-6 text-neutral-300">
-                        If you go file-based, this page can later drive a generated <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg0.conf</code> or similar node config file.
+                        The prepared interface name is <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg0</code> through <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg-quick@wg0</code>.
                     </p>
                 </div>
 
                 <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Cluster intent</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">Next step later</p>
                     <p class="mt-3 text-sm leading-6 text-neutral-300">
-                        The design assumes the control machine owns the always-online surface while server nodes connect inward over private tunnels.
-                    </p>
-                </div>
-
-                <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Next step</p>
-                    <p class="mt-3 text-sm leading-6 text-neutral-300">
-                        Once you choose WireGuard or another approach, this page can be wired to real file generation and validation.
+                        Once the control app sends the node config, this server can start and auto-enable the WireGuard client service.
                     </p>
                 </div>
             </aside>
         </div>
     </div>
 </section>
+
+<ConfirmationDialog IsOpen="@_showEnableDialog"
+                    IsBusy="@_isEnablingVpn"
+                    Eyebrow="VPN"
+                    Title="Do you want to enable VPN connection to this node?"
+                    Message="If you continue, this will install WireGuard and prepare the node to receive its configuration from the control machine."
+                    ConfirmText="Enable VPN"
+                    CancelText="Cancel"
+                    OnConfirm="EnableVpnAsync"
+                    OnCancel="CloseEnableDialog" />
+
+@code {
+    private bool _showEnableDialog;
+    private bool _isEnablingVpn;
+    private string? _statusMessage;
+    private bool _statusIsError;
+
+    private void OpenEnableDialog()
+    {
+        _showEnableDialog = true;
+    }
+
+    private Task CloseEnableDialog()
+    {
+        if (_isEnablingVpn)
+        {
+            return Task.CompletedTask;
+        }
+
+        _showEnableDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task EnableVpnAsync()
+    {
+        _showEnableDialog = false;
+        _isEnablingVpn = true;
+        _statusMessage = "Installing WireGuard client tools and preparing the node...";
+        _statusIsError = false;
+        _ = EnableVpnInBackgroundAsync();
+        return Task.CompletedTask;
+    }
+
+    private async Task EnableVpnInBackgroundAsync()
+    {
+        try
+        {
+            _statusMessage = await InstallStateService.InstallWireGuardClientAsync();
+            _statusIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isEnablingVpn = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetStatusMessageClass()
+    {
+        return _statusIsError
+            ? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
+            : "rounded-2xl border border-app-300/20 bg-app-400/10 px-5 py-4 text-sm text-app-100";
+    }
+}

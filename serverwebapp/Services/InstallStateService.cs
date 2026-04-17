@@ -293,6 +293,46 @@ public sealed class InstallStateService(
         return "Restarted asa.";
     }
 
+    public async Task<string> InstallWireGuardClientAsync(CancellationToken cancellationToken = default)
+    {
+        await RunProcessAsync(
+            SystemCommandConstants.SudoPath,
+            ["-n", InstallStateConstants.PrepareWireGuardClientScriptPath],
+            cancellationToken);
+
+        return "Installed WireGuard client tools. This node is ready to receive its VPN configuration.";
+    }
+
+    public async Task<string> EnableWireGuardAsync(CancellationToken cancellationToken = default)
+    {
+        await RunProcessAsync(
+            SystemCommandConstants.SudoPath,
+            ["-n", SystemCommandConstants.SystemctlPath, "enable", InstallStateConstants.WireGuardServiceName],
+            cancellationToken);
+
+        return $"Enabled {InstallStateConstants.WireGuardServiceName}.";
+    }
+
+    public async Task<string> StartWireGuardAsync(CancellationToken cancellationToken = default)
+    {
+        await RunProcessAsync(
+            SystemCommandConstants.SudoPath,
+            ["-n", SystemCommandConstants.SystemctlPath, "start", InstallStateConstants.WireGuardServiceName],
+            cancellationToken);
+
+        return $"Started {InstallStateConstants.WireGuardServiceName}.";
+    }
+
+    public async Task<string> StopWireGuardAsync(CancellationToken cancellationToken = default)
+    {
+        await RunProcessAsync(
+            SystemCommandConstants.SudoPath,
+            ["-n", SystemCommandConstants.SystemctlPath, "stop", InstallStateConstants.WireGuardServiceName],
+            cancellationToken);
+
+        return $"Stopped {InstallStateConstants.WireGuardServiceName}.";
+    }
+
     public async Task<AsaServiceStatus> GetAsaServiceStatusAsync(CancellationToken cancellationToken = default)
     {
         IReadOnlyList<string> missingItems = GetMissingValidationItems();
