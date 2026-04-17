@@ -33,7 +33,7 @@ public sealed class ServerController(ServerConfigService serverConfigService) : 
         {
             success = true,
             message = "asa.env updated.",
-            path = AsaServerManager.Web.Constants.ServerConfigConstants.EnvFilePath
+            path = Constants.ServerConfigConstants.EnvFilePath
         });
     }
 
