@@ -53,7 +53,7 @@ SERVICE_NAME="${SERVICE_NAME:-asa-webapp}"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 REPO_URL="${REPO_URL:-https://github.com/DragoQC/ASA_Server_Manager_Server.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
-DOTNET_VERSION="${DOTNET_VERSION:-10.0.100-rc.2.25502.107}"
+DOTNET_VERSION="${DOTNET_VERSION:-10.0}"
 DOTNET_ROOT="${DOTNET_ROOT:-/usr/share/dotnet}"
 DOTNET_BIN="${DOTNET_BIN:-/usr/local/bin/dotnet}"
 APP_PROJECT_RELATIVE_PATH="serverwebapp/AsaServerManager.Web.csproj"
@@ -132,14 +132,14 @@ chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
 log_ok "Granted ${USER_NAME} access to query systemd, read asa logs, reload systemd, enable asa, start asa, stop asa, and restart asa."
 
-if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_VERSION} "; then
-  log_dotnet "Installing .NET SDK ${DOTNET_VERSION}..."
+if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_VERSION}\\."; then
+  log_dotnet "Installing latest .NET SDK ${DOTNET_VERSION}..."
   TEMP_INSTALL_SCRIPT="$(mktemp)"
   curl -fsSL https://dot.net/v1/dotnet-install.sh -o "${TEMP_INSTALL_SCRIPT}"
-  bash "${TEMP_INSTALL_SCRIPT}" --version "${DOTNET_VERSION}" --install-dir "${DOTNET_ROOT}"
+  bash "${TEMP_INSTALL_SCRIPT}" --channel "${DOTNET_VERSION}" --install-dir "${DOTNET_ROOT}"
   rm -f "${TEMP_INSTALL_SCRIPT}"
   ln -sf "${DOTNET_ROOT}/dotnet" "${DOTNET_BIN}"
-  log_ok "Installed .NET SDK ${DOTNET_VERSION}."
+  log_ok "Installed latest .NET SDK ${DOTNET_VERSION}."
 else
   log_ok ".NET SDK ${DOTNET_VERSION} already installed."
 fi

@@ -48,33 +48,6 @@
                                 Value="@ModsCountValue"
                                 Description="Configured mod count from asa.env." />
         </div>
-
-        <div class="rounded-[1.6rem] border border-white/10 bg-black/40 p-6 shadow-[0_0_30px_rgba(0,255,255,0.08)] backdrop-blur-md">
-            <div class="flex flex-wrap items-center gap-3">
-                <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Configured mods</p>
-                <StatusTag Text="@ModsStatusText" />
-            </div>
-
-            @if (_isLoadingConfig)
-            {
-                <p class="mt-4 text-sm leading-6 text-neutral-300">Loading configured mods...</p>
-            }
-            else if (_mods.Count == 0)
-            {
-                <p class="mt-4 text-sm leading-6 text-neutral-300">No mods configured.</p>
-            }
-            else
-            {
-                <div class="mt-5 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                    @foreach (string modId in _mods)
-                    {
-                        <ModCard ModId="@modId"
-                                 SourceLabel="Configured"
-                                 StatusText="OK" />
-                    }
-                </div>
-            }
-        </div>
     </div>
 </section>
 
@@ -88,7 +61,6 @@
     private bool IsPlayerCountLoading => string.Equals(_playerCountSnapshot.StatusLabel, "Waiting", StringComparison.OrdinalIgnoreCase);
     private string DisplayServerName => _isLoadingConfig ? "Loading..." : _settings.ServerName;
     private string ModsCountValue => _isLoadingConfig ? "Loading..." : _mods.Count.ToString();
-    private string ModsStatusText => _isLoadingConfig ? "Waiting" : _mods.Count == 0 ? "Missing" : "OK";
 
     protected override void OnInitialized()
     {

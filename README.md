@@ -83,7 +83,7 @@ Script: [setup-server-webapp.sh](/home/drago/Git/ASA_Server_Manager_Server/setup
 It will:
 
 - install Linux deps
-- install `.NET SDK 10.0.100-rc.2.25502.107`
+- install latest `.NET SDK 10.0`
 - create user `asa_web_app`
 - prepare `/opt/asa`
 - clone `DragoQC/ASA_Server_Manager_Server`
