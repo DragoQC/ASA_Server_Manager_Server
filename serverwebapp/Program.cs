@@ -78,6 +78,7 @@ builder.Services.AddScoped<RconService>();
 builder.Services.AddScoped<ShellConsoleService>();
 builder.Services.AddSingleton<ServerConfigService>();
 builder.Services.AddScoped<SystemMetricsService>();
+builder.Services.AddScoped<UploadedFileService>();
 
 WebApplication app = builder.Build();
 

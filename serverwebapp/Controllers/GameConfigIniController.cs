@@ -8,78 +8,23 @@ namespace AsaServerManager.Web.Controllers;
 [ApiController]
 [RequireApiKey]
 [Route("api/admin/game-config-ini")]
-public sealed class GameConfigIniController(GameConfigService gameConfigService) : ControllerBase
+public sealed class GameConfigIniController(UploadedFileService uploadedFileService) : ControllerBase
 {
-    private readonly GameConfigService _gameConfigService = gameConfigService;
+    private readonly UploadedFileService _uploadedFileService = uploadedFileService;
 
     [HttpPost("game-ini")]
-    public Task<IActionResult> UploadGameIni([FromForm] UploadConfigFileRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> UploadGameIni([FromForm] UploadConfigFileRequest request, CancellationToken cancellationToken)
     {
-        return UploadAsync(
-            request.File,
-            saveAsync: content => _gameConfigService.SaveGameIniAsync(content, cancellationToken),
-            filePath: AsaServerManager.Web.Constants.GameConfigConstants.GameIniPath,
-            successMessage: "Game.ini updated.",
-            cancellationToken);
+        UploadFileResult result = await _uploadedFileService.UploadGameIniAsync(request.File, cancellationToken);
+
+        return result.Success ? Ok(result) : BadRequest(result);
     }
 
     [HttpPost("game-user-settings-ini")]
-    public Task<IActionResult> UploadGameUserSettingsIni([FromForm] UploadConfigFileRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> UploadGameUserSettingsIni([FromForm] UploadConfigFileRequest request, CancellationToken cancellationToken)
     {
-        return UploadAsync(
-            request.File,
-            saveAsync: content => _gameConfigService.SaveGameUserSettingsIniAsync(content, cancellationToken),
-            filePath: AsaServerManager.Web.Constants.GameConfigConstants.GameUserSettingsIniPath,
-            successMessage: "GameUserSettings.ini updated.",
-            cancellationToken);
-    }
+        UploadFileResult result = await _uploadedFileService.UploadGameUserSettingsIniAsync(request.File, cancellationToken);
 
-    private async Task<IActionResult> UploadAsync(
-        IFormFile? file,
-        Func<string, Task> saveAsync,
-        string filePath,
-        string successMessage,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            string content = await ReadFileContentAsync(file, cancellationToken);
-            await saveAsync(content);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new
-            {
-                success = false,
-                message = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new
-            {
-                success = false,
-                message = ex.Message
-            });
-        }
-
-        return Ok(new
-        {
-            success = true,
-            message = successMessage,
-            path = filePath
-        });
-    }
-
-    private static async Task<string> ReadFileContentAsync(IFormFile? file, CancellationToken cancellationToken)
-    {
-        if (file is null || file.Length <= 0)
-        {
-            throw new ArgumentException("A config file upload is required.");
-        }
-
-        using Stream stream = file.OpenReadStream();
-        using StreamReader reader = new(stream);
-        return await reader.ReadToEndAsync(cancellationToken);
+        return result.Success ? Ok(result) : BadRequest(result);
     }
 }
