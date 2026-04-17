@@ -64,7 +64,7 @@
                     <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
                         <div class="mb-5">
                             <h2 class="text-2xl font-semibold text-white">Mods and cluster</h2>
-                            <p class="mt-2 text-sm text-neutral-400">Comma-separated mods and optional cluster setup.</p>
+                            <p class="mt-2 text-sm text-neutral-400">Comma-separated mods and optional cluster setup. The cluster folder path is managed internally.</p>
                             <a href="https://www.curseforge.com/ark-survival-ascended"
                                target="_blank"
                                rel="noopener noreferrer"
@@ -78,7 +78,6 @@
                                 <TextField Label="Mod IDs" @bind-Value="_model.ModIds" IsTextArea="true" Hint="Example: 12345,67890" />
                             </div>
                             <TextField Label="Cluster ID" @bind-Value="_model.ClusterId" />
-                            <TextField Label="Cluster dir" @bind-Value="_model.ClusterDir" />
                         </div>
                     </section>
 

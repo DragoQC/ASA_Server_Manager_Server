@@ -80,9 +80,20 @@ public sealed class AuthService(UserManager<ApplicationUser> userManager, IDbCon
 		return await _userManager.UpdateAsync(user);
 	}
 
-	public Task<bool> IsApiKeyValidAsync(string? apiKey, CancellationToken cancellationToken = default)
+	public async Task<bool> IsApiKeyValidAsync(string? apiKey, CancellationToken cancellationToken = default)
 	{
-		return IsRemoteApiKeyValidAsync(apiKey, cancellationToken);
+		if (string.IsNullOrWhiteSpace(apiKey))
+		{
+			return false;
+		}
+
+		string? configuredKey = await LoadRemoteApiKeyAsync(cancellationToken);
+		if (string.IsNullOrWhiteSpace(configuredKey))
+		{
+			return false;
+		}
+
+		return string.Equals(configuredKey, apiKey, StringComparison.Ordinal);
 	}
 
 	public async Task<string?> LoadRemoteApiKeyAsync(CancellationToken cancellationToken = default)
@@ -138,19 +149,4 @@ public sealed class AuthService(UserManager<ApplicationUser> userManager, IDbCon
 		return await _userManager.CheckPasswordAsync(user, "admin");
 	}
 
-	public async Task<bool> IsRemoteApiKeyValidAsync(string? apiKey, CancellationToken cancellationToken = default)
-	{
-		if (string.IsNullOrWhiteSpace(apiKey))
-		{
-			return false;
-		}
-
-		string? configuredKey = await LoadRemoteApiKeyAsync(cancellationToken);
-		if (string.IsNullOrWhiteSpace(configuredKey))
-		{
-			return false;
-		}
-
-		return string.Equals(configuredKey, apiKey, StringComparison.Ordinal);
-	}
 }

@@ -7,6 +7,22 @@ public sealed class SystemMetricsService
 {
     private Sample? _previousSample;
 
+    public Task<ServerInfoSnapshot> LoadServerInfoAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        (long totalRamBytes, _) = ReadMemoryBytes();
+        (long totalDiskBytes, _) = ReadRootDiskBytes();
+
+        ServerInfoSnapshot snapshot = new(
+            CpuTotal: $"{Environment.ProcessorCount} logical",
+            RamTotal: FormatBytes(totalRamBytes),
+            DiskTotal: FormatBytes(totalDiskBytes),
+            CheckedAtUtc: DateTimeOffset.UtcNow);
+
+        return Task.FromResult(snapshot);
+    }
+
     public Task<SystemMetricsSnapshot> LoadAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
