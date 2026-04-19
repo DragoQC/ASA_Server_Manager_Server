@@ -36,12 +36,6 @@ public sealed class VpnConfigService
 
             Directory.CreateDirectory(InstallStateConstants.VpnRootPath);
             await File.WriteAllTextAsync(InstallStateConstants.WireGuardConfigFilePath, content, cancellationToken);
-            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
-            {
-                File.SetUnixFileMode(
-                    InstallStateConstants.WireGuardConfigFilePath,
-                    UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            }
             await _authService.SaveControlApiKeyAsync(controlApiKey, cancellationToken);
             string clusterId = await _serverConfigService.UpdateClusterIdAsync(request.ClusterId, cancellationToken);
             string wireGuardMessage = await _installStateService.EnableAndRestartWireGuardAsync(cancellationToken);
