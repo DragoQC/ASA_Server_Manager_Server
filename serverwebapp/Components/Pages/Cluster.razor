@@ -109,14 +109,14 @@
                 <TextField Label="NFS invite URL"
                            @bind-Value="_nfsInviteUrl"
                            placeholder="https://control.dragoqc.com/api/nfs/invite/your-one-time-key"
-                           Hint="Paste the full NFS invite link from the control app."
-                           disabled="@(!_hasClusterClientInstall || _isFetchingNfsConfig)"
+                           Hint="@GetNfsInviteHint()"
+                           disabled="@(!CanFetchNfsConfig)"
                            autocomplete="off" />
 
                 <div class="flex flex-wrap gap-3">
                     <button type="button"
                             @onclick="GetNfsConfigAsync"
-                            disabled="@(!_hasClusterClientInstall || _isFetchingNfsConfig || string.IsNullOrWhiteSpace(_nfsInviteUrl))"
+                            disabled="@(!CanFetchNfsConfig || string.IsNullOrWhiteSpace(_nfsInviteUrl))"
                             class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                         @(_isFetchingNfsConfig ? "Getting config..." : "Get config")
                     </button>
@@ -168,6 +168,7 @@
     private string? _nfsInviteUrl;
     private string? _statusMessage;
     private bool _statusIsError;
+    private bool CanFetchNfsConfig => _hasClusterClientInstall && _hasWireGuardConfig && !_isFetchingNfsConfig;
 
     protected override async Task OnInitializedAsync()
     {
@@ -289,5 +290,20 @@
         return _statusIsError
             ? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100"
             : "rounded-2xl border border-app-300/20 bg-app-400/10 px-5 py-4 text-sm text-app-100";
+    }
+
+    private string GetNfsInviteHint()
+    {
+        if (!_hasClusterClientInstall)
+        {
+            return "Install the cluster client tools first.";
+        }
+
+        if (!_hasWireGuardConfig)
+        {
+            return "Fetch and apply wg0.conf first. NFS only works after WireGuard is configured.";
+        }
+
+        return "Paste the full NFS invite link from the control app.";
     }
 }
