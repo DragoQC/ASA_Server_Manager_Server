@@ -92,6 +92,16 @@ public sealed class VpnConfigService
         }
     }
 
+    public async Task<string?> LoadConfigContentAsync(CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(InstallStateConstants.WireGuardConfigFilePath))
+        {
+            return null;
+        }
+
+        return await File.ReadAllTextAsync(InstallStateConstants.WireGuardConfigFilePath, cancellationToken);
+    }
+
     private static string BuildConfigContent(InviteRemoteServerRequest request)
     {
         string vpnAddress = RequireSingleLine(request.VpnAddress, "VPN address");

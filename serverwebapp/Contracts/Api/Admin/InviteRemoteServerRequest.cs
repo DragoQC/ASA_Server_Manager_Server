@@ -6,6 +6,7 @@ public sealed record InviteRemoteServerRequest(
     string ServerEndpoint,
     string Dns,
     string AllowedIps,
+    string RemoteApiKey,
     string ServerPublicKey,
     string ClientPrivateKey,
     string? PresharedKey);

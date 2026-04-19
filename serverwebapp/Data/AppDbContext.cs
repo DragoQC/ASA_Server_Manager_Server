@@ -8,16 +8,14 @@ namespace AsaServerManager.Web.Data;
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityUserContext<ApplicationUser>(options)
 {
     public DbSet<ActionMappingEntity> ActionMappings => Set<ActionMappingEntity>();
-    public DbSet<EmailSettingsEntity> EmailSettings => Set<EmailSettingsEntity>();
-    public DbSet<RemoteKeyEntity> RemoteKeys => Set<RemoteKeyEntity>();
+    public DbSet<ApiKeyEntity> ApiKeys => Set<ApiKeyEntity>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
 
         builder.ApplyConfiguration(new ActionMappingEntityConfiguration());
-        builder.ApplyConfiguration(new EmailSettingsEntityConfiguration());
-        builder.ApplyConfiguration(new RemoteKeyEntityConfiguration());
+        builder.ApplyConfiguration(new ApiKeyEntityConfiguration());
     }
 
     public override int SaveChanges()

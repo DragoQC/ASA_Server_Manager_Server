@@ -69,8 +69,6 @@ builder.Services.AddScoped<ActionMappingService>();
 builder.Services.AddScoped<LogsService>();
 builder.Services.AddScoped<ManagerService>();
 builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<EmailSettingsService>();
-builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<GameConfigService>();
 builder.Services.AddScoped<InstallStateService>();
 builder.Services.AddScoped<ProtonConfigService>();

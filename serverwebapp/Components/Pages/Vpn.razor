@@ -15,10 +15,10 @@
         <div>
             <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Enable VPN connection</h1>
             <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
-                This node can be prepared as a WireGuard client for the control machine. Nothing is installed until you confirm the action below.
+                This node can be prepared as a WireGuard client for the control app. Nothing is installed until you confirm the action below.
             </p>
             <p class="mt-3 max-w-3xl text-sm leading-6 text-app-200/80">
-                Enabling VPN here installs WireGuard client tools and prepares the node to receive its configuration later from the control side.
+                The control app must be reachable from the public internet for the VPN invite flow to work. If this server web app is exposed to the web, the control app can invite it directly. If this server web app is not exposed publicly, generate an invite link from the control app and use it below so this node can fetch its own <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">wg0.conf</code>.
             </p>
         </div>
 
@@ -29,7 +29,23 @@
             </div>
         }
 
-        <div class="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_24rem]">
+        <div class="space-y-6">
+            <section class="grid gap-4 md:grid-cols-2">
+                <div class="rounded-[1.4rem] border border-white/10 bg-black/20 p-5 backdrop-blur">
+                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">Web app exposed</p>
+                    <p class="mt-3 text-sm leading-6 text-neutral-300">
+                        If this server panel is reachable from the internet by public IP or the URL configured in your control app, the control side can push the VPN invitation directly to <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/api/admin/invite</code>.
+                    </p>
+                </div>
+
+                <div class="rounded-[1.4rem] border border-white/10 bg-black/20 p-5 backdrop-blur">
+                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">Web app not exposed</p>
+                    <p class="mt-3 text-sm leading-6 text-neutral-300">
+                        If this server panel is not reachable from the internet, generate an invite link from the control app and paste it below. This node will call the control app itself and download its VPN configuration from there.
+                    </p>
+                </div>
+            </section>
+
             <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
                 <div class="space-y-4">
                     <div class="flex flex-wrap items-center gap-3">
@@ -97,36 +113,25 @@
                                 @(_isFetchingConfig ? "Getting config..." : "Get config")
                             </button>
                         </div>
+
+                        <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                            <div class="flex flex-wrap items-center gap-3">
+                                <h3 class="text-2xl font-semibold text-white">wg0.conf</h3>
+                                <StatusTag Text="@(_hasWireGuardConfig ? "Present" : "Missing")" />
+                            </div>
+
+                            <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-300">
+                                Current local WireGuard client configuration from <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/opt/asa/vpn/wg0.conf</code>.
+                            </p>
+
+                            <textarea value="@(_wireGuardConfigContent ?? string.Empty)"
+                                      readonly
+                                      placeholder="No wg0.conf file yet."
+                                      class="mt-5 h-[28rem] w-full rounded-[1.3rem] border border-white/10 bg-black/40 p-4 font-mono text-sm leading-6 text-app-100 outline-none"></textarea>
+                        </div>
                     </div>
                 </div>
             </section>
-
-            <aside class="space-y-4 rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
-                <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">Current step</p>
-                    <div class="mt-4 flex flex-wrap gap-2">
-                        <StatusTag Text="@(_hasWireGuardClientInstall ? "Client installed" : "Opt-in")" />
-                        <StatusTag Text="@(_hasWireGuardConfig ? "Config present" : "No config yet")" />
-                    </div>
-                    <p class="mt-4 text-sm leading-6 text-neutral-300">
-                        This page prepares the node, then lets it claim <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg0.conf</code> from the control machine using a one-time invite link.
-                    </p>
-                </div>
-
-                <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">Future service</p>
-                    <p class="mt-3 text-sm leading-6 text-neutral-300">
-                        The prepared interface name is <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg0</code> through <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg-quick@wg0</code>.
-                    </p>
-                </div>
-
-                <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">Next step later</p>
-                    <p class="mt-3 text-sm leading-6 text-neutral-300">
-                        Once the control app sends or exposes the node config, this server can fetch it directly from the invite endpoint and store it locally.
-                    </p>
-                </div>
-            </aside>
         </div>
     </div>
 </section>
@@ -147,14 +152,14 @@
     private bool _isFetchingConfig;
     private bool _hasWireGuardClientInstall;
     private bool _hasWireGuardConfig;
+    private string? _wireGuardConfigContent;
     private string? _inviteUrl;
     private string? _statusMessage;
     private bool _statusIsError;
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
-        RefreshVpnState();
-        return Task.CompletedTask;
+        await RefreshVpnStateAsync();
     }
 
     private void OpenEnableDialog()
@@ -189,7 +194,7 @@
         {
             _statusMessage = await InstallStateService.InstallWireGuardClientAsync();
             _statusIsError = false;
-            RefreshVpnState();
+            await RefreshVpnStateAsync();
         }
         catch (Exception exception)
         {
@@ -218,7 +223,7 @@
             if (result.Accepted)
             {
                 _inviteUrl = string.Empty;
-                RefreshVpnState();
+                await RefreshVpnStateAsync();
             }
         }
         catch (Exception exception)
@@ -232,10 +237,11 @@
         }
     }
 
-    private void RefreshVpnState()
+    private async Task RefreshVpnStateAsync()
     {
         _hasWireGuardClientInstall = InstallStateService.HasWireGuardClientInstall();
         _hasWireGuardConfig = File.Exists(AsaServerManager.Web.Constants.InstallStateConstants.WireGuardConfigFilePath);
+        _wireGuardConfigContent = await VpnConfigService.LoadConfigContentAsync();
     }
 
     private string GetStatusMessageClass()

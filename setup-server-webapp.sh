@@ -186,8 +186,9 @@ fi
 
 if [ -f "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
   cp "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${VPN_PREP_SCRIPT_PATH}"
-  chown root:root "${VPN_DIR}" "${VPN_PREP_SCRIPT_PATH}"
+  chown root:root "${VPN_PREP_SCRIPT_PATH}"
   chmod 0755 "${VPN_DIR}" "${VPN_PREP_SCRIPT_PATH}"
+  chown "${USER_NAME}:${GROUP_NAME}" "${VPN_DIR}"
 fi
 
 chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"
