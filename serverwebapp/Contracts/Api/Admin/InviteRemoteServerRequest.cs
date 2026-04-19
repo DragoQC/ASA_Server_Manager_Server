@@ -9,4 +9,5 @@ public sealed record InviteRemoteServerRequest(
     string RemoteApiKey,
     string ServerPublicKey,
     string ClientPrivateKey,
+    string Wg0Config,
     string? PresharedKey);

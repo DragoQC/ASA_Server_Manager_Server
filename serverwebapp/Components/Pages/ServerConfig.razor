@@ -77,7 +77,10 @@
                             <div class="md:col-span-2">
                                 <TextField Label="Mod IDs" @bind-Value="_model.ModIds" IsTextArea="true" Hint="Example: 12345,67890" />
                             </div>
-                            <TextField Label="Cluster ID" @bind-Value="_model.ClusterId" />
+                            <TextField Label="Cluster ID"
+                                       @bind-Value="_model.ClusterId"
+                                       Hint="@GetClusterIdHint()"
+                                       disabled="@_isClusterIdManagedByVpn" />
                         </div>
                     </section>
 
@@ -115,12 +118,14 @@
     private bool _hasConfigFile;
     private bool _showRestartDialog;
     private bool _isRestartingAsa;
+    private bool _isClusterIdManagedByVpn;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             _hasConfigFile = ServerConfigService.HasConfigFile();
+            _isClusterIdManagedByVpn = File.Exists(AsaServerManager.Web.Constants.InstallStateConstants.WireGuardConfigFilePath);
             _model = await ServerConfigService.LoadAsync();
             _statusMessage = _hasConfigFile ? null : "asa.env is missing. Showing built-in defaults until you save.";
             _statusIsError = false;
@@ -154,9 +159,22 @@
 
     private async Task ResetDefaults()
     {
+        string currentClusterId = _model.ClusterId;
         _model = AsaServerManager.Web.Models.ServerConfig.ServerConfigSettings.Default();
+        if (_isClusterIdManagedByVpn)
+        {
+            _model.ClusterId = currentClusterId;
+        }
+
         _statusMessage = null;
         _statusIsError = false;
+    }
+
+    private string GetClusterIdHint()
+    {
+        return _isClusterIdManagedByVpn
+            ? "Cluster ID is managed by the remote control app while VPN is configured."
+            : string.Empty;
     }
 
     private string GetStatusMessageClass()

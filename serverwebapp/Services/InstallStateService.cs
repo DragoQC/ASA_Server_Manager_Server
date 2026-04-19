@@ -340,6 +340,22 @@ public sealed class InstallStateService(
         return $"Started {InstallStateConstants.WireGuardServiceName}.";
     }
 
+    public async Task<string> RestartWireGuardAsync(CancellationToken cancellationToken = default)
+    {
+        await RunProcessAsync(
+            SystemCommandConstants.SudoPath,
+            ["-n", SystemCommandConstants.SystemctlPath, "restart", InstallStateConstants.WireGuardServiceName],
+            cancellationToken);
+
+        return $"Restarted {InstallStateConstants.WireGuardServiceName}.";
+    }
+
+    public async Task<string> EnableAndRestartWireGuardAsync(CancellationToken cancellationToken = default)
+    {
+        await EnableWireGuardAsync(cancellationToken);
+        return await RestartWireGuardAsync(cancellationToken);
+    }
+
     public async Task<string> StopWireGuardAsync(CancellationToken cancellationToken = default)
     {
         await RunProcessAsync(

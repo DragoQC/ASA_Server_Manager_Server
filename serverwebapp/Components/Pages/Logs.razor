@@ -53,6 +53,7 @@
     private AsaLogsSnapshot _snapshot = new(
         AsaServiceStatus.Unknown(),
         new LogSectionSnapshot("Service status", "Live systemctl status output for asa.service.", "Loading...", false),
+        new LogSectionSnapshot("WireGuard journal", "Recent journalctl output for wg-quick@wg0.", "Loading...", false),
         DateTimeOffset.UtcNow);
     private CancellationTokenSource? _refreshLoopCancellationTokenSource;
     private bool _isRefreshing;
@@ -110,7 +111,8 @@
     {
         return
         [
-            _snapshot.StatusSection
+            _snapshot.StatusSection,
+            _snapshot.WireGuardJournalSection
         ];
     }
 

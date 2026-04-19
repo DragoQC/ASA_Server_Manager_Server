@@ -68,6 +68,8 @@ SYSTEMD_GAME_SERVICE_FILE="/etc/systemd/system/asa.service"
 VPN_DIR="${BASE_DIR}/vpn"
 VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="serverwebapp/Templates/Vpn/prepare-wireguard-client.sh"
 VPN_PREP_SCRIPT_PATH="${VPN_DIR}/prepare-wireguard-client.sh"
+WIREGUARD_DIR="/etc/wireguard"
+WIREGUARD_CONFIG_LINK_PATH="${WIREGUARD_DIR}/wg0.conf"
 
 if [ "${EUID}" -ne 0 ]; then
   log_error "This script must be run as root."
@@ -114,6 +116,7 @@ mkdir -p \
   "${BASE_DIR}/server" \
   "${BASE_DIR}/steam" \
   "${BASE_DIR}/vpn" \
+  "${WIREGUARD_DIR}" \
   "${GAME_SERVICE_DIR}" \
   "${WEBAPP_ROOT}" \
   "${PUBLISH_DIR}"
@@ -134,11 +137,13 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart asa
 ${USER_NAME} ALL=(root) NOPASSWD: ${VPN_PREP_SCRIPT_PATH}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl enable wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@wg0
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl stop wg-quick@wg0
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u wg-quick@wg0 -n 80 --no-pager
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
-log_ok "Granted ${USER_NAME} access to query systemd, read asa logs, manage asa, run the WireGuard prep script, and control wg-quick@wg0."
+log_ok "Granted ${USER_NAME} access to query systemd, read asa and WireGuard logs, manage asa, run the WireGuard prep script, and control wg-quick@wg0."
 
 if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_VERSION}\\."; then
   log_dotnet "Installing latest .NET SDK ${DOTNET_VERSION}..."
@@ -190,6 +195,8 @@ if [ -f "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
   chmod 0755 "${VPN_DIR}" "${VPN_PREP_SCRIPT_PATH}"
   chown "${USER_NAME}:${GROUP_NAME}" "${VPN_DIR}"
 fi
+
+ln -sfn "${VPN_DIR}/wg0.conf" "${WIREGUARD_CONFIG_LINK_PATH}"
 
 chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"
 chown -R "${USER_NAME}:${GROUP_NAME}" "${GAME_SERVICE_DIR}"

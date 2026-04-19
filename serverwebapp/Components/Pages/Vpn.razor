@@ -29,110 +29,58 @@
             </div>
         }
 
-        <div class="space-y-6">
-            <section class="grid gap-4 md:grid-cols-2">
-                <div class="rounded-[1.4rem] border border-white/10 bg-black/20 p-5 backdrop-blur">
-                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">Web app exposed</p>
-                    <p class="mt-3 text-sm leading-6 text-neutral-300">
-                        If this server panel is reachable from the internet by public IP or the URL configured in your control app, the control side can push the VPN invitation directly to <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/api/admin/invite</code>.
-                    </p>
+        <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+            <div class="space-y-6">
+                <div class="flex flex-wrap items-center gap-3">
+                    <h2 class="text-3xl font-semibold text-white">VPN config</h2>
+                    <StatusTag Text="@(_hasWireGuardClientInstall ? "Ready" : "Install first")" />
+                    <StatusTag Text="@(_hasWireGuardConfig ? "wg0.conf present" : "wg0.conf missing")" />
                 </div>
 
-                <div class="rounded-[1.4rem] border border-white/10 bg-black/20 p-5 backdrop-blur">
-                    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">Web app not exposed</p>
-                    <p class="mt-3 text-sm leading-6 text-neutral-300">
-                        If this server panel is not reachable from the internet, generate an invite link from the control app and paste it below. This node will call the control app itself and download its VPN configuration from there.
-                    </p>
+                <div class="flex flex-wrap gap-3">
+                    <button type="button"
+                            @onclick="OpenEnableDialog"
+                            disabled="@_isEnablingVpn"
+                            class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                        @(_isEnablingVpn ? "Enabling VPN..." : "Enable VPN")
+                    </button>
                 </div>
-            </section>
 
-            <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
-                <div class="space-y-4">
+                <div class="grid gap-4">
+                    <TextField Label="Invite URL"
+                               @bind-Value="_inviteUrl"
+                               placeholder="https://control.dragoqc.com/api/vpn/invite/your-one-time-key"
+                               Hint="Paste the full invite link from the control app if this server app is not reachable publicly."
+                               disabled="@(!_hasWireGuardClientInstall || _isFetchingConfig)"
+                               autocomplete="off" />
+                </div>
+
+                <div class="flex flex-wrap gap-3">
+                    <button type="button"
+                            @onclick="GetConfigAsync"
+                            disabled="@(!_hasWireGuardClientInstall || _isFetchingConfig || string.IsNullOrWhiteSpace(_inviteUrl))"
+                            class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                        @(_isFetchingConfig ? "Getting config..." : "Get config")
+                    </button>
+                </div>
+
+                <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
                     <div class="flex flex-wrap items-center gap-3">
-                        <h2 class="text-3xl font-semibold text-white">Node preparation</h2>
-                        <StatusTag Text="Manual confirmation" />
+                        <h3 class="text-2xl font-semibold text-white">wg0.conf</h3>
+                        <StatusTag Text="@(_hasWireGuardConfig ? "Present" : "Missing")" />
                     </div>
 
-                    <p class="max-w-3xl text-base leading-7 text-neutral-300">
-                        Use this once per node when you want to make it ready for the control machine VPN. This does not install a VPN by default and it does not push any peer configuration yet.
+                    <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-300">
+                        Current local WireGuard client configuration from <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/opt/asa/vpn/wg0.conf</code>. The system link can point <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/etc/wireguard/wg0.conf</code> to this file.
                     </p>
 
-                    <div class="rounded-[1.6rem] border border-app-300/20 bg-app-400/10 p-6 shadow-[0_0_24px_rgba(34,211,238,0.12)]">
-                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-app-300">What this does</p>
-                        <div class="mt-4 grid gap-3 md:grid-cols-3">
-                            <div class="rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
-                                <p class="text-sm font-medium text-white">Install client</p>
-                                <p class="mt-2 text-sm leading-6 text-neutral-300">Installs WireGuard client tools on this machine.</p>
-                            </div>
-                            <div class="rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
-                                <p class="text-sm font-medium text-white">Prepare service control</p>
-                                <p class="mt-2 text-sm leading-6 text-neutral-300">Allows the panel to start, stop, and enable <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">wg-quick@wg0</code>.</p>
-                            </div>
-                            <div class="rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
-                                <p class="text-sm font-medium text-white">Wait for config</p>
-                                <p class="mt-2 text-sm leading-6 text-neutral-300">The actual peer config still comes later from the control machine.</p>
-                            </div>
-                        </div>
-
-                        <div class="mt-6">
-                            <button type="button"
-                                    @onclick="OpenEnableDialog"
-                                    disabled="@_isEnablingVpn"
-                                    class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                                @(_isEnablingVpn ? "Enabling VPN..." : "Enable VPN")
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
-                        <div class="space-y-3">
-                            <div class="flex flex-wrap items-center gap-3">
-                                <h3 class="text-2xl font-semibold text-white">Get config</h3>
-                                <StatusTag Text="@(_hasWireGuardClientInstall ? "Ready" : "Install first")" />
-                            </div>
-
-                            <p class="max-w-3xl text-sm leading-6 text-neutral-300">
-                                After WireGuard client tools are installed, paste the full invite link from the control app here. This node will fetch its VPN configuration from the always-reachable control server and apply it locally.
-                            </p>
-                        </div>
-
-                        <div class="mt-5 grid gap-4">
-                            <TextField Label="Invite URL"
-                                       @bind-Value="_inviteUrl"
-                                       placeholder="https://control.dragoqc.com/api/vpn/invite/your-one-time-key"
-                                       Hint="Paste the full one-time invite link generated by the control app."
-                                       disabled="@(!_hasWireGuardClientInstall || _isFetchingConfig)"
-                                       autocomplete="off" />
-                        </div>
-
-                        <div class="mt-6">
-                            <button type="button"
-                                    @onclick="GetConfigAsync"
-                                    disabled="@(!_hasWireGuardClientInstall || _isFetchingConfig || string.IsNullOrWhiteSpace(_inviteUrl))"
-                                    class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                                @(_isFetchingConfig ? "Getting config..." : "Get config")
-                            </button>
-                        </div>
-
-                        <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
-                            <div class="flex flex-wrap items-center gap-3">
-                                <h3 class="text-2xl font-semibold text-white">wg0.conf</h3>
-                                <StatusTag Text="@(_hasWireGuardConfig ? "Present" : "Missing")" />
-                            </div>
-
-                            <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-300">
-                                Current local WireGuard client configuration from <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/opt/asa/vpn/wg0.conf</code>.
-                            </p>
-
-                            <textarea value="@(_wireGuardConfigContent ?? string.Empty)"
-                                      readonly
-                                      placeholder="No wg0.conf file yet."
-                                      class="mt-5 h-[28rem] w-full rounded-[1.3rem] border border-white/10 bg-black/40 p-4 font-mono text-sm leading-6 text-app-100 outline-none"></textarea>
-                        </div>
-                    </div>
+                    <textarea value="@(_wireGuardConfigContent ?? string.Empty)"
+                              readonly
+                              placeholder="No wg0.conf file yet."
+                              class="mt-5 h-[34rem] w-full rounded-[1.3rem] border border-white/10 bg-black/40 p-4 font-mono text-sm leading-6 text-app-100 outline-none"></textarea>
                 </div>
-            </section>
-        </div>
+            </div>
+        </section>
     </div>
 </section>
 

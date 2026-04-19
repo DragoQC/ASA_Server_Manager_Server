@@ -31,20 +31,21 @@ public sealed class VpnConfigService
         {
             ArgumentNullException.ThrowIfNull(request);
 
-            string content = BuildConfigContent(request);
+            string content = ValidateWg0Config(request.Wg0Config);
             string controlApiKey = RequireSingleLine(request.RemoteApiKey, "Remote API key");
 
             Directory.CreateDirectory(InstallStateConstants.VpnRootPath);
             await File.WriteAllTextAsync(InstallStateConstants.WireGuardConfigFilePath, content, cancellationToken);
             await _authService.SaveControlApiKeyAsync(controlApiKey, cancellationToken);
             string clusterId = await _serverConfigService.UpdateClusterIdAsync(request.ClusterId, cancellationToken);
+            string wireGuardMessage = await _installStateService.EnableAndRestartWireGuardAsync(cancellationToken);
             string restartMessage = await _installStateService.RestartAsaIfRunningAsync(cancellationToken);
 
             return new InviteRemoteServerResponse(
                 true,
                 string.IsNullOrWhiteSpace(clusterId)
-                    ? $"WireGuard client configuration saved. Cluster ID cleared. {restartMessage}"
-                    : $"WireGuard client configuration saved. Cluster ID set to {clusterId}. {restartMessage}",
+                    ? $"WireGuard client configuration saved. Cluster ID cleared. {wireGuardMessage} {restartMessage}"
+                    : $"WireGuard client configuration saved. Cluster ID set to {clusterId}. {wireGuardMessage} {restartMessage}",
                 InstallStateConstants.WireGuardConfigFilePath);
         }
         catch (ArgumentException ex)
@@ -107,40 +108,27 @@ public sealed class VpnConfigService
         return await File.ReadAllTextAsync(InstallStateConstants.WireGuardConfigFilePath, cancellationToken);
     }
 
-    private static string BuildConfigContent(InviteRemoteServerRequest request)
+    private static string ValidateWg0Config(string? content)
     {
-        string vpnAddress = RequireSingleLine(request.VpnAddress, "VPN address");
-        RequireSingleLine(request.ClusterId, "Cluster ID");
-        string serverEndpoint = RequireSingleLine(request.ServerEndpoint, "Server endpoint");
-        string dns = RequireSingleLine(request.Dns, "DNS");
-        string allowedIps = RequireSingleLine(request.AllowedIps, "Allowed IPs");
-        string serverPublicKey = RequireSingleLine(request.ServerPublicKey, "Server public key");
-        string clientPrivateKey = RequireSingleLine(request.ClientPrivateKey, "Client private key");
-        string? presharedKey = string.IsNullOrWhiteSpace(request.PresharedKey)
-            ? null
-            : RequireSingleLine(request.PresharedKey, "Preshared key");
-
-        List<string> lines =
-        [
-            "[Interface]",
-            $"PrivateKey = {clientPrivateKey}",
-            $"Address = {vpnAddress}",
-            $"DNS = {dns}",
-            string.Empty,
-            "[Peer]",
-            $"PublicKey = {serverPublicKey}"
-        ];
-
-        if (!string.IsNullOrWhiteSpace(presharedKey))
+        if (string.IsNullOrWhiteSpace(content))
         {
-            lines.Add($"PresharedKey = {presharedKey}");
+            throw new ArgumentException("wg0.conf is required.");
         }
 
-        lines.Add($"Endpoint = {serverEndpoint}");
-        lines.Add($"AllowedIPs = {allowedIps}");
-        lines.Add("PersistentKeepalive = 25");
+        string normalizedContent = content.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
 
-        return string.Join('\n', lines) + "\n";
+        if (normalizedContent.IndexOf('\0') >= 0)
+        {
+            throw new ArgumentException("wg0.conf contains invalid characters.");
+        }
+
+        if (!normalizedContent.Contains("[Interface]", StringComparison.Ordinal) ||
+            !normalizedContent.Contains("[Peer]", StringComparison.Ordinal))
+        {
+            throw new ArgumentException("wg0.conf must contain [Interface] and [Peer] sections.");
+        }
+
+        return normalizedContent + "\n";
     }
 
     private static string RequireSingleLine(string? value, string label)
