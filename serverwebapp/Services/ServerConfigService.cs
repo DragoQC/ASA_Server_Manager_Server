@@ -113,6 +113,15 @@ public sealed class ServerConfigService
 		return settings.RconPort;
 	}
 
+    public async Task<string> UpdateClusterIdAsync(string? clusterId, CancellationToken cancellationToken = default)
+    {
+        string normalizedClusterId = NormalizeClusterId(clusterId);
+        ServerConfigSettings settings = await LoadAsync(cancellationToken);
+        settings.ClusterId = normalizedClusterId;
+        await SaveAsync(settings, cancellationToken);
+        return normalizedClusterId;
+    }
+
 	private async Task ReloadCacheAsync(CancellationToken cancellationToken)
 	{
 		if (!File.Exists(ServerConfigConstants.EnvFilePath))
@@ -273,6 +282,23 @@ public sealed class ServerConfigService
 	{
 		return value.Replace("\"", "\\\"", StringComparison.Ordinal);
 	}
+
+    private static string NormalizeClusterId(string? clusterId)
+    {
+        string normalizedClusterId = clusterId?.Trim() ?? string.Empty;
+
+        if (normalizedClusterId.IndexOfAny(['\0', '\r', '\n', '\u001a']) >= 0)
+        {
+            throw new ArgumentException("Cluster ID contains invalid characters.");
+        }
+
+        if (normalizedClusterId.Length > 128)
+        {
+            throw new ArgumentException("Cluster ID cannot exceed 128 characters.");
+        }
+
+        return normalizedClusterId;
+    }
 
 	private static void ValidateRawContent(string content)
 	{

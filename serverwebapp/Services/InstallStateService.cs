@@ -293,6 +293,23 @@ public sealed class InstallStateService(
         return "Restarted asa.";
     }
 
+    public async Task<string> RestartAsaIfRunningAsync(CancellationToken cancellationToken = default)
+    {
+        AsaServiceStatus status = await GetAsaServiceStatusAsync(cancellationToken);
+        if (!string.Equals(status.ActiveState, "active", StringComparison.Ordinal))
+        {
+            return $"asa is not running. Current state: {status.DisplayText}. No restart was performed.";
+        }
+
+        return await RestartAsaServiceAsync(cancellationToken);
+    }
+
+    public bool HasWireGuardClientInstall()
+    {
+        return File.Exists("/usr/bin/wg") &&
+               File.Exists("/usr/bin/wg-quick");
+    }
+
     public async Task<string> InstallWireGuardClientAsync(CancellationToken cancellationToken = default)
     {
         await RunProcessAsync(
