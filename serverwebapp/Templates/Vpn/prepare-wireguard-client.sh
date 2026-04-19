@@ -10,6 +10,6 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y wireguard wireguard-tools
+apt-get install -y wireguard wireguard-tools resolvconf
 
-echo "Installed WireGuard client tools. This node is ready to receive its VPN configuration."
+echo "Installed WireGuard client tools and resolvconf. This node is ready to receive its VPN configuration."
