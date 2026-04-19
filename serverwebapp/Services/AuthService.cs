@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using System.Security.Cryptography;
+using AsaServerManager.Web.Constants;
 using AsaServerManager.Web.Data;
 using AsaServerManager.Web.Data.Entities;
+using AsaServerManager.Web.Models.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 
@@ -87,42 +89,90 @@ public sealed class AuthService(UserManager<ApplicationUser> userManager, IDbCon
 			return false;
 		}
 
-		string? configuredKey = await LoadRemoteApiKeyAsync(cancellationToken);
-		if (string.IsNullOrWhiteSpace(configuredKey))
-		{
-			return false;
-		}
-
-		return string.Equals(configuredKey, apiKey, StringComparison.Ordinal);
+		await using AppDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+		return await dbContext.ApiKeys
+			.AsNoTracking()
+			.AnyAsync(entity => entity.ApiKey == apiKey, cancellationToken);
 	}
 
-	public async Task<string?> LoadRemoteApiKeyAsync(CancellationToken cancellationToken = default)
+	public Task<string?> LoadAppApiKeyAsync(CancellationToken cancellationToken = default)
+	{
+		return LoadApiKeyAsync(ApiKeyTypeConstants.App, cancellationToken);
+	}
+
+	public Task<string?> LoadControlApiKeyAsync(CancellationToken cancellationToken = default)
+	{
+		return LoadApiKeyAsync(ApiKeyTypeConstants.Control, cancellationToken);
+	}
+
+	public async Task<IReadOnlyList<StoredApiKey>> LoadApiKeysAsync(CancellationToken cancellationToken = default)
 	{
 		await using AppDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-		RemoteKeyEntity? entity = await dbContext.RemoteKeys
-				.AsNoTracking()
-				.OrderBy(remoteKey => remoteKey.Id)
-				.FirstOrDefaultAsync(cancellationToken);
+		return await dbContext.ApiKeys
+			.AsNoTracking()
+			.OrderBy(entity => entity.Type)
+			.Select(entity => new StoredApiKey(
+				entity.Type,
+				entity.ApiKey,
+				entity.ModifiedAtUtc))
+			.ToListAsync(cancellationToken);
+	}
+
+	public Task SaveAppApiKeyAsync(string apiKey, CancellationToken cancellationToken = default)
+	{
+		return SaveApiKeyAsync(ApiKeyTypeConstants.App, apiKey, cancellationToken);
+	}
+
+	public Task SaveControlApiKeyAsync(string apiKey, CancellationToken cancellationToken = default)
+	{
+		return SaveApiKeyAsync(ApiKeyTypeConstants.Control, apiKey, cancellationToken);
+	}
+
+	public async Task DeleteApiKeyAsync(string type, CancellationToken cancellationToken = default)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(type);
+
+		await using AppDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+		ApiKeyEntity? entity = await dbContext.ApiKeys
+			.FirstOrDefaultAsync(item => item.Type == type, cancellationToken);
+
+		if (entity is null)
+		{
+			return;
+		}
+
+		dbContext.ApiKeys.Remove(entity);
+		await dbContext.SaveChangesAsync(cancellationToken);
+	}
+
+	private async Task<string?> LoadApiKeyAsync(string type, CancellationToken cancellationToken = default)
+	{
+		await using AppDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+		ApiKeyEntity? entity = await dbContext.ApiKeys
+			.AsNoTracking()
+			.FirstOrDefaultAsync(item => item.Type == type, cancellationToken);
 
 		return entity?.ApiKey;
 	}
 
-	public async Task SaveRemoteApiKeyAsync(string apiKey, CancellationToken cancellationToken = default)
+	private async Task SaveApiKeyAsync(string type, string apiKey, CancellationToken cancellationToken = default)
 	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(type);
 		ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
 
 		await using AppDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
-		RemoteKeyEntity? entity = await dbContext.RemoteKeys.FirstOrDefaultAsync(cancellationToken);
+		ApiKeyEntity? entity = await dbContext.ApiKeys
+			.FirstOrDefaultAsync(item => item.Type == type, cancellationToken);
 
 		if (entity is null)
 		{
-			entity = new RemoteKeyEntity
+			entity = new ApiKeyEntity
 			{
-				Id = 1,
+				Type = type,
 				ApiKey = apiKey
 			};
 
-			dbContext.RemoteKeys.Add(entity);
+			dbContext.ApiKeys.Add(entity);
 		}
 		else
 		{

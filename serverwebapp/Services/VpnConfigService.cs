@@ -8,15 +8,18 @@ public sealed class VpnConfigService
 {
     private readonly ServerConfigService _serverConfigService;
     private readonly InstallStateService _installStateService;
+    private readonly AuthService _authService;
     private readonly IHttpClientFactory _httpClientFactory;
 
     public VpnConfigService(
         ServerConfigService serverConfigService,
         InstallStateService installStateService,
+        AuthService authService,
         IHttpClientFactory httpClientFactory)
     {
         _serverConfigService = serverConfigService;
         _installStateService = installStateService;
+        _authService = authService;
         _httpClientFactory = httpClientFactory;
     }
 
@@ -29,9 +32,11 @@ public sealed class VpnConfigService
             ArgumentNullException.ThrowIfNull(request);
 
             string content = BuildConfigContent(request);
+            string controlApiKey = RequireSingleLine(request.RemoteApiKey, "Remote API key");
 
             Directory.CreateDirectory(InstallStateConstants.VpnRootPath);
             await File.WriteAllTextAsync(InstallStateConstants.WireGuardConfigFilePath, content, cancellationToken);
+            await _authService.SaveControlApiKeyAsync(controlApiKey, cancellationToken);
             string clusterId = await _serverConfigService.UpdateClusterIdAsync(request.ClusterId, cancellationToken);
             string restartMessage = await _installStateService.RestartAsaIfRunningAsync(cancellationToken);
 

@@ -1,6 +1,8 @@
 @page "/admin/settings"
 @inject AsaServerManager.Web.Services.AuthService AuthService
 @inject NavigationManager NavigationManager
+@using AsaServerManager.Web.Constants
+@using AsaServerManager.Web.Models.Auth
 
 <PageTitle>Settings</PageTitle>
 
@@ -58,33 +60,74 @@
             <div class="space-y-6">
                 <div class="flex flex-wrap items-center gap-4">
                     <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Remote API</p>
-                    <StatusTag Text="API key" />
+                    <StatusTag Text="Keys" />
                 </div>
 
                 <div>
-                    <h2 class="text-2xl font-semibold text-white">Remote key</h2>
+                    <h2 class="text-2xl font-semibold text-white">API keys</h2>
                     <p class="mt-3 text-sm leading-6 text-neutral-300">
-                        Generate or paste an API key for external tools. This key is stored in the app database and is used for admin API calls.
+                        Manage the app API key used for admin calls and the control API key received from VPN invitation flow.
                     </p>
                 </div>
 
-                <TextField Label="API key"
-                           @bind-Value="_apiKey"
-                           Hint="You can paste your own key or generate a new one."
+                <TextField Label="App API key"
+                           @bind-Value="_appApiKey"
+                           Hint="You can paste your own key or generate a new one for this app."
                            autocomplete="off" />
 
                 <div class="flex flex-wrap gap-3">
                     <button type="button"
-                            @onclick="GenerateApiKey"
+                            @onclick="GenerateAppApiKey"
                             class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
                         Generate key
                     </button>
 
                     <button type="button"
-                            @onclick="SaveApiKeyAsync"
+                            @onclick="SaveAppApiKeyAsync"
                             class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
                         Save API key
                     </button>
+                </div>
+
+                <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Stored keys</p>
+                        <StatusTag Text="@($"{_apiKeys.Count} keys")" />
+                    </div>
+
+                    @if (_apiKeys.Count == 0)
+                    {
+                        <p class="mt-4 text-sm leading-6 text-neutral-300">No API keys stored yet.</p>
+                    }
+                    else
+                    {
+                        <div class="mt-4 space-y-3">
+                            @foreach (StoredApiKey apiKey in _apiKeys)
+                            {
+                                <div class="rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
+                                    <div class="flex flex-wrap items-center justify-between gap-3">
+                                        <div class="flex flex-wrap items-center gap-3">
+                                            <StatusTag Text="@apiKey.Type" />
+                                            <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">Updated @apiKey.ModifiedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</p>
+                                        </div>
+
+                                        @if (string.Equals(apiKey.Type, ApiKeyTypeConstants.Control, StringComparison.Ordinal))
+                                        {
+                                            <button type="button"
+                                                    @onclick="() => DeleteApiKeyAsync(apiKey.Type)"
+                                                    class="inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-red-100 transition hover:bg-red-400/20">
+                                                Delete
+                                            </button>
+                                        }
+                                    </div>
+
+                                    <textarea value="@apiKey.ApiKey"
+                                              readonly
+                                              class="mt-4 h-24 w-full rounded-[1rem] border border-white/10 bg-black/40 p-3 font-mono text-sm leading-6 text-cyan-100 outline-none"></textarea>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -94,11 +137,12 @@
 @code {
     private string? _message;
     private string? _error;
-    private string? _apiKey;
+    private string? _appApiKey;
+    private IReadOnlyList<StoredApiKey> _apiKeys = Array.Empty<StoredApiKey>();
 
     protected override async Task OnInitializedAsync()
     {
-        _apiKey = await AuthService.LoadRemoteApiKeyAsync();
+        await LoadApiKeysAsync();
     }
 
     private void OpenResetPasswordPage()
@@ -106,25 +150,42 @@
         NavigationManager.NavigateTo("/admin/reset-password");
     }
 
-    private void GenerateApiKey()
+    private void GenerateAppApiKey()
     {
-        _apiKey = AsaServerManager.Web.Services.AuthService.GenerateRemoteApiKey();
-        _message = "Generated a new API key. Save it to apply.";
+        _appApiKey = AsaServerManager.Web.Services.AuthService.GenerateRemoteApiKey();
+        _message = "Generated a new app API key. Save it to apply.";
         _error = null;
     }
 
-    private async Task SaveApiKeyAsync()
+    private async Task SaveAppApiKeyAsync()
     {
         _message = null;
         _error = null;
 
-        if (string.IsNullOrWhiteSpace(_apiKey))
+        if (string.IsNullOrWhiteSpace(_appApiKey))
         {
             _error = "API key is required.";
             return;
         }
 
-        await AuthService.SaveRemoteApiKeyAsync(_apiKey);
-        _message = "API key updated.";
+        await AuthService.SaveAppApiKeyAsync(_appApiKey);
+        await LoadApiKeysAsync();
+        _message = "App API key updated.";
+    }
+
+    private async Task DeleteApiKeyAsync(string type)
+    {
+        _message = null;
+        _error = null;
+
+        await AuthService.DeleteApiKeyAsync(type);
+        await LoadApiKeysAsync();
+        _message = $"{type} API key deleted.";
+    }
+
+    private async Task LoadApiKeysAsync()
+    {
+        _appApiKey = await AuthService.LoadAppApiKeyAsync();
+        _apiKeys = await AuthService.LoadApiKeysAsync();
     }
 }
