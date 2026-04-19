@@ -310,14 +310,25 @@ public sealed class InstallStateService(
                File.Exists("/usr/bin/wg-quick");
     }
 
-    public async Task<string> InstallWireGuardClientAsync(CancellationToken cancellationToken = default)
+    public bool HasNfsClientInstall()
+    {
+        return File.Exists("/sbin/mount.nfs") ||
+               File.Exists("/usr/sbin/mount.nfs");
+    }
+
+    public bool HasClusterClientInstall()
+    {
+        return HasWireGuardClientInstall() && HasNfsClientInstall();
+    }
+
+    public async Task<string> InstallClusterClientAsync(CancellationToken cancellationToken = default)
     {
         await RunProcessAsync(
             SystemCommandConstants.SudoPath,
-            ["-n", InstallStateConstants.PrepareWireGuardClientScriptPath],
+            ["-n", InstallStateConstants.PrepareClusterClientScriptPath],
             cancellationToken);
 
-        return "Installed WireGuard client tools. This node is ready to receive its VPN configuration.";
+        return "Installed cluster client tools. This node is ready to receive WireGuard and NFS configuration.";
     }
 
     public async Task<string> EnableWireGuardAsync(CancellationToken cancellationToken = default)
@@ -354,6 +365,16 @@ public sealed class InstallStateService(
     {
         await EnableWireGuardAsync(cancellationToken);
         return await RestartWireGuardAsync(cancellationToken);
+    }
+
+    public async Task<string> ApplyNfsClientConfigAsync(CancellationToken cancellationToken = default)
+    {
+        await RunProcessAsync(
+            SystemCommandConstants.SudoPath,
+            ["-n", InstallStateConstants.ApplyNfsClientConfigScriptPath],
+            cancellationToken);
+
+        return "Updated /etc/fstab from the saved NFS client config.";
     }
 
     public async Task<string> StopWireGuardAsync(CancellationToken cancellationToken = default)

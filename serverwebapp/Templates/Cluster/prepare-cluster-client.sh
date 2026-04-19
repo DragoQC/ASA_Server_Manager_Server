@@ -10,6 +10,9 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y wireguard wireguard-tools
+apt-get install -y \
+  wireguard \
+  wireguard-tools \
+  nfs-common
 
-echo "Installed WireGuard client tools. This node is ready to receive its VPN configuration."
+echo "Installed cluster client tools. This node is ready for WireGuard and NFS configuration."

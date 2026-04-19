@@ -66,8 +66,11 @@ GAME_SERVICE_DIR="${BASE_DIR}/systemd"
 GAME_SERVICE_FILE="${GAME_SERVICE_DIR}/asa.service"
 SYSTEMD_GAME_SERVICE_FILE="/etc/systemd/system/asa.service"
 VPN_DIR="${BASE_DIR}/vpn"
-VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="serverwebapp/Templates/Vpn/prepare-wireguard-client.sh"
-VPN_PREP_SCRIPT_PATH="${VPN_DIR}/prepare-wireguard-client.sh"
+NFS_DIR="${BASE_DIR}/nfs"
+CLUSTER_CLIENT_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="serverwebapp/Templates/Cluster/prepare-cluster-client.sh"
+CLUSTER_CLIENT_PREP_SCRIPT_PATH="${NFS_DIR}/prepare-cluster-client.sh"
+CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH="serverwebapp/Templates/Cluster/apply-nfs-client-config.sh"
+CLUSTER_CLIENT_APPLY_SCRIPT_PATH="${NFS_DIR}/apply-nfs-client-config.sh"
 WIREGUARD_DIR="/etc/wireguard"
 WIREGUARD_CONFIG_LINK_PATH="${WIREGUARD_DIR}/wg0.conf"
 
@@ -116,6 +119,7 @@ mkdir -p \
   "${BASE_DIR}/server" \
   "${BASE_DIR}/steam" \
   "${BASE_DIR}/vpn" \
+  "${NFS_DIR}" \
   "${WIREGUARD_DIR}" \
   "${GAME_SERVICE_DIR}" \
   "${WEBAPP_ROOT}" \
@@ -134,7 +138,8 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u asa -n 80 --no-pager
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start asa
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl stop asa
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart asa
-${USER_NAME} ALL=(root) NOPASSWD: ${VPN_PREP_SCRIPT_PATH}
+${USER_NAME} ALL=(root) NOPASSWD: ${CLUSTER_CLIENT_PREP_SCRIPT_PATH}
+${USER_NAME} ALL=(root) NOPASSWD: ${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl enable wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart wg-quick@wg0
@@ -143,7 +148,7 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u wg-quick@wg0 -n 80 --no
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
-log_ok "Granted ${USER_NAME} access to query systemd, read asa and WireGuard logs, manage asa, run the WireGuard prep script, and control wg-quick@wg0."
+log_ok "Granted ${USER_NAME} access to query systemd, read asa and WireGuard logs, manage asa, run the cluster client scripts, update /etc/fstab through the apply script, and control wg-quick@wg0."
 
 if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_VERSION}\\."; then
   log_dotnet "Installing latest .NET SDK ${DOTNET_VERSION}..."
@@ -189,12 +194,19 @@ if [ ! -f "${GAME_SERVICE_FILE}" ] && [ -f "${REPO_DIR}/${GAME_SERVICE_TEMPLATE_
   cp "${REPO_DIR}/${GAME_SERVICE_TEMPLATE_RELATIVE_PATH}" "${GAME_SERVICE_FILE}"
 fi
 
-if [ -f "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
-  cp "${REPO_DIR}/${VPN_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${VPN_PREP_SCRIPT_PATH}"
-  chown root:root "${VPN_PREP_SCRIPT_PATH}"
-  chmod 0755 "${VPN_DIR}" "${VPN_PREP_SCRIPT_PATH}"
-  chown "${USER_NAME}:${GROUP_NAME}" "${VPN_DIR}"
+if [ -f "${REPO_DIR}/${CLUSTER_CLIENT_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${CLUSTER_CLIENT_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${CLUSTER_CLIENT_PREP_SCRIPT_PATH}"
+  chown root:root "${CLUSTER_CLIENT_PREP_SCRIPT_PATH}"
+  chmod 0755 "${NFS_DIR}" "${CLUSTER_CLIENT_PREP_SCRIPT_PATH}"
 fi
+
+if [ -f "${REPO_DIR}/${CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}"
+  chown root:root "${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}"
+  chmod 0755 "${NFS_DIR}" "${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}"
+fi
+
+chown "${USER_NAME}:${GROUP_NAME}" "${VPN_DIR}" "${NFS_DIR}"
 
 ln -sfn "${VPN_DIR}/wg0.conf" "${WIREGUARD_CONFIG_LINK_PATH}"
 

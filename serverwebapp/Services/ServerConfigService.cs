@@ -71,7 +71,10 @@ public sealed class ServerConfigService
             ValidateRawContent(content);
 
             ServerConfigSettings settings = ParseEnvContent(content);
-            settings.ClusterDir = ServerConfigSettings.Default().ClusterDir;
+            if (string.IsNullOrWhiteSpace(settings.ClusterDir))
+            {
+                settings.ClusterDir = ServerConfigSettings.Default().ClusterDir;
+            }
 
             string normalizedContent = BuildEnvContent(settings);
             string? directoryPath = Path.GetDirectoryName(ServerConfigConstants.EnvFilePath);
@@ -122,6 +125,15 @@ public sealed class ServerConfigService
         return normalizedClusterId;
     }
 
+    public async Task<string> UpdateClusterDirAsync(string? clusterDir, CancellationToken cancellationToken = default)
+    {
+        string normalizedClusterDir = NormalizeClusterDir(clusterDir);
+        ServerConfigSettings settings = await LoadAsync(cancellationToken);
+        settings.ClusterDir = normalizedClusterDir;
+        await SaveAsync(settings, cancellationToken);
+        return normalizedClusterDir;
+    }
+
 	private async Task ReloadCacheAsync(CancellationToken cancellationToken)
 	{
 		if (!File.Exists(ServerConfigConstants.EnvFilePath))
@@ -156,7 +168,10 @@ public sealed class ServerConfigService
             Directory.CreateDirectory(directoryPath);
         }
 
-        settings.ClusterDir = ServerConfigSettings.Default().ClusterDir;
+        if (string.IsNullOrWhiteSpace(settings.ClusterDir))
+        {
+            settings.ClusterDir = ServerConfigSettings.Default().ClusterDir;
+        }
 
         string content = BuildEnvContent(settings);
         await File.WriteAllTextAsync(ServerConfigConstants.EnvFilePath, content, cancellationToken);
@@ -298,6 +313,28 @@ public sealed class ServerConfigService
         }
 
         return normalizedClusterId;
+    }
+
+    private static string NormalizeClusterDir(string? clusterDir)
+    {
+        string normalizedClusterDir = clusterDir?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(normalizedClusterDir))
+        {
+            throw new ArgumentException("Cluster dir is required.");
+        }
+
+        if (normalizedClusterDir.IndexOfAny(['\0', '\r', '\n', '\u001a']) >= 0)
+        {
+            throw new ArgumentException("Cluster dir contains invalid characters.");
+        }
+
+        if (normalizedClusterDir.Length > 256)
+        {
+            throw new ArgumentException("Cluster dir cannot exceed 256 characters.");
+        }
+
+        return normalizedClusterDir;
     }
 
 	private static void ValidateRawContent(string content)
