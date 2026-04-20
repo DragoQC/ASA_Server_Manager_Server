@@ -238,25 +238,25 @@ public sealed class InstallStateService(
         IReadOnlyList<string> missingItems = GetMissingValidationItems();
         if (missingItems.Count > 0)
         {
-            return $"asa cannot be started. Missing: {string.Join(", ", missingItems)}.";
+            throw new InvalidOperationException($"asa cannot be started. Missing: {string.Join(", ", missingItems)}.");
         }
 
         AsaServiceStatus status = await GetAsaServiceStatusAsync(cancellationToken);
         if (!status.CanStart)
         {
-            return status.ActiveState == "activating"
+            throw new InvalidOperationException(status.ActiveState == "activating"
                 ? "asa is already starting."
                 : status.ActiveState == "active"
                     ? "asa is already running."
-                    : $"asa cannot be started while it is {status.DisplayText.ToLowerInvariant()}.";
+                    : $"asa cannot be started while it is {status.DisplayText.ToLowerInvariant()}.");
         }
 
         await RunProcessAsync(
             SystemCommandConstants.SudoPath,
-            ["-n", SystemCommandConstants.SystemctlPath, "start", "asa"],
+            ["-n", SystemCommandConstants.SystemctlPath, "start", "--no-block", "asa"],
             cancellationToken);
 
-        return "Started asa.";
+        return "Start command accepted for asa.";
     }
 
     public async Task<string> StopAsaServiceAsync(CancellationToken cancellationToken = default)
@@ -264,17 +264,17 @@ public sealed class InstallStateService(
         AsaServiceStatus status = await GetAsaServiceStatusAsync(cancellationToken);
         if (!status.CanStop)
         {
-            return status.ActiveState == "inactive" || status.ActiveState == "failed"
+            throw new InvalidOperationException(status.ActiveState == "inactive" || status.ActiveState == "failed"
                 ? "asa is already stopped."
-                : $"asa cannot be stopped while it is {status.DisplayText.ToLowerInvariant()}.";
+                : $"asa cannot be stopped while it is {status.DisplayText.ToLowerInvariant()}.");
         }
 
         await RunProcessAsync(
             SystemCommandConstants.SudoPath,
-            ["-n", SystemCommandConstants.SystemctlPath, "stop", "asa"],
+            ["-n", SystemCommandConstants.SystemctlPath, "stop", "--no-block", "asa"],
             cancellationToken);
 
-        return "Stopped asa.";
+        return "Stop command accepted for asa.";
     }
 
     public async Task<string> RestartAsaServiceAsync(CancellationToken cancellationToken = default)
@@ -282,15 +282,15 @@ public sealed class InstallStateService(
         AsaServiceStatus status = await GetAsaServiceStatusAsync(cancellationToken);
         if (!string.Equals(status.ActiveState, "active", StringComparison.Ordinal))
         {
-            return $"asa is not running. Current state: {status.DisplayText}.";
+            throw new InvalidOperationException($"asa is not running. Current state: {status.DisplayText}.");
         }
 
         await RunProcessAsync(
             SystemCommandConstants.SudoPath,
-            ["-n", SystemCommandConstants.SystemctlPath, "restart", "asa"],
+            ["-n", SystemCommandConstants.SystemctlPath, "restart", "--no-block", "asa"],
             cancellationToken);
 
-        return "Restarted asa.";
+        return "Restart command accepted for asa.";
     }
 
     public async Task<string> RestartAsaIfRunningAsync(CancellationToken cancellationToken = default)

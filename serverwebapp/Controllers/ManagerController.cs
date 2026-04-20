@@ -14,36 +14,72 @@ public sealed class ManagerController(ManagerService managerService) : Controlle
     [HttpPost("start")]
     public async Task<IActionResult> Start(CancellationToken cancellationToken)
     {
-        string message = await _managerService.StartAsync(cancellationToken);
-        return Ok(new
+        try
         {
-            success = true,
-            message,
-            state = _managerService.CurrentStatus.DisplayText
-        });
+            string message = await _managerService.StartAsync(cancellationToken);
+            return Ok(new
+            {
+                success = true,
+                message,
+                state = _managerService.CurrentStatus.DisplayText
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = exception.Message,
+                state = _managerService.CurrentStatus.DisplayText
+            });
+        }
     }
 
     [HttpPost("stop")]
     public async Task<IActionResult> Stop(CancellationToken cancellationToken)
     {
-        string message = await _managerService.StopAsync(cancellationToken);
-        return Ok(new
+        try
         {
-            success = true,
-            message,
-            state = _managerService.CurrentStatus.DisplayText
-        });
+            string message = await _managerService.StopAsync(cancellationToken);
+            return Ok(new
+            {
+                success = true,
+                message,
+                state = _managerService.CurrentStatus.DisplayText
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = exception.Message,
+                state = _managerService.CurrentStatus.DisplayText
+            });
+        }
     }
 
     [HttpPost("restart")]
     public async Task<IActionResult> Restart(CancellationToken cancellationToken)
     {
-        string message = await _managerService.RestartAsync(cancellationToken);
-        return Ok(new
+        try
         {
-            success = true,
-            message,
-            state = _managerService.CurrentStatus.DisplayText
-        });
+            string message = await _managerService.RestartAsync(cancellationToken);
+            return Ok(new
+            {
+                success = true,
+                message,
+                state = _managerService.CurrentStatus.DisplayText
+            });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new
+            {
+                success = false,
+                message = exception.Message,
+                state = _managerService.CurrentStatus.DisplayText
+            });
+        }
     }
 }
