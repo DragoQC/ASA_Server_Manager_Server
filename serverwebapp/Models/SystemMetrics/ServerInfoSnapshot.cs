@@ -1,7 +1,6 @@
 namespace AsaServerManager.Web.Models.SystemMetrics;
 
 public sealed record ServerInfoSnapshot(
-    string CpuTotal,
-    string RamTotal,
-    string DiskTotal,
+    string MapName,
+    int MaxPlayers,
     DateTimeOffset CheckedAtUtc);

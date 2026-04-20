@@ -16,7 +16,7 @@ public sealed class AsaStateHub(ServerMonitorService serverMonitorService, Playe
         AsaServiceStatus status = AsaServiceStatusFactory.FromSnapshot(_serverMonitorService.GetSnapshot());
         PlayerCountSnapshot playerCountSnapshot = _playerCountMonitorService.GetSnapshot();
         await Clients.Caller.SendAsync(AsaStateHubConstants.StateUpdatedMethod, status);
-        await Clients.Caller.SendAsync(AsaStateHubConstants.PlayerCountUpdatedMethod, playerCountSnapshot);
+        await Clients.Caller.SendAsync(AsaStateHubConstants.PlayerCountUpdatedMethod, playerCountSnapshot.CurrentPlayers);
         await base.OnConnectedAsync();
     }
 }

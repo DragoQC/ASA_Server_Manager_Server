@@ -18,9 +18,8 @@ public sealed class ServerInfoController(SystemMetricsService systemMetricsServi
 		return Ok(new
 		{
 			success = true,
-			cpuTotal = snapshot.CpuTotal,
-			ramTotal = snapshot.RamTotal,
-			diskTotal = snapshot.DiskTotal,
+			mapName = snapshot.MapName,
+			maxPlayers = snapshot.MaxPlayers,
 			checkedAtUtc = snapshot.CheckedAtUtc
 		});
 	}

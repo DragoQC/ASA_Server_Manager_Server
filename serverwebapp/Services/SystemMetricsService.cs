@@ -3,24 +3,23 @@ using AsaServerManager.Web.Models.SystemMetrics;
 
 namespace AsaServerManager.Web.Services;
 
-public sealed class SystemMetricsService
+public sealed class SystemMetricsService(ServerConfigService serverConfigService)
 {
+    private readonly ServerConfigService _serverConfigService = serverConfigService;
     private Sample? _previousSample;
 
-    public Task<ServerInfoSnapshot> LoadServerInfoAsync(CancellationToken cancellationToken = default)
+    public async Task<ServerInfoSnapshot> LoadServerInfoAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        (long totalRamBytes, _) = ReadMemoryBytes();
-        (long totalDiskBytes, _) = ReadRootDiskBytes();
+        Models.ServerConfig.ServerConfigSettings settings = await _serverConfigService.LoadAsync(cancellationToken);
 
         ServerInfoSnapshot snapshot = new(
-            CpuTotal: $"{Environment.ProcessorCount} logical",
-            RamTotal: FormatBytes(totalRamBytes),
-            DiskTotal: FormatBytes(totalDiskBytes),
+            MapName: settings.MapName,
+            MaxPlayers: settings.MaxPlayers,
             CheckedAtUtc: DateTimeOffset.UtcNow);
 
-        return Task.FromResult(snapshot);
+        return snapshot;
     }
 
     public Task<SystemMetricsSnapshot> LoadAsync(CancellationToken cancellationToken = default)

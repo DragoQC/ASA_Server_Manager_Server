@@ -56,6 +56,6 @@ public sealed class StateHubPublisherService(
 
     private Task BroadcastPlayerCountAsync(PlayerCountSnapshot snapshot)
     {
-        return _hubContext.Clients.All.SendAsync(AsaStateHubConstants.PlayerCountUpdatedMethod, snapshot);
+        return _hubContext.Clients.All.SendAsync(AsaStateHubConstants.PlayerCountUpdatedMethod, snapshot.CurrentPlayers);
     }
 }
