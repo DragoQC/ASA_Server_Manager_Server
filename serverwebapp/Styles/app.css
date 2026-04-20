@@ -13,33 +13,33 @@
 @property --theme-hue {
   syntax: "<angle>";
   inherits: true;
-  initial-value: 191deg;
+  initial-value: 188deg;
 }
 
 @layer base {
   :root {
-    --theme-hue: 191deg;
-    --theme-cyan-50: hsl(calc(var(--theme-hue) - 10deg) 100% 97%);
-    --theme-cyan-100: hsl(calc(var(--theme-hue) - 6deg) 96% 90%);
-    --theme-cyan-200: hsl(calc(var(--theme-hue) - 2deg) 92% 80%);
-    --theme-cyan-300: hsl(calc(var(--theme-hue) + 2deg) 90% 69%);
-    --theme-cyan-400: hsl(calc(var(--theme-hue) + 6deg) 88% 56%);
-    --theme-cyan-500: hsl(calc(var(--theme-hue) + 10deg) 84% 48%);
-    --theme-cyan-soft: hsl(calc(var(--theme-hue) - 16deg) 84% 58% / 0.12);
-    --theme-cyan-bright: hsl(calc(var(--theme-hue) + 22deg) 88% 62% / 0.1);
-    --theme-cyan-glow-08: hsl(var(--theme-hue) 92% 58% / 0.08);
-    --theme-cyan-glow-12: hsl(var(--theme-hue) 92% 58% / 0.12);
-    --theme-cyan-glow-15: hsl(var(--theme-hue) 92% 58% / 0.15);
-    --theme-cyan-glow-18: hsl(var(--theme-hue) 92% 58% / 0.18);
-    --theme-cyan-glow-25: hsl(var(--theme-hue) 92% 58% / 0.25);
-    --theme-cyan-glow-30: hsl(var(--theme-hue) 92% 58% / 0.3);
-    --theme-cyan-glow-35: hsl(var(--theme-hue) 92% 58% / 0.35);
-    --theme-cyan-glow-40: hsl(var(--theme-hue) 92% 58% / 0.4);
-    --theme-cyan-glow-55: hsl(var(--theme-hue) 92% 58% / 0.55);
-    --theme-canvas-line: hsl(calc(var(--theme-hue) + 10deg) 100% 68% / 0.28);
-    --theme-canvas-mouse-line: hsl(calc(var(--theme-hue) - 6deg) 100% 78% / 0.52);
-    --theme-canvas-particle: hsl(calc(var(--theme-hue) - 12deg) 100% 84% / 0.62);
-    --theme-canvas-shadow: hsl(calc(var(--theme-hue) + 4deg) 100% 62% / 0.9);
+    --theme-hue: 188deg;
+    --theme-cyan-50: hsl(188deg 100% 97%);
+    --theme-cyan-100: hsl(188deg 100% 92%);
+    --theme-cyan-200: hsl(188deg 98% 84%);
+    --theme-cyan-300: hsl(188deg 97% 73%);
+    --theme-cyan-400: hsl(188deg 96% 61%);
+    --theme-cyan-500: hsl(188deg 94% 52%);
+    --theme-cyan-soft: hsl(188deg 94% 58% / 0.12);
+    --theme-cyan-bright: hsl(188deg 98% 66% / 0.1);
+    --theme-cyan-glow-08: hsl(188deg 96% 61% / 0.08);
+    --theme-cyan-glow-12: hsl(188deg 96% 61% / 0.12);
+    --theme-cyan-glow-15: hsl(188deg 96% 61% / 0.15);
+    --theme-cyan-glow-18: hsl(188deg 96% 61% / 0.18);
+    --theme-cyan-glow-25: hsl(188deg 96% 61% / 0.25);
+    --theme-cyan-glow-30: hsl(188deg 96% 61% / 0.3);
+    --theme-cyan-glow-35: hsl(188deg 96% 61% / 0.35);
+    --theme-cyan-glow-40: hsl(188deg 96% 61% / 0.4);
+    --theme-cyan-glow-55: hsl(188deg 96% 61% / 0.55);
+    --theme-canvas-line: hsl(192deg 100% 72% / 0.28);
+    --theme-canvas-mouse-line: hsl(186deg 100% 80% / 0.52);
+    --theme-canvas-particle: hsl(184deg 100% 86% / 0.62);
+    --theme-canvas-shadow: hsl(190deg 100% 66% / 0.9);
     --color-cyan-50: var(--theme-cyan-50);
     --color-cyan-100: var(--theme-cyan-100);
     --color-cyan-200: var(--theme-cyan-200);
@@ -111,67 +111,6 @@
 }
 
 @layer components {
-  .theme-hue-slider {
-    width: 9rem;
-    accent-color: var(--theme-cyan-300);
-  }
-
-  .theme-hue-slider::-webkit-slider-runnable-track {
-    height: 0.4rem;
-    border-radius: 9999px;
-    background: linear-gradient(
-      90deg,
-      hsl(calc(var(--theme-hue) - 22deg) 88% 55% / 0.95),
-      hsl(var(--theme-hue) 92% 58% / 0.95),
-      hsl(calc(var(--theme-hue) + 22deg) 88% 60% / 0.95)
-    );
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-      0 0 16px var(--theme-cyan-glow-18);
-  }
-
-  .theme-hue-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 1rem;
-    height: 1rem;
-    margin-top: -0.3rem;
-    border: 2px solid rgba(255, 255, 255, 0.75);
-    border-radius: 9999px;
-    background: var(--theme-cyan-100);
-    box-shadow:
-      0 0 0 0.25rem rgba(255, 255, 255, 0.08),
-      0 0 18px var(--theme-cyan-glow-35);
-    cursor: pointer;
-  }
-
-  .theme-hue-slider::-moz-range-track {
-    height: 0.4rem;
-    border: 0;
-    border-radius: 9999px;
-    background: linear-gradient(
-      90deg,
-      hsl(calc(var(--theme-hue) - 22deg) 88% 55% / 0.95),
-      hsl(var(--theme-hue) 92% 58% / 0.95),
-      hsl(calc(var(--theme-hue) + 22deg) 88% 60% / 0.95)
-    );
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-      0 0 16px var(--theme-cyan-glow-18);
-  }
-
-  .theme-hue-slider::-moz-range-thumb {
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid rgba(255, 255, 255, 0.75);
-    border-radius: 9999px;
-    background: var(--theme-cyan-100);
-    box-shadow:
-      0 0 0 0.25rem rgba(255, 255, 255, 0.08),
-      0 0 18px var(--theme-cyan-glow-35);
-    cursor: pointer;
-  }
-
   #blazor-error-ui {
     @apply fixed bottom-4 left-4 right-4 z-50 hidden rounded-2xl border border-red-400/20 bg-red-500/15 px-5 py-4 pr-20 text-sm text-red-50 shadow-[0_0_40px_rgba(255,0,0,0.2)] backdrop-blur;
   }
