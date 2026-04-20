@@ -20,4 +20,5 @@ public static class InstallStateConstants
     public const string ServiceFilePath = BaseDirectoryPath + "/systemd/asa.service";
     public const string WireGuardInterfaceName = "wg0";
     public const string WireGuardServiceName = "wg-quick@" + WireGuardInterfaceName;
+    public const string ClusterMountUnitName = "opt-asa-cluster.mount";
 }

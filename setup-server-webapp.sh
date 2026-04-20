@@ -145,6 +145,7 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl stop wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u wg-quick@wg0 -n 80 --no-pager
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u opt-asa-cluster.mount -n 80 --no-pager
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"

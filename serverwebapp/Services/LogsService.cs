@@ -17,18 +17,19 @@ public sealed class LogsService(InstallStateService installStateService)
             [SystemCommandConstants.SystemctlPath, "status", "asa", "--no-pager", "--full"],
             cancellationToken);
 
-        CommandResult journalResult = await RunCommandAsync(
-            SystemCommandConstants.SudoPath,
-            [SystemCommandConstants.JournalctlPath, "-u", "asa", "-n", "80", "--no-pager"],
-            cancellationToken);
-
         CommandResult wireGuardJournalResult = await RunCommandAsync(
             SystemCommandConstants.SudoPath,
             [SystemCommandConstants.JournalctlPath, "-u", InstallStateConstants.WireGuardServiceName, "-n", "80", "--no-pager"],
             cancellationToken);
 
+        CommandResult nfsJournalResult = await RunCommandAsync(
+            SystemCommandConstants.SudoPath,
+            [SystemCommandConstants.JournalctlPath, "-u", InstallStateConstants.ClusterMountUnitName, "-n", "80", "--no-pager"],
+            cancellationToken);
+
         string statusContent = GetContentOrUnavailable(statusResult.Output);
         string wireGuardJournalContent = GetContentOrUnavailable(wireGuardJournalResult.Output);
+        string nfsJournalContent = GetContentOrUnavailable(nfsJournalResult.Output);
 
         return new AsaLogsSnapshot(
             serviceStatus,
@@ -42,6 +43,11 @@ public sealed class LogsService(InstallStateService installStateService)
                 "Recent journalctl output for wg-quick@wg0.",
                 wireGuardJournalContent,
                 !IsUnavailable(wireGuardJournalContent)),
+            new LogSectionSnapshot(
+                "NFS journal",
+                "Recent journalctl output for opt-asa-cluster.mount.",
+                nfsJournalContent,
+                !IsUnavailable(nfsJournalContent)),
             DateTimeOffset.UtcNow);
     }
 
