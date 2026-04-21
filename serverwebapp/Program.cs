@@ -66,6 +66,7 @@ builder.Services.AddHostedService(services => services.GetRequiredService<Player
 builder.Services.AddSingleton<StateHubPublisherService>();
 builder.Services.AddHostedService(services => services.GetRequiredService<StateHubPublisherService>());
 builder.Services.AddScoped<ActionMappingService>();
+builder.Services.AddScoped<ConsoleLogService>();
 builder.Services.AddScoped<LogsService>();
 builder.Services.AddScoped<ManagerService>();
 builder.Services.AddScoped<AuthService>();

@@ -33,7 +33,7 @@ public sealed class LogsService(InstallStateService installStateService)
             cancellationToken);
 
         string statusContent = GetContentOrUnavailable(statusResult.Output);
-        string webAppJournalContent = GetContentOrUnavailable(webAppJournalResult.Output);
+        string webAppJournalContent = GetWebAppContentOrUnavailable(webAppJournalResult.Output);
         string wireGuardJournalContent = GetContentOrUnavailable(wireGuardJournalResult.Output);
         string nfsJournalContent = GetContentOrUnavailable(nfsJournalResult.Output);
 
@@ -67,6 +67,28 @@ public sealed class LogsService(InstallStateService installStateService)
         return string.IsNullOrWhiteSpace(output)
             ? "Service unavailable or not present."
             : output.TrimEnd();
+    }
+
+    private static string GetWebAppContentOrUnavailable(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return "Service unavailable or not present.";
+        }
+
+        string[] filteredLines = output
+            .Split('\n', StringSplitOptions.TrimEntries)
+            .Where(line =>
+                !line.Contains(" sudo[", StringComparison.Ordinal)
+                && !line.Contains("pam_unix(sudo:session):", StringComparison.Ordinal))
+            .ToArray();
+
+        if (filteredLines.Length == 0)
+        {
+            return "No application log lines found after filtering sudo session noise.";
+        }
+
+        return string.Join('\n', filteredLines).TrimEnd();
     }
 
     private static bool IsUnavailable(string value)

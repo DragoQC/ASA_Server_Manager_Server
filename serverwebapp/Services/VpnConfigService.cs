@@ -10,35 +10,62 @@ public sealed class VpnConfigService
     private readonly InstallStateService _installStateService;
     private readonly AuthService _authService;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ILogger<VpnConfigService> _logger;
 
     public VpnConfigService(
         ServerConfigService serverConfigService,
         InstallStateService installStateService,
         AuthService authService,
-        IHttpClientFactory httpClientFactory)
+        IHttpClientFactory httpClientFactory,
+        ILogger<VpnConfigService> logger)
     {
         _serverConfigService = serverConfigService;
         _installStateService = installStateService;
         _authService = authService;
         _httpClientFactory = httpClientFactory;
+        _logger = logger;
     }
 
     public async Task<InviteRemoteServerResponse> SaveInviteAsync(
         InviteRemoteServerRequest request,
         CancellationToken cancellationToken = default)
     {
+        string currentStep = "validate invite";
+
         try
         {
             ArgumentNullException.ThrowIfNull(request);
 
+            currentStep = "validate wg0.conf";
             string content = ValidateWg0Config(request.Wg0Config);
+
+            currentStep = "validate control API key";
             string controlApiKey = RequireSingleLine(request.RemoteApiKey, "Remote API key");
 
+            currentStep = "create VPN directory";
             Directory.CreateDirectory(InstallStateConstants.VpnRootPath);
+
+            currentStep = "save wg0.conf";
             await File.WriteAllTextAsync(InstallStateConstants.WireGuardConfigFilePath, content, cancellationToken);
+
+            currentStep = "set wg0.conf permissions";
+            if (OperatingSystem.IsLinux())
+            {
+                File.SetUnixFileMode(
+                    InstallStateConstants.WireGuardConfigFilePath,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
+
+            currentStep = "save control API key";
             await _authService.SaveControlApiKeyAsync(controlApiKey, cancellationToken);
+
+            currentStep = "update cluster ID";
             string clusterId = await _serverConfigService.UpdateClusterIdAsync(request.ClusterId, cancellationToken);
+
+            currentStep = "enable and restart WireGuard";
             string wireGuardMessage = await _installStateService.EnableAndRestartWireGuardAsync(cancellationToken);
+
+            currentStep = "restart ASA if running";
             string restartMessage = await _installStateService.RestartAsaIfRunningAsync(cancellationToken);
 
             return new InviteRemoteServerResponse(
@@ -50,11 +77,13 @@ public sealed class VpnConfigService
         }
         catch (ArgumentException ex)
         {
-            return new InviteRemoteServerResponse(false, ex.Message, null);
+            _logger.LogWarning(ex, "VPN invite failed during step: {Step}", currentStep);
+            return new InviteRemoteServerResponse(false, $"VPN invite failed during {currentStep}. {ex.Message}", null);
         }
         catch (InvalidOperationException ex)
         {
-            return new InviteRemoteServerResponse(false, ex.Message, null);
+            _logger.LogWarning(ex, "VPN invite failed during step: {Step}", currentStep);
+            return new InviteRemoteServerResponse(false, $"VPN invite failed during {currentStep}. {ex.Message}", null);
         }
     }
 
@@ -62,6 +91,8 @@ public sealed class VpnConfigService
         string? inviteUrl,
         CancellationToken cancellationToken = default)
     {
+        Uri? inviteUri = null;
+
         try
         {
             if (string.IsNullOrWhiteSpace(inviteUrl))
@@ -69,7 +100,7 @@ public sealed class VpnConfigService
                 throw new ArgumentException("Invite URL is required.");
             }
 
-            if (!Uri.TryCreate(inviteUrl.Trim(), UriKind.Absolute, out Uri? inviteUri) ||
+            if (!Uri.TryCreate(inviteUrl.Trim(), UriKind.Absolute, out inviteUri) ||
                 (inviteUri.Scheme != Uri.UriSchemeHttp && inviteUri.Scheme != Uri.UriSchemeHttps))
             {
                 throw new ArgumentException("Invite URL must be a valid absolute http or https URL.");
@@ -86,14 +117,17 @@ public sealed class VpnConfigService
         }
         catch (ArgumentException ex)
         {
+            _logger.LogWarning(ex, "VPN invite fetch failed for {InviteUrl}", inviteUrl);
             return new InviteRemoteServerResponse(false, ex.Message, null);
         }
         catch (InvalidOperationException ex)
         {
+            _logger.LogWarning(ex, "VPN invite fetch failed for {InviteUrl}", inviteUri?.ToString() ?? inviteUrl);
             return new InviteRemoteServerResponse(false, ex.Message, null);
         }
         catch (HttpRequestException ex)
         {
+            _logger.LogWarning(ex, "VPN invite fetch HTTP failure for {InviteUrl}", inviteUri?.ToString() ?? inviteUrl);
             return new InviteRemoteServerResponse(false, ex.Message, null);
         }
     }

@@ -3,6 +3,7 @@
 @inject AsaServerManager.Web.Services.InstallStateService InstallStateService
 @inject AsaServerManager.Web.Services.VpnConfigService VpnConfigService
 @inject AsaServerManager.Web.Services.NfsConfigService NfsConfigService
+@inject AsaServerManager.Web.Services.ConsoleLogService ConsoleLogService
 @using AsaServerManager.Web.Contracts.Api.Admin
 
 <PageTitle>Cluster</PageTitle>
@@ -329,7 +330,19 @@
 
         try
         {
+            await ConsoleLogService.LogAsync("Cluster VPN invite fetch started.", new
+            {
+                Url = _vpnInviteUrl
+            });
+
             InviteRemoteServerResponse result = await VpnConfigService.ClaimInviteAsync(_vpnInviteUrl);
+            await ConsoleLogService.LogAsync("Cluster VPN invite fetch completed.", new
+            {
+                Url = _vpnInviteUrl,
+                result.Accepted,
+                result.Message,
+                result.Path
+            });
             _statusMessage = result.Message;
             _statusIsError = !result.Accepted;
 
@@ -341,6 +354,12 @@
         }
         catch (Exception exception)
         {
+            await ConsoleLogService.ErrorAsync("Cluster VPN invite fetch failed.", new
+            {
+                Url = _vpnInviteUrl,
+                exception.Message,
+                ExceptionType = exception.GetType().FullName
+            });
             _statusMessage = exception.Message;
             _statusIsError = true;
         }
@@ -358,13 +377,29 @@
 
         try
         {
+            await ConsoleLogService.LogAsync("Cluster NFS invite fetch started.", new
+            {
+                Url = _nfsInviteUrl
+            });
+
             _statusMessage = await NfsConfigService.ClaimInviteAsync(_nfsInviteUrl);
+            await ConsoleLogService.LogAsync("Cluster NFS invite fetch completed.", new
+            {
+                Url = _nfsInviteUrl,
+                Message = _statusMessage
+            });
             _statusIsError = false;
             _nfsInviteUrl = string.Empty;
             await RefreshClusterStateAsync();
         }
         catch (Exception exception)
         {
+            await ConsoleLogService.ErrorAsync("Cluster NFS invite fetch failed.", new
+            {
+                Url = _nfsInviteUrl,
+                exception.Message,
+                ExceptionType = exception.GetType().FullName
+            });
             _statusMessage = exception.Message;
             _statusIsError = true;
         }
