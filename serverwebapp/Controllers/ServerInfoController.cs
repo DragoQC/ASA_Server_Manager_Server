@@ -18,8 +18,11 @@ public sealed class ServerInfoController(SystemMetricsService systemMetricsServi
 		return Ok(new
 		{
 			success = true,
+			serverName = snapshot.ServerName,
 			mapName = snapshot.MapName,
+			gamePort = snapshot.GamePort,
 			maxPlayers = snapshot.MaxPlayers,
+			modIds = snapshot.ModIds,
 			checkedAtUtc = snapshot.CheckedAtUtc
 		});
 	}

@@ -5,22 +5,9 @@ namespace AsaServerManager.Web.Controllers;
 
 [ApiController]
 [Route("api")]
-public sealed class PublicController(ServerConfigService serverConfigService, ManagerService managerService) : ControllerBase
+public sealed class PublicController(ManagerService managerService) : ControllerBase
 {
-    private readonly ServerConfigService _serverConfigService = serverConfigService;
     private readonly ManagerService _managerService = managerService;
-
-    [HttpGet("mods")]
-    public async Task<IActionResult> GetMods(CancellationToken cancellationToken)
-    {
-        List<string> modIds = await _serverConfigService.LoadModIdsAsync(cancellationToken);
-
-        return Ok(new
-        {
-            success = true,
-            modIds
-        });
-    }
 
     [HttpGet("state")]
     public async Task<IActionResult> State(CancellationToken cancellationToken)

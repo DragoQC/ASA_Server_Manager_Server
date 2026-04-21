@@ -13,10 +13,14 @@ public sealed class SystemMetricsService(ServerConfigService serverConfigService
         cancellationToken.ThrowIfCancellationRequested();
 
         Models.ServerConfig.ServerConfigSettings settings = await _serverConfigService.LoadAsync(cancellationToken);
+        IReadOnlyList<string> modIds = await _serverConfigService.LoadModIdsAsync(cancellationToken);
 
         ServerInfoSnapshot snapshot = new(
+            ServerName: settings.ServerName,
             MapName: settings.MapName,
+            GamePort: settings.GamePort,
             MaxPlayers: settings.MaxPlayers,
+            ModIds: modIds,
             CheckedAtUtc: DateTimeOffset.UtcNow);
 
         return snapshot;
