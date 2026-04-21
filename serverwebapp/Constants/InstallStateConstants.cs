@@ -18,6 +18,7 @@ public static class InstallStateConstants
     public const string WireGuardConfigFilePath = VpnRootPath + "/wg0.conf";
     public const string StartScriptPath = BaseDirectoryPath + "/start-asa.sh";
     public const string ServiceFilePath = BaseDirectoryPath + "/systemd/asa.service";
+    public const string WebAppServiceName = "asa-webapp";
     public const string WireGuardInterfaceName = "wg0";
     public const string WireGuardServiceName = "wg-quick@" + WireGuardInterfaceName;
     public const string ClusterMountUnitName = "opt-asa-cluster.mount";

@@ -22,12 +22,18 @@ public sealed class LogsService(InstallStateService installStateService)
             [SystemCommandConstants.JournalctlPath, "-u", InstallStateConstants.WireGuardServiceName, "-n", "80", "--no-pager"],
             cancellationToken);
 
+        CommandResult webAppJournalResult = await RunCommandAsync(
+            SystemCommandConstants.SudoPath,
+            [SystemCommandConstants.JournalctlPath, "-u", InstallStateConstants.WebAppServiceName, "-n", "80", "--no-pager"],
+            cancellationToken);
+
         CommandResult nfsJournalResult = await RunCommandAsync(
             SystemCommandConstants.SudoPath,
             [SystemCommandConstants.JournalctlPath, "-u", InstallStateConstants.ClusterMountUnitName, "-n", "80", "--no-pager"],
             cancellationToken);
 
         string statusContent = GetContentOrUnavailable(statusResult.Output);
+        string webAppJournalContent = GetContentOrUnavailable(webAppJournalResult.Output);
         string wireGuardJournalContent = GetContentOrUnavailable(wireGuardJournalResult.Output);
         string nfsJournalContent = GetContentOrUnavailable(nfsJournalResult.Output);
 
@@ -38,6 +44,11 @@ public sealed class LogsService(InstallStateService installStateService)
                 "Live systemctl status output for asa.service.",
                 statusContent,
                 !IsUnavailable(statusContent)),
+            new LogSectionSnapshot(
+                "Web app journal",
+                "Recent journalctl output for asa-webapp.",
+                webAppJournalContent,
+                !IsUnavailable(webAppJournalContent)),
             new LogSectionSnapshot(
                 "WireGuard journal",
                 "Recent journalctl output for wg-quick@wg0.",
