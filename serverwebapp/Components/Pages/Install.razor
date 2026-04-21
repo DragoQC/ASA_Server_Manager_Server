@@ -61,6 +61,12 @@
                             {
                                 <StatusTag Text="@($"Latest {_snapshot.Proton.LatestVersionLabel}")" />
                             }
+                            <button type="button"
+                                    @onclick="OpenProtonInfoDialog"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-sm font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
+                                    aria-label="Proton info">
+                                ?
+                            </button>
                         </div>
 
                         <p class="max-w-3xl text-base leading-7 text-neutral-300">
@@ -111,6 +117,12 @@
                     <div class="space-y-4">
                         <div class="flex flex-wrap items-center gap-3">
                             <h2 class="text-3xl font-semibold text-white">@_snapshot.Steam.Title</h2>
+                            <button type="button"
+                                    @onclick="OpenSteamInfoDialog"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-sm font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
+                                    aria-label="SteamCMD info">
+                                ?
+                            </button>
                         </div>
 
                         <p class="max-w-3xl text-base leading-7 text-neutral-300">
@@ -148,27 +160,6 @@
                     <p class="max-w-3xl text-base leading-7 text-neutral-300">
                         Edit the start script and systemd unit here. If the files do not exist yet, the editors load the repo templates so you can apply them directly to disk.
                     </p>
-
-                    <div class="rounded-[1.4rem] border border-white/10 bg-black/30 p-4">
-                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">asa.env variables used by start-asa.sh</p>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            @foreach (string environmentVariable in StartScriptEnvironmentVariables)
-                            {
-                                <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100">
-                                    @environmentVariable
-                                </span>
-                            }
-                        </div>
-                        <p class="mt-4 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">proton.env variables used by start-asa.sh</p>
-                        <div class="mt-3 flex flex-wrap gap-2">
-                            @foreach (string environmentVariable in ProtonEnvironmentVariables)
-                            {
-                                <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100">
-                                    @environmentVariable
-                                </span>
-                            }
-                        </div>
-                    </div>
                 </div>
 
                 <div class="space-y-6">
@@ -178,6 +169,12 @@
                                 <div class="flex flex-wrap items-center gap-3">
                                     <h3 class="text-2xl font-semibold text-white">@_snapshot.StartScript.Title</h3>
                                     <StatusTag Text="@_snapshot.StartScript.StateLabel" />
+                                    <button type="button"
+                                            @onclick="OpenStartScriptInfoDialog"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-sm font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
+                                            aria-label="Start script info">
+                                        ?
+                                    </button>
                                 </div>
 
                                 <p class="text-sm leading-6 text-neutral-300">@_snapshot.StartScript.Description</p>
@@ -209,6 +206,12 @@
                                 <div class="flex flex-wrap items-center gap-3">
                                     <h3 class="text-2xl font-semibold text-white">@_snapshot.ServiceFile.Title</h3>
                                     <StatusTag Text="@_snapshot.ServiceFile.StateLabel" />
+                                    <button type="button"
+                                            @onclick="OpenServiceFileInfoDialog"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-sm font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
+                                            aria-label="Service file info">
+                                        ?
+                                    </button>
                                 </div>
 
                                 <p class="text-sm leading-6 text-neutral-300">@_snapshot.ServiceFile.Description</p>
@@ -255,6 +258,133 @@
                     OnConfirm="RestartAsaAsync"
                     OnCancel="CloseRestartDialog" />
 
+<ConfirmationDialog IsOpen="@_showStartScriptInfoDialog"
+                    IsBusy="false"
+                    Eyebrow="Start script"
+                    StatusText="Info"
+                    Title="How start-asa.sh works"
+                    ConfirmText="Got it"
+                    CancelText="Close"
+                    OnConfirm="CloseStartScriptInfoDialog"
+                    OnCancel="CloseStartScriptInfoDialog">
+    <ChildContent>
+        <div class="space-y-5">
+            <p class="text-base leading-7 text-neutral-300">
+                This script is executed under the hood to start the ARK: Survival Ascended server. It reads the live config values and builds the final server launch command, including map, server name, ports, player count, and optional extra args.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                The template is already good as-is. If cluster values are empty, it skips cluster launch info. If mod IDs are empty, it skips mod launch args. It also sets the game port, query port, and RCON port from this script.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                This file stays editable on purpose. If you know what you are doing, you can customize the launch behavior. If you just want a working ARK server, saving the default script as-is will also work.
+            </p>
+
+            <div class="rounded-[1.4rem] border border-white/10 bg-black/30 p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">asa.env variables used by start-asa.sh</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @foreach (string environmentVariable in StartScriptEnvironmentVariables)
+                    {
+                        <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100">
+                            @environmentVariable
+                        </span>
+                    }
+                </div>
+                <p class="mt-4 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">proton.env variables used by start-asa.sh</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @foreach (string environmentVariable in ProtonEnvironmentVariables)
+                    {
+                        <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100">
+                            @environmentVariable
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
+<ConfirmationDialog IsOpen="@_showServiceFileInfoDialog"
+                    IsBusy="false"
+                    Eyebrow="Service file"
+                    StatusText="Info"
+                    Title="How asa.service works"
+                    ConfirmText="Got it"
+                    CancelText="Close"
+                    OnConfirm="CloseServiceFileInfoDialog"
+                    OnCancel="CloseServiceFileInfoDialog">
+    <ChildContent>
+        <div class="space-y-5">
+            <p class="text-base leading-7 text-neutral-300">
+                A basic systemd service is the Linux way to define how a background process starts, stops, restarts, and behaves after boot. On Debian, systemd reads this file to know how your ASA server should be launched and managed.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                This is the service installed on the Debian machine for the ARK server. It does not contain the full game launch command itself. Instead, it runs the start script configured just above, and that script builds the final server launch with the current ports, map, mods, cluster values, and other args.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                This file also stays editable on purpose. If you know what you are doing, you can tune how the Linux service behaves. If you just want a working ARK server, saving the default service as-is will also work.
+            </p>
+
+            <div class="rounded-[1.4rem] border border-white/10 bg-black/30 p-4">
+                <div class="space-y-3 text-sm leading-6 text-neutral-300">
+                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Unit]</code> describes what the service is and what it should wait for before starting.</p>
+                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Service]</code> defines how the process runs, which user runs it, the working directory, restart behavior, and the command that gets executed.</p>
+                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">ExecStart</code> is the important line that points systemd at the launch command or script.</p>
+                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">Restart</code> and <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RestartSec</code> control how the service comes back if it stops or crashes.</p>
+                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Install]</code> tells systemd how the service should be attached to the machine boot flow when it is enabled.</p>
+                </div>
+            </div>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
+<ConfirmationDialog IsOpen="@_showProtonInfoDialog"
+                    IsBusy="false"
+                    Eyebrow="Proton"
+                    StatusText="Info"
+                    Title="Why Proton is needed"
+                    ConfirmText="Got it"
+                    CancelText="Close"
+                    OnConfirm="CloseProtonInfoDialog"
+                    OnCancel="CloseProtonInfoDialog">
+    <ChildContent>
+        <div class="space-y-5">
+            <p class="text-base leading-7 text-neutral-300">
+                Proton is needed to start the Windows ARK dedicated server build on Linux. ASA server binaries are Windows-based, so Proton provides the compatibility layer that lets the game server run on this Debian machine.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                In this panel, Proton is installed into the workspace and the selected version is what the start flow will use when launching the server. If Proton is missing, the server cannot boot correctly on Linux.
+            </p>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
+<ConfirmationDialog IsOpen="@_showSteamInfoDialog"
+                    IsBusy="false"
+                    Eyebrow="SteamCMD"
+                    StatusText="Info"
+                    Title="Why SteamCMD is needed"
+                    ConfirmText="Got it"
+                    CancelText="Close"
+                    OnConfirm="CloseSteamInfoDialog"
+                    OnCancel="CloseSteamInfoDialog">
+    <ChildContent>
+        <div class="space-y-5">
+            <p class="text-base leading-7 text-neutral-300">
+                SteamCMD is used to download and update your ARK server automatically. It is Valve’s command-line tool for fetching dedicated server files without using the full Steam desktop client.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                In this setup, SteamCMD lives in the workspace and is what the install and update flow uses to keep the server files present and current on disk.
+            </p>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
 @code {
     private AsaServerManager.Web.Models.Install.InstallWorkspaceSnapshot? _snapshot;
     private string _startScriptContent = string.Empty;
@@ -275,6 +405,10 @@
     private string? _selectedProtonVersion;
     private bool _showRestartDialog;
     private bool _isRestartingAsa;
+    private bool _showProtonInfoDialog;
+    private bool _showSteamInfoDialog;
+    private bool _showStartScriptInfoDialog;
+    private bool _showServiceFileInfoDialog;
     private static readonly string[] StartScriptEnvironmentVariables =
     [
         "MAP_NAME",
@@ -550,6 +684,54 @@
     private Task OnSelectedProtonVersionChanged(string? value)
     {
         _selectedProtonVersion = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenStartScriptInfoDialog()
+    {
+        _showStartScriptInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseStartScriptInfoDialog()
+    {
+        _showStartScriptInfoDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenProtonInfoDialog()
+    {
+        _showProtonInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseProtonInfoDialog()
+    {
+        _showProtonInfoDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenSteamInfoDialog()
+    {
+        _showSteamInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseSteamInfoDialog()
+    {
+        _showSteamInfoDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenServiceFileInfoDialog()
+    {
+        _showServiceFileInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseServiceFileInfoDialog()
+    {
+        _showServiceFileInfoDialog = false;
         return Task.CompletedTask;
     }
 

@@ -1,1 +1,0 @@
-Add in /me the current server name.

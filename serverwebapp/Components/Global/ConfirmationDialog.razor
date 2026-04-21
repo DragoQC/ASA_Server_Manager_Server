@@ -5,12 +5,21 @@
             <div class="space-y-4">
                 <div class="flex flex-wrap items-center gap-3">
                     <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">@Eyebrow</p>
-                    <StatusTag Text="Action required" />
+                    <StatusTag Text="@StatusText" />
                 </div>
 
                 <div>
                     <h2 class="text-3xl font-semibold text-white">@Title</h2>
-                    <p class="mt-4 text-base leading-7 text-neutral-300">@Message</p>
+                    @if (ChildContent is null)
+                    {
+                        <p class="mt-4 text-base leading-7 text-neutral-300">@Message</p>
+                    }
+                    else
+                    {
+                        <div class="mt-4">
+                            @ChildContent
+                        </div>
+                    }
                 </div>
 
                 <div class="flex flex-wrap justify-end gap-3 pt-2">
@@ -49,6 +58,9 @@
     public string Message { get; set; } = "";
 
     [Parameter]
+    public string StatusText { get; set; } = "Action required";
+
+    [Parameter]
     public string ConfirmText { get; set; } = "Yes";
 
     [Parameter]
@@ -59,4 +71,7 @@
 
     [Parameter]
     public EventCallback OnCancel { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
 }
