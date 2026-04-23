@@ -13,14 +13,24 @@ apt-get update
 apt-get install -y \
   wireguard \
   wireguard-tools \
-  cifs-utils
+  rpcbind \
+  nfs-common
 
 dpkg --configure -a
 apt-get install -f -y
 
-if [ ! -x "/sbin/mount.cifs" ] && [ ! -x "/usr/sbin/mount.cifs" ]; then
-  echo "mount.cifs is missing after installing cluster client tools." >&2
+systemctl enable --now rpcbind.service
+systemctl reset-failed rpc-statd.service || true
+systemctl restart rpc-statd.service
+
+if ! systemctl --quiet is-active rpcbind.service; then
+  echo "rpcbind failed to start after installing cluster client tools." >&2
   exit 1
 fi
 
-echo "Installed cluster client tools. This node is ready for WireGuard and SMB configuration."
+if ! systemctl --quiet is-active rpc-statd.service; then
+  echo "rpc-statd failed to start after installing cluster client tools." >&2
+  exit 1
+fi
+
+echo "Installed cluster client tools. This node is ready for WireGuard and NFS configuration."

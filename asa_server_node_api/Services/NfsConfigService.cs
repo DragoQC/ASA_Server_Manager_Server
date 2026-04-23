@@ -4,7 +4,7 @@ using asa_server_node_api.Contracts.Api.Cluster;
 
 namespace asa_server_node_api.Services;
 
-public sealed class SmbConfigService(
+public sealed class NfsConfigService(
     ServerConfigService serverConfigService,
     InstallStateService installStateService,
     IHttpClientFactory httpClientFactory)
@@ -17,57 +17,57 @@ public sealed class SmbConfigService(
     {
         if (string.IsNullOrWhiteSpace(inviteUrl))
         {
-            throw new ArgumentException("SMB invite URL is required.");
+            throw new ArgumentException("NFS invite URL is required.");
         }
 
         if (!Uri.TryCreate(inviteUrl.Trim(), UriKind.Absolute, out Uri? inviteUri) ||
             (inviteUri.Scheme != Uri.UriSchemeHttp && inviteUri.Scheme != Uri.UriSchemeHttps))
         {
-            throw new ArgumentException("SMB invite URL must be a valid absolute http or https URL.");
+            throw new ArgumentException("NFS invite URL must be a valid absolute http or https URL.");
         }
 
         HttpClient client = _httpClientFactory.CreateClient();
-        SmbShareInviteResponse? response = await client.GetFromJsonAsync<SmbShareInviteResponse>(inviteUri, cancellationToken);
+        NfsShareInviteResponse? response = await client.GetFromJsonAsync<NfsShareInviteResponse>(inviteUri, cancellationToken);
         if (response is null)
         {
-            throw new InvalidOperationException("The remote SMB invite endpoint returned no configuration.");
+            throw new InvalidOperationException("The remote NFS invite endpoint returned no configuration.");
         }
 
-        string sharePath = RequireSingleLine(response.SharePath, "SMB share path");
-        string mountPath = RequireSingleLine(response.MountPath, "SMB mount path");
+        string sharePath = RequireSingleLine(response.SharePath, "NFS share path");
+        string mountPath = RequireSingleLine(response.MountPath, "NFS mount path");
         string clientConfig = ValidateClientConfig(response.ClientConfig, sharePath, mountPath);
 
-        Directory.CreateDirectory(InstallStateConstants.SmbRootPath);
-        await File.WriteAllTextAsync(InstallStateConstants.SmbClientConfigFilePath, clientConfig, cancellationToken);
+        Directory.CreateDirectory(InstallStateConstants.NfsRootPath);
+        await File.WriteAllTextAsync(InstallStateConstants.NfsClientConfigFilePath, clientConfig, cancellationToken);
 
         string clusterDir = await _serverConfigService.UpdateClusterDirAsync(mountPath, cancellationToken);
-        string fstabMessage = await _installStateService.ApplySmbClientConfigAsync(cancellationToken);
+        string fstabMessage = await _installStateService.ApplyNfsClientConfigAsync(cancellationToken);
         string restartMessage = await _installStateService.RestartAsaIfRunningAsync(cancellationToken);
 
-        return $"SMB client configuration saved. Cluster dir set to {clusterDir}. {fstabMessage} {restartMessage}";
+        return $"NFS client configuration saved. Cluster dir set to {clusterDir}. {fstabMessage} {restartMessage}";
     }
 
     public async Task<string?> LoadConfigContentAsync(CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(InstallStateConstants.SmbClientConfigFilePath))
+        if (!File.Exists(InstallStateConstants.NfsClientConfigFilePath))
         {
             return null;
         }
 
-        return await File.ReadAllTextAsync(InstallStateConstants.SmbClientConfigFilePath, cancellationToken);
+        return await File.ReadAllTextAsync(InstallStateConstants.NfsClientConfigFilePath, cancellationToken);
     }
 
     private static string ValidateClientConfig(string? content, string sharePath, string mountPath)
     {
         if (string.IsNullOrWhiteSpace(content))
         {
-            throw new ArgumentException("SMB client config is required.");
+            throw new ArgumentException("NFS client config is required.");
         }
 
         string normalizedContent = content.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
         if (normalizedContent.IndexOf('\0') >= 0)
         {
-            throw new ArgumentException("SMB client config contains invalid characters.");
+            throw new ArgumentException("NFS client config contains invalid characters.");
         }
 
         string? configLine = normalizedContent
@@ -76,13 +76,13 @@ public sealed class SmbConfigService(
 
         if (string.IsNullOrWhiteSpace(configLine))
         {
-            throw new ArgumentException("SMB client config must contain a valid mount line.");
+            throw new ArgumentException("NFS client config must contain a valid mount line.");
         }
 
         if (!configLine.Contains(sharePath, StringComparison.Ordinal) ||
             !configLine.Contains(mountPath, StringComparison.Ordinal))
         {
-            throw new ArgumentException("SMB client config does not match the invite response.");
+            throw new ArgumentException("NFS client config does not match the invite response.");
         }
 
         return normalizedContent + "\n";

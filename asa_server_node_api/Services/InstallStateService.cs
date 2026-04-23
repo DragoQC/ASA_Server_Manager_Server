@@ -312,15 +312,16 @@ public sealed class InstallStateService(
                File.Exists("/usr/bin/wg-quick");
     }
 
-    public bool HasSmbClientInstall()
+    public bool HasNfsClientInstall()
     {
-        return (File.Exists("/sbin/mount.cifs") || File.Exists("/usr/sbin/mount.cifs"))
-               && IsPackageFullyInstalled("cifs-utils");
+        return (File.Exists("/sbin/mount.nfs") || File.Exists("/usr/sbin/mount.nfs"))
+               && IsPackageFullyInstalled("nfs-common")
+               && IsPackageFullyInstalled("rpcbind");
     }
 
     public bool HasClusterClientInstall()
     {
-        return HasWireGuardClientInstall() && HasSmbClientInstall();
+        return HasWireGuardClientInstall() && HasNfsClientInstall();
     }
 
     private static bool IsPackageFullyInstalled(string packageName)
@@ -377,7 +378,7 @@ public sealed class InstallStateService(
                 ["-n", InstallStateConstants.PrepareClusterClientScriptPath],
                 cancellationToken);
 
-            return "Installed cluster client tools. This node is ready to receive WireGuard and SMB configuration.";
+            return "Installed cluster client tools. This node is ready to receive WireGuard and NFS configuration.";
         }
         finally
         {
@@ -421,14 +422,14 @@ public sealed class InstallStateService(
         return await RestartWireGuardAsync(cancellationToken);
     }
 
-    public async Task<string> ApplySmbClientConfigAsync(CancellationToken cancellationToken = default)
+    public async Task<string> ApplyNfsClientConfigAsync(CancellationToken cancellationToken = default)
     {
         await RunProcessAsync(
             SystemCommandConstants.SudoPath,
-            ["-n", InstallStateConstants.ApplySmbClientConfigScriptPath],
+            ["-n", InstallStateConstants.ApplyNfsClientConfigScriptPath],
             cancellationToken);
 
-        return "Updated /etc/fstab from the saved SMB client config.";
+        return "Updated /etc/fstab from the saved NFS client config.";
     }
 
     public async Task<string> StopWireGuardAsync(CancellationToken cancellationToken = default)

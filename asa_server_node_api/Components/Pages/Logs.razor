@@ -55,7 +55,7 @@
         new LogSectionSnapshot("Service status", "Live systemctl status output for asa.service.", "Loading...", false),
         new LogSectionSnapshot("Web app journal", "Recent journalctl output for asa-webapp.", "Loading...", false),
         new LogSectionSnapshot("WireGuard journal", "Recent journalctl output for wg-quick@wg0.", "Loading...", false),
-        new LogSectionSnapshot("SMB mount journal", "Recent journalctl output for the SMB/CIFS cluster mount at opt-asa-cluster.mount.", "Loading...", false),
+        new LogSectionSnapshot("NFS journal", "Recent journalctl output for opt-asa-cluster.mount.", "Loading...", false),
         DateTimeOffset.UtcNow);
     private CancellationTokenSource? _refreshLoopCancellationTokenSource;
     private bool _isRefreshing;
@@ -116,7 +116,7 @@
             _snapshot.StatusSection,
             _snapshot.WebAppJournalSection,
             _snapshot.WireGuardJournalSection,
-            _snapshot.SmbJournalSection
+            _snapshot.NfsJournalSection
         ];
     }
 

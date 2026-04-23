@@ -66,12 +66,12 @@ GAME_SERVICE_DIR="${BASE_DIR}/systemd"
 GAME_SERVICE_FILE="${GAME_SERVICE_DIR}/asa.service"
 SYSTEMD_GAME_SERVICE_FILE="/etc/systemd/system/asa.service"
 VPN_DIR="${BASE_DIR}/vpn"
-SMB_DIR="${BASE_DIR}/smb"
+NFS_DIR="${BASE_DIR}/nfs"
 BACKUP_DIR="${BASE_DIR}/backup"
 CLUSTER_CLIENT_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/prepare-cluster-client.sh"
-CLUSTER_CLIENT_PREP_SCRIPT_PATH="${SMB_DIR}/prepare-cluster-client.sh"
-CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/apply-smb-client-config.sh"
-CLUSTER_CLIENT_APPLY_SCRIPT_PATH="${SMB_DIR}/apply-smb-client-config.sh"
+CLUSTER_CLIENT_PREP_SCRIPT_PATH="${NFS_DIR}/prepare-cluster-client.sh"
+CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/apply-nfs-client-config.sh"
+CLUSTER_CLIENT_APPLY_SCRIPT_PATH="${NFS_DIR}/apply-nfs-client-config.sh"
 ZIP_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Backup/prepare-zip-tools.sh"
 ZIP_TOOLS_PREP_SCRIPT_PATH="${BACKUP_DIR}/prepare-zip-tools.sh"
 TAR_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Backup/prepare-tar-tools.sh"
@@ -127,7 +127,7 @@ mkdir -p \
   "${BASE_DIR}/server" \
   "${BASE_DIR}/steam" \
   "${BASE_DIR}/vpn" \
-  "${SMB_DIR}" \
+  "${NFS_DIR}" \
   "${WIREGUARD_DIR}" \
   "${GAME_SERVICE_DIR}" \
   "${WEBAPP_ROOT}" \
@@ -212,13 +212,13 @@ fi
 if [ -f "${REPO_DIR}/${CLUSTER_CLIENT_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
   cp "${REPO_DIR}/${CLUSTER_CLIENT_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${CLUSTER_CLIENT_PREP_SCRIPT_PATH}"
   chown root:root "${CLUSTER_CLIENT_PREP_SCRIPT_PATH}"
-  chmod 0755 "${SMB_DIR}" "${CLUSTER_CLIENT_PREP_SCRIPT_PATH}"
+  chmod 0755 "${NFS_DIR}" "${CLUSTER_CLIENT_PREP_SCRIPT_PATH}"
 fi
 
 if [ -f "${REPO_DIR}/${CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
   cp "${REPO_DIR}/${CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}"
   chown root:root "${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}"
-  chmod 0755 "${SMB_DIR}" "${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}"
+  chmod 0755 "${NFS_DIR}" "${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}"
 fi
 
 if [ -f "${REPO_DIR}/${ZIP_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
@@ -233,7 +233,7 @@ if [ -f "${REPO_DIR}/${TAR_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
   chmod 0755 "${BACKUP_DIR}" "${TAR_TOOLS_PREP_SCRIPT_PATH}"
 fi
 
-chown "${USER_NAME}:${GROUP_NAME}" "${VPN_DIR}" "${SMB_DIR}" "${BACKUP_DIR}"
+chown "${USER_NAME}:${GROUP_NAME}" "${VPN_DIR}" "${NFS_DIR}" "${BACKUP_DIR}"
 
 ln -sfn "${VPN_DIR}/wg0.conf" "${WIREGUARD_CONFIG_LINK_PATH}"
 

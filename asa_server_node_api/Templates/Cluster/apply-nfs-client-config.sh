@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-CONFIG_FILE="/opt/asa/smb/client.mount.cifs.conf"
+CONFIG_FILE="/opt/asa/nfs/client.mount.conf"
 FSTAB_FILE="/etc/fstab"
 
 if [ "${EUID}" -ne 0 ]; then
@@ -11,19 +11,19 @@ if [ "${EUID}" -ne 0 ]; then
 fi
 
 if [ ! -f "${CONFIG_FILE}" ]; then
-  echo "SMB client config is missing at ${CONFIG_FILE}." >&2
+  echo "NFS client config is missing at ${CONFIG_FILE}." >&2
   exit 1
 fi
 
 CONFIG_LINE="$(grep -Ev '^[[:space:]]*($|#)' "${CONFIG_FILE}" | head -n 1 || true)"
 if [ -z "${CONFIG_LINE}" ]; then
-  echo "SMB client config does not contain a valid fstab line." >&2
+  echo "NFS client config does not contain a valid fstab line." >&2
   exit 1
 fi
 
 MOUNT_PATH="$(printf '%s\n' "${CONFIG_LINE}" | awk '{print $2}')"
 if [ -z "${MOUNT_PATH}" ]; then
-  echo "SMB client config does not contain a valid mount path." >&2
+  echo "NFS client config does not contain a valid mount path." >&2
   exit 1
 fi
 

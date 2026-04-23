@@ -27,7 +27,7 @@ public sealed class LogsService(InstallStateService installStateService)
             [SystemCommandConstants.JournalctlPath, "-u", InstallStateConstants.WebAppServiceName, "-n", "80", "--no-pager"],
             cancellationToken);
 
-        CommandResult smbJournalResult = await RunCommandAsync(
+        CommandResult nfsJournalResult = await RunCommandAsync(
             SystemCommandConstants.SudoPath,
             [SystemCommandConstants.JournalctlPath, "-u", InstallStateConstants.ClusterMountUnitName, "-n", "80", "--no-pager"],
             cancellationToken);
@@ -35,7 +35,7 @@ public sealed class LogsService(InstallStateService installStateService)
         string statusContent = GetContentOrUnavailable(statusResult.Output);
         string webAppJournalContent = GetWebAppContentOrUnavailable(webAppJournalResult.Output);
         string wireGuardJournalContent = GetContentOrUnavailable(wireGuardJournalResult.Output);
-        string smbJournalContent = GetContentOrUnavailable(smbJournalResult.Output);
+        string nfsJournalContent = GetContentOrUnavailable(nfsJournalResult.Output);
 
         return new AsaLogsSnapshot(
             serviceStatus,
@@ -55,10 +55,10 @@ public sealed class LogsService(InstallStateService installStateService)
                 wireGuardJournalContent,
                 !IsUnavailable(wireGuardJournalContent)),
             new LogSectionSnapshot(
-                "SMB mount journal",
-                "Recent journalctl output for the SMB/CIFS cluster mount at opt-asa-cluster.mount.",
-                smbJournalContent,
-                !IsUnavailable(smbJournalContent)),
+                "NFS journal",
+                "Recent journalctl output for opt-asa-cluster.mount.",
+                nfsJournalContent,
+                !IsUnavailable(nfsJournalContent)),
             DateTimeOffset.UtcNow);
     }
 
