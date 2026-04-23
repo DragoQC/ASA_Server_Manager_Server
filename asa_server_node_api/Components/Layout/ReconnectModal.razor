@@ -1,0 +1,49 @@
+<script type="module" src="@Assets["Components/Layout/ReconnectModal.razor.js"]"></script>
+
+<dialog id="components-reconnect-modal"
+        data-nosnippet
+        class="m-auto w-[min(92vw,30rem)] overflow-hidden rounded-[1.8rem] border border-app-300/15 bg-[#05070d]/96 p-0 text-neutral-100 shadow-[0_0_80px_rgba(0,255,255,0.16)]">
+    <div class="components-reconnect-container flex flex-col items-center gap-5 px-6 py-6 text-center sm:px-8">
+        <div class="flex flex-wrap items-center justify-center gap-3">
+            <p class="text-xs font-semibold uppercase tracking-[0.45em] text-app-300">Connection</p>
+            <span class="rounded-full border border-app-300/20 bg-app-400/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-app-100">
+                Reconnect
+            </span>
+        </div>
+
+        <div class="components-rejoining-animation relative flex h-20 w-20 items-center justify-center" aria-hidden="true">
+            <div class="absolute h-20 w-20 animate-ping rounded-full border border-app-300/25 bg-app-400/10 [animation-duration:2.4s]"></div>
+            <div class="absolute h-12 w-12 rounded-full border border-app-200/35 bg-app-300/15 shadow-[0_0_35px_rgba(34,211,238,0.45)]"></div>
+        </div>
+
+        <p class="components-reconnect-first-attempt-visible text-2xl font-semibold text-white">
+            Rejoining the server...
+        </p>
+
+        <p class="components-reconnect-repeated-attempt-visible text-base leading-7 text-neutral-300">
+            Rejoin failed... trying again in <span id="components-seconds-to-next-attempt"></span> seconds.
+        </p>
+
+        <p class="components-reconnect-failed-visible text-base leading-7 text-neutral-300">
+            Failed to rejoin.<br />Please retry or reload the page.
+        </p>
+
+        <button id="components-reconnect-button"
+                class="components-reconnect-failed-visible inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-5 py-2.5 text-sm font-medium text-app-100 transition hover:bg-app-400/25">
+            Retry
+        </button>
+
+        <p class="components-pause-visible text-base leading-7 text-neutral-300">
+            The session has been paused by the server.
+        </p>
+
+        <button id="components-resume-button"
+                class="components-pause-visible inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-5 py-2.5 text-sm font-medium text-app-100 transition hover:bg-app-400/25">
+            Resume
+        </button>
+
+        <p class="components-resume-failed-visible text-base leading-7 text-neutral-300">
+            Failed to resume the session.<br />Please reload the page.
+        </p>
+    </div>
+</dialog>

@@ -3,18 +3,20 @@
 
 <PageTitle>Error</PageTitle>
 
-<section class="rounded-[1.5rem] border border-red-400/20 bg-red-500/10 p-8">
-    <p class="text-xs uppercase tracking-[0.35em] text-red-200">Error</p>
-    <h1 class="mt-4 text-4xl font-semibold text-white">The ASA manager hit an error.</h1>
-    <p class="mt-4 max-w-2xl text-neutral-300">
-        Something went wrong while processing this request. Reload the page or check the app logs.
+<section class="rounded-b-[2rem] border-x border-b border-app-300/20 bg-app-400/10 p-8 text-app-50 shadow-[0_0_40px_rgba(0,255,255,0.08)] backdrop-blur-[2px]">
+    <p class="text-[0.7rem] uppercase tracking-[0.35em] text-app-100/80">Server Node API</p>
+    <h1 class="mt-3 text-3xl font-semibold">Error</h1>
+    <h2 class="mt-2 text-lg text-app-100/90">An error occurred while processing your request.</h2>
+
+    <p class="mt-6 max-w-2xl text-sm leading-7 text-neutral-300">
+        Reload the page or check the app logs if this keeps happening.
     </p>
 
     @if (ShowRequestId)
     {
-        <p class="mt-6 text-sm text-neutral-300">
-            Request ID:
-            <code class="rounded bg-black/20 px-2 py-1 text-neutral-100">@RequestId</code>
+        <p class="mt-4 text-sm text-app-100/90">
+            <strong>Request ID:</strong>
+            <code class="rounded bg-black/20 px-2 py-1 text-app-50">@RequestId</code>
         </p>
     }
 </section>
