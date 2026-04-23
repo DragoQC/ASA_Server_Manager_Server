@@ -18,6 +18,8 @@ public sealed class InstallStateService(
     private readonly ILogger<InstallStateService> _logger = logger;
     private readonly ProtonConfigService _protonConfigService = protonConfigService;
 
+    public bool IsInstallingClusterClient { get; private set; }
+
     public async Task<InstallWorkspaceSnapshot> LoadAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -323,12 +325,26 @@ public sealed class InstallStateService(
 
     public async Task<string> InstallClusterClientAsync(CancellationToken cancellationToken = default)
     {
-        await RunProcessAsync(
-            SystemCommandConstants.SudoPath,
-            ["-n", InstallStateConstants.PrepareClusterClientScriptPath],
-            cancellationToken);
+        if (IsInstallingClusterClient)
+        {
+            throw new InvalidOperationException("Cluster client install is already running.");
+        }
 
-        return "Installed cluster client tools. This node is ready to receive WireGuard and NFS configuration.";
+        IsInstallingClusterClient = true;
+
+        try
+        {
+            await RunProcessAsync(
+                SystemCommandConstants.SudoPath,
+                ["-n", InstallStateConstants.PrepareClusterClientScriptPath],
+                cancellationToken);
+
+            return "Installed cluster client tools. This node is ready to receive WireGuard and NFS configuration.";
+        }
+        finally
+        {
+            IsInstallingClusterClient = false;
+        }
     }
 
     public async Task<string> EnableWireGuardAsync(CancellationToken cancellationToken = default)

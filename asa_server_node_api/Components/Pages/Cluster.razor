@@ -51,9 +51,9 @@
                     <div class="flex flex-wrap gap-3">
                         <button type="button"
                                 @onclick="OpenEnableDialog"
-                                disabled="@_isInstallingClusterClient"
+                                disabled="@IsInstallingClusterClient"
                                 class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                            @(_isInstallingClusterClient ? "Preparing cluster client..." : "Enable cluster client")
+                            @(IsInstallingClusterClient ? "Preparing cluster client..." : "Enable cluster client")
                         </button>
                     </div>
                 }
@@ -167,7 +167,7 @@
 </section>
 
 <ConfirmationDialog IsOpen="@_showEnableDialog"
-                    IsBusy="@_isInstallingClusterClient"
+                    IsBusy="@IsInstallingClusterClient"
                     Eyebrow="Cluster"
                     Title="Do you want to enable the cluster client on this node?"
                     Message="If you continue, this will install the WireGuard and NFS client packages and prepare the node to receive its cluster configuration from the control app."
@@ -230,7 +230,6 @@
     private bool _showEnableDialog;
     private bool _showVpnInfoDialog;
     private bool _showNfsInfoDialog;
-    private bool _isInstallingClusterClient;
     private bool _isFetchingVpnConfig;
     private bool _isFetchingNfsConfig;
     private bool _hasClusterClientInstall;
@@ -244,6 +243,7 @@
     private string? _nfsInviteUrl;
     private string? _statusMessage;
     private bool _statusIsError;
+    private bool IsInstallingClusterClient => InstallStateService.IsInstallingClusterClient;
     private bool CanFetchNfsConfig => _hasClusterClientInstall && _hasWireGuardConfig && !_isFetchingNfsConfig;
 
     protected override async Task OnInitializedAsync()
@@ -282,7 +282,7 @@
 
     private Task CloseEnableDialog()
     {
-        if (_isInstallingClusterClient)
+        if (IsInstallingClusterClient)
         {
             return Task.CompletedTask;
         }
@@ -294,7 +294,6 @@
     private Task EnableClusterClientAsync()
     {
         _showEnableDialog = false;
-        _isInstallingClusterClient = true;
         _statusMessage = "Installing cluster client tools and preparing the node...";
         _statusIsError = false;
         _ = EnableClusterClientInBackgroundAsync();
@@ -316,7 +315,6 @@
         }
         finally
         {
-            _isInstallingClusterClient = false;
             await InvokeAsync(StateHasChanged);
         }
     }
