@@ -97,7 +97,19 @@ log_webapp "asa_server_node_api – Web App Installer"
 log_webapp "Installing dependencies..."
 dpkg --add-architecture i386
 apt update
-apt install -y git curl wget ca-certificates sudo libc6-i386 lib32gcc-s1 lib32stdc++6
+apt install -y \
+  git \
+  curl \
+  wget \
+  ca-certificates \
+  sudo \
+  libgssapi-krb5-2 \
+  libicu72 \
+  libssl3 \
+  zlib1g \
+  libc6-i386 \
+  lib32gcc-s1 \
+  lib32stdc++6
 log_ok "Installed dependencies."
 
 if ! getent group "${GROUP_NAME}" >/dev/null 2>&1; then
