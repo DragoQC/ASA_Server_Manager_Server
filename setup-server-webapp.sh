@@ -92,11 +92,26 @@ run_as_app_user_bash() {
   runuser -u "${USER_NAME}" -- bash -lc "$1"
 }
 
+find_first_available_package() {
+  for package_name in "$@"; do
+    if apt-cache show "${package_name}" >/dev/null 2>&1; then
+      printf '%s\n' "${package_name}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 log_webapp "asa_server_node_api – Web App Installer"
 
 log_webapp "Installing dependencies..."
 dpkg --add-architecture i386
 apt update
+ICU_PACKAGE="$(find_first_available_package libicu76 libicu72 libicu-dev)" || {
+  log_error "Could not find a supported libicu package in apt."
+  exit 1
+}
 apt install -y \
   git \
   curl \
@@ -104,7 +119,7 @@ apt install -y \
   ca-certificates \
   sudo \
   libgssapi-krb5-2 \
-  libicu72 \
+  "${ICU_PACKAGE}" \
   libssl3 \
   zlib1g \
   libc6-i386 \
