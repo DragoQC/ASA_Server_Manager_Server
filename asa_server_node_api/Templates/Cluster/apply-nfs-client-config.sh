@@ -21,6 +21,28 @@ if [ -z "${CONFIG_LINE}" ]; then
   exit 1
 fi
 
+CONFIG_LINE="$(printf '%s\n' "${CONFIG_LINE}" | awk '
+{
+  if (NF < 4) {
+    print
+    next
+  }
+
+  option_count = split($4, options, ",")
+  filtered = ""
+  for (index = 1; index <= option_count; index++) {
+    option = options[index]
+    if (option == "x-systemd.automount") {
+      continue
+    }
+
+    filtered = filtered == "" ? option : filtered "," option
+  }
+
+  $4 = filtered
+  print
+}')"
+
 MOUNT_PATH="$(printf '%s\n' "${CONFIG_LINE}" | awk '{print $2}')"
 if [ -z "${MOUNT_PATH}" ]; then
   echo "NFS client config does not contain a valid mount path." >&2
@@ -64,5 +86,8 @@ install -m 0644 "${TEMP_FILE}" "${FSTAB_FILE}"
 rm -f "${TEMP_FILE}"
 
 systemctl daemon-reload
+systemctl enable asa-cluster-mount.timer
+systemctl restart asa-cluster-mount.timer
+systemctl start asa-cluster-mount.service || true
 
 echo "Updated /etc/fstab for ${MOUNT_PATH}."

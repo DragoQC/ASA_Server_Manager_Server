@@ -72,6 +72,12 @@ CLUSTER_CLIENT_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates
 CLUSTER_CLIENT_PREP_SCRIPT_PATH="${NFS_DIR}/prepare-cluster-client.sh"
 CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/apply-nfs-client-config.sh"
 CLUSTER_CLIENT_APPLY_SCRIPT_PATH="${NFS_DIR}/apply-nfs-client-config.sh"
+CLUSTER_MOUNT_RETRY_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/mount-cluster-share.sh"
+CLUSTER_MOUNT_RETRY_SCRIPT_PATH="${NFS_DIR}/mount-cluster-share.sh"
+CLUSTER_MOUNT_RETRY_SERVICE_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/asa-cluster-mount.service"
+CLUSTER_MOUNT_RETRY_SERVICE_PATH="/etc/systemd/system/asa-cluster-mount.service"
+CLUSTER_MOUNT_RETRY_TIMER_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/asa-cluster-mount.timer"
+CLUSTER_MOUNT_RETRY_TIMER_PATH="/etc/systemd/system/asa-cluster-mount.timer"
 ZIP_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Backup/prepare-zip-tools.sh"
 ZIP_TOOLS_PREP_SCRIPT_PATH="${BACKUP_DIR}/prepare-zip-tools.sh"
 TAR_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Backup/prepare-tar-tools.sh"
@@ -181,6 +187,10 @@ ${USER_NAME} ALL=(root) NOPASSWD: ${CLUSTER_CLIENT_PREP_SCRIPT_PATH}
 ${USER_NAME} ALL=(root) NOPASSWD: ${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}
 ${USER_NAME} ALL=(root) NOPASSWD: ${ZIP_TOOLS_PREP_SCRIPT_PATH}
 ${USER_NAME} ALL=(root) NOPASSWD: ${TAR_TOOLS_PREP_SCRIPT_PATH}
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl enable asa-cluster-mount.timer
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start asa-cluster-mount.timer
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart asa-cluster-mount.timer
+${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start asa-cluster-mount.service
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl enable wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart wg-quick@wg0
@@ -248,6 +258,24 @@ if [ -f "${REPO_DIR}/${CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; t
   chmod 0755 "${NFS_DIR}" "${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}"
 fi
 
+if [ -f "${REPO_DIR}/${CLUSTER_MOUNT_RETRY_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${CLUSTER_MOUNT_RETRY_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${CLUSTER_MOUNT_RETRY_SCRIPT_PATH}"
+  chown root:root "${CLUSTER_MOUNT_RETRY_SCRIPT_PATH}"
+  chmod 0755 "${NFS_DIR}" "${CLUSTER_MOUNT_RETRY_SCRIPT_PATH}"
+fi
+
+if [ -f "${REPO_DIR}/${CLUSTER_MOUNT_RETRY_SERVICE_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${CLUSTER_MOUNT_RETRY_SERVICE_TEMPLATE_RELATIVE_PATH}" "${CLUSTER_MOUNT_RETRY_SERVICE_PATH}"
+  chown root:root "${CLUSTER_MOUNT_RETRY_SERVICE_PATH}"
+  chmod 0644 "${CLUSTER_MOUNT_RETRY_SERVICE_PATH}"
+fi
+
+if [ -f "${REPO_DIR}/${CLUSTER_MOUNT_RETRY_TIMER_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${CLUSTER_MOUNT_RETRY_TIMER_TEMPLATE_RELATIVE_PATH}" "${CLUSTER_MOUNT_RETRY_TIMER_PATH}"
+  chown root:root "${CLUSTER_MOUNT_RETRY_TIMER_PATH}"
+  chmod 0644 "${CLUSTER_MOUNT_RETRY_TIMER_PATH}"
+fi
+
 if [ -f "${REPO_DIR}/${ZIP_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
   cp "${REPO_DIR}/${ZIP_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${ZIP_TOOLS_PREP_SCRIPT_PATH}"
   chown root:root "${ZIP_TOOLS_PREP_SCRIPT_PATH}"
@@ -270,6 +298,7 @@ log_ok "Published web app to ${PUBLISH_DIR}."
 
 ln -sfn "${GAME_SERVICE_FILE}" "${SYSTEMD_GAME_SERVICE_FILE}"
 systemctl daemon-reload
+systemctl enable --now asa-cluster-mount.timer
 log_ok "Linked ${SYSTEMD_GAME_SERVICE_FILE} to ${GAME_SERVICE_FILE}."
 log_info "The game server service asa.service is prepared only. It is not enabled or started automatically."
 # Needs to do that so we can make our user able to run and change it

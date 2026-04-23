@@ -1,0 +1,10 @@
+[Unit]
+Description=Retry ASA cluster share mount
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+Unit=asa-cluster-mount.service
+
+[Install]
+WantedBy=timers.target
