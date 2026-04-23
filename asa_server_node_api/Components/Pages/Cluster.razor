@@ -2,7 +2,7 @@
 @page "/admin/vpn"
 @inject asa_server_node_api.Services.InstallStateService InstallStateService
 @inject asa_server_node_api.Services.VpnConfigService VpnConfigService
-@inject asa_server_node_api.Services.NfsConfigService NfsConfigService
+@inject asa_server_node_api.Services.SmbConfigService SmbConfigService
 @using asa_server_node_api.Contracts.Api.Admin
 
 <PageTitle>Cluster</PageTitle>
@@ -20,7 +20,7 @@
                 Prepare this node for cluster networking and shared storage. The control app must be reachable from the public internet for invite links to work.
             </p>
             <p class="mt-3 max-w-3xl text-sm leading-6 text-app-200/80">
-                Use the VPN invite to fetch <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">wg0.conf</code>. Use the NFS invite to fetch the client mount config and apply it to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/etc/fstab</code>.
+                Use the VPN invite to fetch <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">wg0.conf</code>. Use the SMB invite to fetch the CIFS client mount config and apply it to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/etc/fstab</code>.
             </p>
         </div>
 
@@ -38,7 +38,7 @@
                         <h2 class="text-3xl font-semibold text-white">Cluster client tools</h2>
                         <StatusTag Text="@(_hasClusterClientInstall ? "Ready" : "Install first")" />
                         <StatusTag Text="@(_hasWireGuardClientInstall ? "WireGuard installed" : "WireGuard missing")" />
-                        <StatusTag Text="@(_hasNfsClientInstall ? "NFS installed" : "NFS missing")" />
+                        <StatusTag Text="@(_hasSmbClientInstall ? "SMB installed" : "SMB missing")" />
                     </div>
 
                     <p class="max-w-md text-sm leading-6 text-neutral-300">
@@ -59,7 +59,7 @@
                 }
 
                 <p class="text-sm leading-6 text-neutral-300">
-                    This installs the WireGuard and NFS client packages only. After that, use the invite links below to fetch the real VPN and NFS config from the control app.
+                    This installs the WireGuard and SMB/CIFS client packages only. After that, use the invite links below to fetch the real VPN and SMB config from the control app.
                 </p>
             </div>
         </section>
@@ -118,47 +118,47 @@
             <div class="space-y-6">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="flex flex-wrap items-center gap-3">
-                        <h2 class="text-3xl font-semibold text-white">NFS config</h2>
-                        <StatusTag Text="@(_hasNfsClientConfig ? "client.mount.conf present" : "client.mount.conf missing")" />
+                        <h2 class="text-3xl font-semibold text-white">SMB config</h2>
+                        <StatusTag Text="@(_hasSmbClientConfig ? "client.mount.cifs.conf present" : "client.mount.cifs.conf missing")" />
                     </div>
 
                     <button type="button"
-                            @onclick="OpenNfsInfoDialog"
+                            @onclick="OpenSmbInfoDialog"
                             class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/20 bg-cyan-400/15 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/25"
-                            aria-label="NFS config help">
+                            aria-label="SMB config help">
                         ?
                     </button>
                 </div>
 
-                <TextField Label="NFS invite URL"
-                           @bind-Value="_nfsInviteUrl"
-                           placeholder="https://control.dragoqc.com/api/nfs/invite/your-one-time-key"
-                           Hint="@GetNfsInviteHint()"
-                           disabled="@(!CanFetchNfsConfig)"
+                <TextField Label="SMB invite URL"
+                           @bind-Value="_smbInviteUrl"
+                           placeholder="https://control.dragoqc.com/api/smb/invite/your-one-time-key"
+                           Hint="@GetSmbInviteHint()"
+                           disabled="@(!CanFetchSmbConfig)"
                            autocomplete="off" />
 
                 <div class="flex flex-wrap gap-3">
                     <button type="button"
-                            @onclick="GetNfsConfigAsync"
-                            disabled="@(!CanFetchNfsConfig || string.IsNullOrWhiteSpace(_nfsInviteUrl))"
+                            @onclick="GetSmbConfigAsync"
+                            disabled="@(!CanFetchSmbConfig || string.IsNullOrWhiteSpace(_smbInviteUrl))"
                             class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                        @(_isFetchingNfsConfig ? "Getting config..." : "Get config")
+                        @(_isFetchingSmbConfig ? "Getting config..." : "Get config")
                     </button>
                 </div>
 
                 <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
                     <div class="flex flex-wrap items-center gap-3">
-                        <h3 class="text-2xl font-semibold text-white">client.mount.conf</h3>
-                        <StatusTag Text="@(_hasNfsClientConfig ? "Present" : "Missing")" />
+                        <h3 class="text-2xl font-semibold text-white">client.mount.cifs.conf</h3>
+                        <StatusTag Text="@(_hasSmbClientConfig ? "Present" : "Missing")" />
                     </div>
 
                     <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-300">
-                        Current local NFS client config from <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/opt/asa/nfs/client.mount.conf</code>. Applying the NFS invite updates <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/etc/fstab</code> from this saved file.
+                        Current local SMB client config from <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/opt/asa/smb/client.mount.cifs.conf</code>. Applying the SMB invite updates <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/etc/fstab</code> from this saved file.
                     </p>
 
-                    <textarea value="@(_nfsClientConfigContent ?? string.Empty)"
+                    <textarea value="@(_smbClientConfigContent ?? string.Empty)"
                               readonly
-                              placeholder="No client.mount.conf file yet."
+                              placeholder="No client.mount.cifs.conf file yet."
                               class="mt-5 h-[18rem] w-full rounded-[1.3rem] border border-white/10 bg-black/40 p-4 font-mono text-sm leading-6 text-app-100 outline-none"></textarea>
                 </div>
             </div>
@@ -170,7 +170,7 @@
                     IsBusy="@IsInstallingClusterClient"
                     Eyebrow="Cluster"
                     Title="Do you want to enable the cluster client on this node?"
-                    Message="If you continue, this will install the WireGuard and NFS client packages and prepare the node to receive its cluster configuration from the control app."
+                    Message="If you continue, this will install the WireGuard and SMB/CIFS client packages and prepare the node to receive its cluster configuration from the control app."
                     ConfirmText="Enable cluster client"
                     CancelText="Cancel"
                     OnConfirm="EnableClusterClientAsync"
@@ -200,27 +200,27 @@
     </ChildContent>
 </ConfirmationDialog>
 
-<ConfirmationDialog IsOpen="@_showNfsInfoDialog"
-                    Eyebrow="NFS config"
-                    Title="Why does NFS depend on the VPN?"
+<ConfirmationDialog IsOpen="@_showSmbInfoDialog"
+                    Eyebrow="SMB config"
+                    Title="Why does SMB depend on the VPN?"
                     ConfirmText="Close"
                     HideCancelButton="true"
-                    OnConfirm="CloseNfsInfoDialog"
-                    OnCancel="CloseNfsInfoDialog">
+                    OnConfirm="CloseSmbInfoDialog"
+                    OnCancel="CloseSmbInfoDialog">
     <ChildContent>
         <div class="space-y-4 text-sm leading-6 text-neutral-200">
             <p>
-                You can get the NFS config from an invite link generated by the control panel. This page fetches that link, saves the returned client mount config, and applies it to
+                You can get the SMB config from an invite link generated by the control panel. This page fetches that link, saves the returned client mount config, and applies it to
                 <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/etc/fstab</code>.
             </p>
             <p>
-                NFS depends on the VPN because the shared cluster folder is only meant to be reachable through the private WireGuard network. Without the VPN, the NFS share will not be reachable in the expected safe path.
+                SMB depends on the VPN because the shared cluster folder is only meant to be reachable through the private WireGuard network. Without the VPN, the SMB/CIFS share will not be reachable in the expected safe path.
             </p>
             <p>
                 ARK clustering needs each server to read and write to the exact same cluster folder path so cluster data can be shared correctly across machines.
             </p>
             <p>
-                That is why this setup uses both a VPN and an NFS share: WireGuard connects the machines together, and NFS gives each server the same shared folder to use for cluster data.
+                That is why this setup uses both a VPN and an SMB share: WireGuard connects the machines together, and SMB gives each server the same shared folder to use for cluster data.
             </p>
         </div>
     </ChildContent>
@@ -229,22 +229,22 @@
 @code {
     private bool _showEnableDialog;
     private bool _showVpnInfoDialog;
-    private bool _showNfsInfoDialog;
+    private bool _showSmbInfoDialog;
     private bool _isFetchingVpnConfig;
-    private bool _isFetchingNfsConfig;
+    private bool _isFetchingSmbConfig;
     private bool _hasClusterClientInstall;
     private bool _hasWireGuardClientInstall;
-    private bool _hasNfsClientInstall;
+    private bool _hasSmbClientInstall;
     private bool _hasWireGuardConfig;
-    private bool _hasNfsClientConfig;
+    private bool _hasSmbClientConfig;
     private string? _wireGuardConfigContent;
-    private string? _nfsClientConfigContent;
+    private string? _smbClientConfigContent;
     private string? _vpnInviteUrl;
-    private string? _nfsInviteUrl;
+    private string? _smbInviteUrl;
     private string? _statusMessage;
     private bool _statusIsError;
     private bool IsInstallingClusterClient => InstallStateService.IsInstallingClusterClient;
-    private bool CanFetchNfsConfig => _hasClusterClientInstall && _hasWireGuardConfig && !_isFetchingNfsConfig;
+    private bool CanFetchSmbConfig => _hasClusterClientInstall && _hasWireGuardConfig && !_isFetchingSmbConfig;
 
     protected override async Task OnInitializedAsync()
     {
@@ -268,15 +268,15 @@
         return Task.CompletedTask;
     }
 
-    private Task OpenNfsInfoDialog()
+    private Task OpenSmbInfoDialog()
     {
-        _showNfsInfoDialog = true;
+        _showSmbInfoDialog = true;
         return Task.CompletedTask;
     }
 
-    private Task CloseNfsInfoDialog()
+    private Task CloseSmbInfoDialog()
     {
-        _showNfsInfoDialog = false;
+        _showSmbInfoDialog = false;
         return Task.CompletedTask;
     }
 
@@ -348,17 +348,17 @@
         }
     }
 
-    private async Task GetNfsConfigAsync()
+    private async Task GetSmbConfigAsync()
     {
-        _isFetchingNfsConfig = true;
-        _statusMessage = "Requesting NFS configuration from the control server...";
+        _isFetchingSmbConfig = true;
+        _statusMessage = "Requesting SMB configuration from the control server...";
         _statusIsError = false;
 
         try
         {
-            _statusMessage = await NfsConfigService.ClaimInviteAsync(_nfsInviteUrl);
+            _statusMessage = await SmbConfigService.ClaimInviteAsync(_smbInviteUrl);
             _statusIsError = false;
-            _nfsInviteUrl = string.Empty;
+            _smbInviteUrl = string.Empty;
             await RefreshClusterStateAsync();
         }
         catch (Exception exception)
@@ -368,19 +368,19 @@
         }
         finally
         {
-            _isFetchingNfsConfig = false;
+            _isFetchingSmbConfig = false;
         }
     }
 
     private async Task RefreshClusterStateAsync()
     {
         _hasWireGuardClientInstall = InstallStateService.HasWireGuardClientInstall();
-        _hasNfsClientInstall = InstallStateService.HasNfsClientInstall();
+        _hasSmbClientInstall = InstallStateService.HasSmbClientInstall();
         _hasClusterClientInstall = InstallStateService.HasClusterClientInstall();
         _hasWireGuardConfig = File.Exists(asa_server_node_api.Constants.InstallStateConstants.WireGuardConfigFilePath);
-        _hasNfsClientConfig = File.Exists(asa_server_node_api.Constants.InstallStateConstants.NfsClientConfigFilePath);
+        _hasSmbClientConfig = File.Exists(asa_server_node_api.Constants.InstallStateConstants.SmbClientConfigFilePath);
         _wireGuardConfigContent = await VpnConfigService.LoadConfigContentAsync();
-        _nfsClientConfigContent = await NfsConfigService.LoadConfigContentAsync();
+        _smbClientConfigContent = await SmbConfigService.LoadConfigContentAsync();
     }
 
     private string GetStatusMessageClass()
@@ -390,7 +390,7 @@
             : "rounded-2xl border border-app-300/20 bg-app-400/10 px-5 py-4 text-sm text-app-100";
     }
 
-    private string GetNfsInviteHint()
+    private string GetSmbInviteHint()
     {
         if (!_hasClusterClientInstall)
         {
@@ -399,9 +399,9 @@
 
         if (!_hasWireGuardConfig)
         {
-            return "Fetch and apply wg0.conf first. NFS only works after WireGuard is configured.";
+            return "Fetch and apply wg0.conf first. SMB only works after WireGuard is configured.";
         }
 
-        return "Paste the full NFS invite link from the control app.";
+        return "Paste the full SMB invite link from the control app.";
     }
 }

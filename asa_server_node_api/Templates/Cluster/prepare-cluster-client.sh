@@ -13,6 +13,14 @@ apt-get update
 apt-get install -y \
   wireguard \
   wireguard-tools \
-  nfs-common
+  cifs-utils
 
-echo "Installed cluster client tools. This node is ready for WireGuard and NFS configuration."
+dpkg --configure -a
+apt-get install -f -y
+
+if [ ! -x "/sbin/mount.cifs" ] && [ ! -x "/usr/sbin/mount.cifs" ]; then
+  echo "mount.cifs is missing after installing cluster client tools." >&2
+  exit 1
+fi
+
+echo "Installed cluster client tools. This node is ready for WireGuard and SMB configuration."

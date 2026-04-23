@@ -80,7 +80,7 @@ builder.Services.AddSingleton<ServerConfigService>();
 builder.Services.AddScoped<SystemMetricsService>();
 builder.Services.AddScoped<UploadedFileService>();
 builder.Services.AddScoped<VpnConfigService>();
-builder.Services.AddScoped<NfsConfigService>();
+builder.Services.AddScoped<SmbConfigService>();
 
 WebApplication app = builder.Build();
 

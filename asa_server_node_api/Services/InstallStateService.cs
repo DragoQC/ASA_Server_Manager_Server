@@ -312,15 +312,53 @@ public sealed class InstallStateService(
                File.Exists("/usr/bin/wg-quick");
     }
 
-    public bool HasNfsClientInstall()
+    public bool HasSmbClientInstall()
     {
-        return File.Exists("/sbin/mount.nfs") ||
-               File.Exists("/usr/sbin/mount.nfs");
+        return (File.Exists("/sbin/mount.cifs") || File.Exists("/usr/sbin/mount.cifs"))
+               && IsPackageFullyInstalled("cifs-utils");
     }
 
     public bool HasClusterClientInstall()
     {
-        return HasWireGuardClientInstall() && HasNfsClientInstall();
+        return HasWireGuardClientInstall() && HasSmbClientInstall();
+    }
+
+    private static bool IsPackageFullyInstalled(string packageName)
+    {
+        try
+        {
+            using System.Diagnostics.Process process = new()
+            {
+                StartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "/usr/bin/dpkg-query",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.StartInfo.ArgumentList.Add("-W");
+            process.StartInfo.ArgumentList.Add("--showformat=${db:Status-Abbrev}");
+            process.StartInfo.ArgumentList.Add(packageName);
+
+            process.Start();
+            process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                return false;
+            }
+
+            string output = process.StandardOutput.ReadToEnd().Trim();
+            return string.Equals(output, "ii ", StringComparison.Ordinal)
+                || string.Equals(output, "ii", StringComparison.Ordinal);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public async Task<string> InstallClusterClientAsync(CancellationToken cancellationToken = default)
@@ -339,7 +377,7 @@ public sealed class InstallStateService(
                 ["-n", InstallStateConstants.PrepareClusterClientScriptPath],
                 cancellationToken);
 
-            return "Installed cluster client tools. This node is ready to receive WireGuard and NFS configuration.";
+            return "Installed cluster client tools. This node is ready to receive WireGuard and SMB configuration.";
         }
         finally
         {
@@ -383,14 +421,14 @@ public sealed class InstallStateService(
         return await RestartWireGuardAsync(cancellationToken);
     }
 
-    public async Task<string> ApplyNfsClientConfigAsync(CancellationToken cancellationToken = default)
+    public async Task<string> ApplySmbClientConfigAsync(CancellationToken cancellationToken = default)
     {
         await RunProcessAsync(
             SystemCommandConstants.SudoPath,
-            ["-n", InstallStateConstants.ApplyNfsClientConfigScriptPath],
+            ["-n", InstallStateConstants.ApplySmbClientConfigScriptPath],
             cancellationToken);
 
-        return "Updated /etc/fstab from the saved NFS client config.";
+        return "Updated /etc/fstab from the saved SMB client config.";
     }
 
     public async Task<string> StopWireGuardAsync(CancellationToken cancellationToken = default)

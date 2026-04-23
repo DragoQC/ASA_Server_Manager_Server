@@ -7,5 +7,5 @@ public sealed record AsaLogsSnapshot(
     LogSectionSnapshot StatusSection,
     LogSectionSnapshot WebAppJournalSection,
     LogSectionSnapshot WireGuardJournalSection,
-    LogSectionSnapshot NfsJournalSection,
+    LogSectionSnapshot SmbJournalSection,
     DateTimeOffset UpdatedAtUtc);
