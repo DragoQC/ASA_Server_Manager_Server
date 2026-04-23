@@ -67,10 +67,15 @@ GAME_SERVICE_FILE="${GAME_SERVICE_DIR}/asa.service"
 SYSTEMD_GAME_SERVICE_FILE="/etc/systemd/system/asa.service"
 VPN_DIR="${BASE_DIR}/vpn"
 NFS_DIR="${BASE_DIR}/nfs"
+BACKUP_DIR="${BASE_DIR}/backup"
 CLUSTER_CLIENT_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/prepare-cluster-client.sh"
 CLUSTER_CLIENT_PREP_SCRIPT_PATH="${NFS_DIR}/prepare-cluster-client.sh"
 CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/apply-nfs-client-config.sh"
 CLUSTER_CLIENT_APPLY_SCRIPT_PATH="${NFS_DIR}/apply-nfs-client-config.sh"
+ZIP_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Backup/prepare-zip-tools.sh"
+ZIP_TOOLS_PREP_SCRIPT_PATH="${BACKUP_DIR}/prepare-zip-tools.sh"
+TAR_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Backup/prepare-tar-tools.sh"
+TAR_TOOLS_PREP_SCRIPT_PATH="${BACKUP_DIR}/prepare-tar-tools.sh"
 WIREGUARD_DIR="/etc/wireguard"
 WIREGUARD_CONFIG_LINK_PATH="${WIREGUARD_DIR}/wg0.conf"
 
@@ -92,7 +97,7 @@ log_webapp "asa_server_node_api – Web App Installer"
 log_webapp "Installing dependencies..."
 dpkg --add-architecture i386
 apt update
-apt install -y git curl wget tar ca-certificates sudo libc6-i386 lib32gcc-s1 lib32stdc++6
+apt install -y git curl wget ca-certificates sudo libc6-i386 lib32gcc-s1 lib32stdc++6
 log_ok "Installed dependencies."
 
 if ! getent group "${GROUP_NAME}" >/dev/null 2>&1; then
@@ -115,6 +120,9 @@ fi
 mkdir -p \
   "${BASE_DIR}" \
   "${BASE_DIR}/cluster" \
+  "${BASE_DIR}/backup" \
+  "${BASE_DIR}/backup/imports" \
+  "${BASE_DIR}/backup/restore-work" \
   "${BASE_DIR}/proton" \
   "${BASE_DIR}/server" \
   "${BASE_DIR}/steam" \
@@ -144,6 +152,8 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl stop --no-block asa
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart --no-block asa
 ${USER_NAME} ALL=(root) NOPASSWD: ${CLUSTER_CLIENT_PREP_SCRIPT_PATH}
 ${USER_NAME} ALL=(root) NOPASSWD: ${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}
+${USER_NAME} ALL=(root) NOPASSWD: ${ZIP_TOOLS_PREP_SCRIPT_PATH}
+${USER_NAME} ALL=(root) NOPASSWD: ${TAR_TOOLS_PREP_SCRIPT_PATH}
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl enable wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl start wg-quick@wg0
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl restart wg-quick@wg0
@@ -153,7 +163,7 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u opt-asa-cluster.mount -
 EOF
 chmod 0440 "${SUDOERS_FILE}"
 visudo -cf "${SUDOERS_FILE}"
-log_ok "Granted ${USER_NAME} access to query systemd, read asa and WireGuard logs, manage asa, run the cluster client scripts, update /etc/fstab through the apply script, and control wg-quick@wg0."
+log_ok "Granted ${USER_NAME} access to query systemd, read asa and WireGuard logs, manage asa, run the cluster client scripts, prepare backup tools per format, update /etc/fstab through the apply script, and control wg-quick@wg0."
 
 if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_VERSION}\\."; then
   log_dotnet "Installing latest .NET SDK ${DOTNET_VERSION}..."
@@ -211,7 +221,19 @@ if [ -f "${REPO_DIR}/${CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; t
   chmod 0755 "${NFS_DIR}" "${CLUSTER_CLIENT_APPLY_SCRIPT_PATH}"
 fi
 
-chown "${USER_NAME}:${GROUP_NAME}" "${VPN_DIR}" "${NFS_DIR}"
+if [ -f "${REPO_DIR}/${ZIP_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${ZIP_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${ZIP_TOOLS_PREP_SCRIPT_PATH}"
+  chown root:root "${ZIP_TOOLS_PREP_SCRIPT_PATH}"
+  chmod 0755 "${BACKUP_DIR}" "${ZIP_TOOLS_PREP_SCRIPT_PATH}"
+fi
+
+if [ -f "${REPO_DIR}/${TAR_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" ]; then
+  cp "${REPO_DIR}/${TAR_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH}" "${TAR_TOOLS_PREP_SCRIPT_PATH}"
+  chown root:root "${TAR_TOOLS_PREP_SCRIPT_PATH}"
+  chmod 0755 "${BACKUP_DIR}" "${TAR_TOOLS_PREP_SCRIPT_PATH}"
+fi
+
+chown "${USER_NAME}:${GROUP_NAME}" "${VPN_DIR}" "${NFS_DIR}" "${BACKUP_DIR}"
 
 ln -sfn "${VPN_DIR}/wg0.conf" "${WIREGUARD_CONFIG_LINK_PATH}"
 

@@ -1,7 +1,9 @@
 @page "/admin/settings"
 @inject asa_server_node_api.Services.AuthService AuthService
+@inject asa_server_node_api.Services.BackupExportService BackupExportService
 @inject NavigationManager NavigationManager
 @using asa_server_node_api.Constants
+@using asa_server_node_api.Models
 @using asa_server_node_api.Models.Auth
 
 <PageTitle>Settings</PageTitle>
@@ -131,18 +133,228 @@
                 </div>
             </div>
         </div>
+
+        <div class="max-w-2xl rounded-[1.6rem] border border-white/10 bg-black/30 p-6 shadow-[0_0_30px_rgba(0,255,255,0.08)] backdrop-blur-md">
+            <div class="space-y-6">
+                <div class="flex flex-wrap items-center gap-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Export</p>
+                    <StatusTag Text="Backup" />
+                </div>
+
+                <div>
+                    <h2 class="text-2xl font-semibold text-white">Server backup</h2>
+                    <p class="mt-3 text-sm leading-6 text-neutral-300">
+                        Create an archive of <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/server</code>. Export stops <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.service</code>, waits until it is stopped, then saves the archive in <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/backup</code>.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap gap-3">
+                    <button type="button"
+                            @onclick="OpenZipToolsDialog"
+                            disabled="@(_isInstallingZipTools || _hasZipTools)"
+                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
+                        @(_hasZipTools ? "Zip tools ready" : "Prepare zip tools")
+                    </button>
+
+                    <button type="button"
+                            @onclick="OpenTarToolsDialog"
+                            disabled="@(_isInstallingTarTools || _hasTarTools)"
+                            class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
+                        @(_hasTarTools ? "Tar tools ready" : "Prepare tar tools")
+                    </button>
+
+                    <button type="button"
+                            @onclick="CreateZipArchiveAsync"
+                            disabled="@(!_hasZipTools || IsCreatingArchive)"
+                            class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                        @(_isCreatingZip ? "Creating zip..." : "Create zip")
+                    </button>
+
+                    <button type="button"
+                            @onclick="CreateTarGzArchiveAsync"
+                            disabled="@(!_hasTarTools || IsCreatingArchive)"
+                            class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                        @(_isCreatingTarGz ? "Creating tar.gz..." : "Create tar.gz")
+                    </button>
+                </div>
+
+                @if (_zipArchive is not null || _tarGzArchive is not null)
+                {
+                    <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Ready downloads</p>
+
+                        <div class="mt-4 space-y-4">
+                            @if (_zipArchive is not null)
+                            {
+                                <div class="flex flex-wrap items-center justify-between gap-3 rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
+                                    <div>
+                                        <p class="text-sm font-semibold text-white">@_zipArchive.FileName</p>
+                                        <p class="mt-1 text-xs leading-5 text-neutral-400">@_zipArchive.FilePath · @_zipArchive.SizeText</p>
+                                    </div>
+
+                                    <a href="/admin/settings/export/download/zip"
+                                       class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                                        Download zip
+                                    </a>
+                                </div>
+                            }
+
+                            @if (_tarGzArchive is not null)
+                            {
+                                <div class="flex flex-wrap items-center justify-between gap-3 rounded-[1.2rem] border border-white/10 bg-black/20 p-4">
+                                    <div>
+                                        <p class="text-sm font-semibold text-white">@_tarGzArchive.FileName</p>
+                                        <p class="mt-1 text-xs leading-5 text-neutral-400">@_tarGzArchive.FilePath · @_tarGzArchive.SizeText</p>
+                                    </div>
+
+                                    <a href="/admin/settings/export/download/tar.gz"
+                                       class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                                        Download tar.gz
+                                    </a>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Import / restore</p>
+                        <StatusTag Text="@ImportStatusText" />
+                    </div>
+
+                    <p class="mt-4 text-sm leading-6 text-neutral-300">
+                        Upload a backup archive, preview what will restore, then confirm. Restore stops <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.service</code> if it is running and leaves it stopped.
+                    </p>
+
+                    <div class="mt-5 flex flex-col gap-4">
+                        <InputFile OnChange="HandleRestoreArchiveSelected"
+                                   accept=".zip,.tar.gz,.tgz,application/zip,application/gzip"
+                                   disabled="@(_isUploadingRestore || _isRestoring)"
+                                   class="block w-full rounded-[1rem] border border-white/10 bg-black/30 p-3 text-sm text-neutral-200 file:mr-4 file:rounded-full file:border-0 file:bg-cyan-400/15 file:px-4 file:py-2 file:text-sm file:font-medium file:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60" />
+
+                        @if (_restorePreview is BackupImportPreview restorePreview)
+                        {
+                            <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
+                                <div class="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-sm font-semibold text-white">@restorePreview.FileName</p>
+                                        <p class="mt-1 text-xs leading-5 text-neutral-400">
+                                            @restorePreview.Format · @restorePreview.SizeText · @restorePreview.EntryCount entries
+                                        </p>
+                                    </div>
+
+                                    <button type="button"
+                                            @onclick="OpenRestoreDialog"
+                                            disabled="@(_isRestoring || _restorePreview is null)"
+                                            class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                        @(_isRestoring ? "Restoring..." : "Restore archive")
+                                    </button>
+                                </div>
+
+                                <p class="mt-4 text-xs uppercase tracking-[0.24em] text-cyan-300">Will restore to</p>
+                                <p class="mt-2 font-mono text-sm text-cyan-100">@restorePreview.RestorePath</p>
+
+                                <div class="mt-4 max-h-48 overflow-auto rounded-[1rem] border border-white/10 bg-black/30 p-3">
+                                    @foreach (string entry in restorePreview.PreviewEntries)
+                                    {
+                                        <p class="font-mono text-xs leading-6 text-neutral-300">@entry</p>
+                                    }
+
+                                    @if (restorePreview.EntryCount > restorePreview.PreviewEntries.Count)
+                                    {
+                                        <p class="mt-2 text-xs text-neutral-500">+ @(restorePreview.EntryCount - restorePreview.PreviewEntries.Count) more entries</p>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 
+<ConfirmationDialog IsOpen="@_showZipToolsDialog"
+                    IsBusy="@_isInstallingZipTools"
+                    Eyebrow="Zip tools"
+                    Title="Install zip tools?"
+                    Message="This runs the prepared zip tools script with sudo. It installs zip and unzip only."
+                    StatusText="Install"
+                    ConfirmText="Install zip tools"
+                    CancelText="Cancel"
+                    OnConfirm="InstallZipToolsAsync"
+                    OnCancel="CloseZipToolsDialog" />
+
+<ConfirmationDialog IsOpen="@_showTarToolsDialog"
+                    IsBusy="@_isInstallingTarTools"
+                    Eyebrow="Tar tools"
+                    Title="Install tar tools?"
+                    Message="This runs the prepared tar tools script with sudo. It installs tar only."
+                    StatusText="Install"
+                    ConfirmText="Install tar tools"
+                    CancelText="Cancel"
+                    OnConfirm="InstallTarToolsAsync"
+                    OnCancel="CloseTarToolsDialog" />
+
+<ConfirmationDialog IsOpen="@_showRestoreDialog"
+                    IsBusy="@_isRestoring"
+                    Eyebrow="Restore"
+                    Title="Restore this server backup?"
+                    StatusText="Server data"
+                    ConfirmText="Restore"
+                    CancelText="Cancel"
+                    OnConfirm="RestoreArchiveAsync"
+                    OnCancel="CloseRestoreDialog">
+    <div class="space-y-4 text-sm leading-6 text-neutral-300">
+        <p>
+            Restore will stop <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.service</code>, move the current <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/server</code> folder into <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/backup</code>, then restore the uploaded archive to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/server</code>.
+        </p>
+
+        @if (_restorePreview is not null)
+        {
+            <div class="rounded-[1rem] border border-white/10 bg-black/30 p-4">
+                <p class="font-mono text-cyan-100">@_restorePreview.FileName</p>
+                <p class="mt-1 text-xs text-neutral-400">@_restorePreview.EntryCount entries -> @_restorePreview.RestorePath</p>
+            </div>
+        }
+    </div>
+</ConfirmationDialog>
+
 @code {
+    private const long MaxRestoreUploadBytes = 200L * 1024L * 1024L * 1024L;
     private string? _message;
     private string? _error;
     private string? _appApiKey;
     private IReadOnlyList<StoredApiKey> _apiKeys = Array.Empty<StoredApiKey>();
+    private BackupArchiveInfo? _zipArchive;
+    private BackupArchiveInfo? _tarGzArchive;
+    private bool _isCreatingZip;
+    private bool _isCreatingTarGz;
+    private bool _hasZipTools;
+    private bool _hasTarTools;
+    private bool _showZipToolsDialog;
+    private bool _isInstallingZipTools;
+    private bool _showTarToolsDialog;
+    private bool _isInstallingTarTools;
+    private BackupImportPreview? _restorePreview;
+    private bool _isUploadingRestore;
+    private bool _showRestoreDialog;
+    private bool _isRestoring;
+    private bool IsCreatingArchive => _isCreatingZip || _isCreatingTarGz;
+    private string ImportStatusText => (_hasZipTools, _hasTarTools) switch
+    {
+        (true, true) => "Ready",
+        (true, false) => "Zip only",
+        (false, true) => "Tar only",
+        _ => "Tools needed"
+    };
 
     protected override async Task OnInitializedAsync()
     {
         await LoadApiKeysAsync();
+        LoadArchives();
+        RefreshBackupToolState();
     }
 
     private void OpenResetPasswordPage()
@@ -187,5 +399,216 @@
     {
         _appApiKey = await AuthService.LoadAppApiKeyAsync();
         _apiKeys = await AuthService.LoadApiKeysAsync();
+    }
+
+    private async Task CreateZipArchiveAsync()
+    {
+        _message = null;
+        _error = null;
+        _isCreatingZip = true;
+
+        try
+        {
+            _zipArchive = await BackupExportService.CreateZipArchiveAsync();
+            _message = $"Zip archive saved at {_zipArchive.FilePath}. Download is ready.";
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _isCreatingZip = false;
+        }
+    }
+
+    private async Task CreateTarGzArchiveAsync()
+    {
+        _message = null;
+        _error = null;
+        _isCreatingTarGz = true;
+
+        try
+        {
+            _tarGzArchive = await BackupExportService.CreateTarGzArchiveAsync();
+            _message = $"Tar.gz archive saved at {_tarGzArchive.FilePath}. Download is ready.";
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _isCreatingTarGz = false;
+        }
+    }
+
+    private void LoadArchives()
+    {
+        _zipArchive = BackupExportService.GetLatestArchive("zip");
+        _tarGzArchive = BackupExportService.GetLatestArchive("tar.gz");
+    }
+
+    private void OpenZipToolsDialog()
+    {
+        _showZipToolsDialog = true;
+    }
+
+    private Task CloseZipToolsDialog()
+    {
+        _showZipToolsDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private async Task InstallZipToolsAsync()
+    {
+        _message = null;
+        _error = null;
+        _isInstallingZipTools = true;
+
+        try
+        {
+            _message = await BackupExportService.InstallZipToolsAsync();
+            RefreshBackupToolState();
+            _showZipToolsDialog = false;
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _isInstallingZipTools = false;
+        }
+    }
+
+    private void OpenTarToolsDialog()
+    {
+        _showTarToolsDialog = true;
+    }
+
+    private Task CloseTarToolsDialog()
+    {
+        _showTarToolsDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private async Task InstallTarToolsAsync()
+    {
+        _message = null;
+        _error = null;
+        _isInstallingTarTools = true;
+
+        try
+        {
+            _message = await BackupExportService.InstallTarToolsAsync();
+            RefreshBackupToolState();
+            _showTarToolsDialog = false;
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _isInstallingTarTools = false;
+        }
+    }
+
+    private async Task HandleRestoreArchiveSelected(InputFileChangeEventArgs args)
+    {
+        _message = null;
+        _error = null;
+        _restorePreview = null;
+        _isUploadingRestore = true;
+
+        try
+        {
+            IBrowserFile file = args.File;
+            if (NeedsMissingRestoreTool(file.Name))
+            {
+                return;
+            }
+
+            await using Stream stream = file.OpenReadStream(MaxRestoreUploadBytes);
+            _restorePreview = await BackupExportService.SaveImportArchiveAsync(file.Name, stream);
+            _message = "Archive uploaded. Review the restore preview before continuing.";
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _isUploadingRestore = false;
+        }
+    }
+
+    private void OpenRestoreDialog()
+    {
+        if (_restorePreview is not null)
+        {
+            _showRestoreDialog = true;
+        }
+    }
+
+    private Task CloseRestoreDialog()
+    {
+        _showRestoreDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private async Task RestoreArchiveAsync()
+    {
+        if (_restorePreview is null)
+        {
+            _showRestoreDialog = false;
+            return;
+        }
+
+        _message = null;
+        _error = null;
+        _isRestoring = true;
+
+        try
+        {
+            _message = await BackupExportService.RestoreImportArchiveAsync(_restorePreview);
+            _showRestoreDialog = false;
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+        finally
+        {
+            _isRestoring = false;
+        }
+    }
+
+    private bool NeedsMissingRestoreTool(string fileName)
+    {
+        if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && !_hasZipTools)
+        {
+            _error = "Zip tools are required to restore this archive. Click Prepare zip tools first.";
+            _showZipToolsDialog = true;
+            return true;
+        }
+
+        if ((fileName.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase) ||
+             fileName.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase)) &&
+            !_hasTarTools)
+        {
+            _error = "Tar tools are required to restore this archive. Click Prepare tar tools first.";
+            _showTarToolsDialog = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private void RefreshBackupToolState()
+    {
+        _hasZipTools = BackupExportService.HasZipTools();
+        _hasTarTools = BackupExportService.HasTarTools();
     }
 }

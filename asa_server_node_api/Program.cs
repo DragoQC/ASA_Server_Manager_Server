@@ -70,6 +70,7 @@ builder.Services.AddScoped<ConsoleLogService>();
 builder.Services.AddScoped<LogsService>();
 builder.Services.AddScoped<ManagerService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<BackupExportService>();
 builder.Services.AddScoped<GameConfigService>();
 builder.Services.AddScoped<InstallStateService>();
 builder.Services.AddScoped<ProtonConfigService>();
@@ -137,6 +138,27 @@ app.MapPost("/auth/logout",
         return Results.LocalRedirect("/admin/login?message=Logged%20out.");
     })
     .DisableAntiforgery();
+
+app.MapGet("/admin/settings/export/download/{format}",
+    (string format, BackupExportService backupExportService) =>
+    {
+        asa_server_node_api.Models.BackupArchiveInfo? archive = backupExportService.GetLatestArchive(format);
+        if (archive is null)
+        {
+            return Results.NotFound();
+        }
+
+        string contentType = string.Equals(format, "zip", StringComparison.OrdinalIgnoreCase)
+            ? "application/zip"
+            : "application/gzip";
+
+        return Results.File(
+            archive.FilePath,
+            contentType,
+            fileDownloadName: archive.FileName,
+            enableRangeProcessing: true);
+    })
+    .RequireAuthorization();
 
 app.MapStaticAssets();
 app.MapControllers();
