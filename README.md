@@ -1,8 +1,27 @@
-# asa_server_node_api
+<p align="center">
+  <img alt="ASA Server Node API Banner" src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:05070d,35:083344,68:06b6d4,100:164e63&text=ASA%20Server%20Node%20API&fontColor=ffffff&fontSize=34&fontAlignY=38&desc=Neon%20web%20panel%20for%20one%20ARK%3A%20Survival%20Ascended%20server%20node&descAlignY=58&animation=twinkling" />
+</p>
 
-Neon-style web panel for running an `ARK: Survival Ascended` Linux server fast.
+<p align="center">
+  <img alt="ASA Server Node API" src="https://img.shields.io/badge/ASA_Server_Node_API-Server_Node-a5f3fc?style=for-the-badge&logo=windows-terminal&logoColor=05070d&labelColor=083344" />
+</p>
 
-Main goal: one command -> working web panel in seconds -> manage one ASA server node cleanly.
+<p align="center">
+  <img alt=".NET 10" src="https://img.shields.io/badge/.NET-10_RC-cffafe?style=for-the-badge&logo=dotnet&logoColor=05070d&labelColor=083344" />
+  <img alt="Blazor" src="https://img.shields.io/badge/Blazor-Interactive_Server-67e8f9?style=for-the-badge&logo=blazor&logoColor=05070d&labelColor=083344" />
+  <img alt="SQLite" src="https://img.shields.io/badge/SQLite-Ready-a5f3fc?style=for-the-badge&logo=sqlite&logoColor=05070d&labelColor=083344" />
+  <img alt="ARK ASA" src="https://img.shields.io/badge/ARK-Survival_Ascended-22d3ee?style=for-the-badge&logoColor=05070d&labelColor=083344" />
+</p>
+
+<h1 align="center">ASA Server Node API</h1>
+
+<p align="center">
+  Neon-style web panel for running one ARK: Survival Ascended Linux server fast.
+</p>
+
+<p align="center">
+  One command -> working web panel in seconds -> clean single-node ASA management.
+</p>
 
 ## One-line install
 
