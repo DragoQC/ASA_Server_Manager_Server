@@ -51,25 +51,25 @@ REPO_DIR="${REPO_DIR:-$WEBAPP_ROOT/src}"
 PUBLISH_DIR="${PUBLISH_DIR:-$WEBAPP_ROOT/publish}"
 SERVICE_NAME="${SERVICE_NAME:-asa-webapp}"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-REPO_URL="${REPO_URL:-https://github.com/DragoQC/ASA_Server_Manager_Server.git}"
+REPO_URL="${REPO_URL:-https://github.com/DragoQC/asa_server_node_api.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 DOTNET_VERSION="${DOTNET_VERSION:-10.0}"
 DOTNET_ROOT="${DOTNET_ROOT:-/usr/share/dotnet}"
 DOTNET_BIN="${DOTNET_BIN:-/usr/local/bin/dotnet}"
-APP_PROJECT_RELATIVE_PATH="serverwebapp/AsaServerManager.Web.csproj"
-APP_DLL_NAME="AsaServerManager.Web.dll"
+APP_PROJECT_RELATIVE_PATH="asa_server_node_api/asa_server_node_api.csproj"
+APP_DLL_NAME="asa_server_node_api.dll"
 APP_URL="${APP_URL:-http://0.0.0.0:8000}"
 APP_HOME="${APP_HOME:-$BASE_DIR}"
 SUDOERS_FILE="/etc/sudoers.d/${USER_NAME}-systemctl"
-GAME_SERVICE_TEMPLATE_RELATIVE_PATH="serverwebapp/Templates/Install/asa.service"
+GAME_SERVICE_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Install/asa.service"
 GAME_SERVICE_DIR="${BASE_DIR}/systemd"
 GAME_SERVICE_FILE="${GAME_SERVICE_DIR}/asa.service"
 SYSTEMD_GAME_SERVICE_FILE="/etc/systemd/system/asa.service"
 VPN_DIR="${BASE_DIR}/vpn"
 NFS_DIR="${BASE_DIR}/nfs"
-CLUSTER_CLIENT_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="serverwebapp/Templates/Cluster/prepare-cluster-client.sh"
+CLUSTER_CLIENT_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/prepare-cluster-client.sh"
 CLUSTER_CLIENT_PREP_SCRIPT_PATH="${NFS_DIR}/prepare-cluster-client.sh"
-CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH="serverwebapp/Templates/Cluster/apply-nfs-client-config.sh"
+CLUSTER_CLIENT_APPLY_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Cluster/apply-nfs-client-config.sh"
 CLUSTER_CLIENT_APPLY_SCRIPT_PATH="${NFS_DIR}/apply-nfs-client-config.sh"
 WIREGUARD_DIR="/etc/wireguard"
 WIREGUARD_CONFIG_LINK_PATH="${WIREGUARD_DIR}/wg0.conf"
@@ -87,7 +87,7 @@ run_as_app_user_bash() {
   runuser -u "${USER_NAME}" -- bash -lc "$1"
 }
 
-log_webapp "ASA Server Manager – Web App Installer"
+log_webapp "asa_server_node_api – Web App Installer"
 
 log_webapp "Installing dependencies..."
 dpkg --add-architecture i386
@@ -190,9 +190,9 @@ chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"
 
 run_as_app_user_bash "export DOTNET_ROOT='${DOTNET_ROOT}'; export PATH='${DOTNET_ROOT}:/usr/local/bin:/usr/bin:/bin'; cd '${REPO_DIR}'; '${DOTNET_BIN}' publish '${APP_PROJECT_RELATIVE_PATH}' -c Release -o '${PUBLISH_DIR}'"
 
-if [ -d "${REPO_DIR}/serverwebapp/Data" ]; then
+if [ -d "${REPO_DIR}/asa_server_node_api/Data" ]; then
   mkdir -p "${PUBLISH_DIR}/Data"
-  cp -a "${REPO_DIR}/serverwebapp/Data/." "${PUBLISH_DIR}/Data/"
+  cp -a "${REPO_DIR}/asa_server_node_api/Data/." "${PUBLISH_DIR}/Data/"
 fi
 
 if [ ! -f "${GAME_SERVICE_FILE}" ] && [ -f "${REPO_DIR}/${GAME_SERVICE_TEMPLATE_RELATIVE_PATH}" ]; then
@@ -227,7 +227,7 @@ log_info "The game server service asa.service is prepared only. It is not enable
 log_webapp "Creating systemd service..."
 cat <<EOF > "${SERVICE_FILE}"
 [Unit]
-Description=ASA Server Manager Web App
+Description=asa_server_node_api Web App
 After=network.target
 
 [Service]

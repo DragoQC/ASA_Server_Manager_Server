@@ -1,0 +1,393 @@
+@page "/admin/server-config"
+@inject asa_server_node_api.Services.ServerConfigService ServerConfigService
+@inject asa_server_node_api.Services.InstallStateService InstallStateService
+@inject asa_server_node_api.Services.ManagerService ManagerService
+
+<PageTitle>Server Config</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-cyan-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center gap-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Server config</p>
+            <StatusTag Text="asa.env" />
+        </div>
+
+        <EditForm Model="_model" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+
+            <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Server config</h1>
+                    <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
+                        These are the live values from <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/server/asa.env</code>. If the file does not exist yet, built-in defaults are shown until you save.
+                    </p>
+                    <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-400">
+                        You can always come back later to update these values. Saving again will write the latest values back into <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.env</code>.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap gap-3">
+                    <button type="submit" class="inline-flex rounded-full border border-cyan-300/20 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                        Save server config
+                    </button>
+                    <button type="button" @onclick="ResetDefaults" class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10">
+                        Reset defaults
+                    </button>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_statusMessage))
+            {
+                <div class="@GetStatusMessageClass()">
+                    @_statusMessage
+                </div>
+            }
+
+            <div class="grid gap-6 py-2">
+                <div class="space-y-6">
+                    <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                        <div class="mb-5 flex items-start justify-between gap-4">
+                            <div>
+                                <h2 class="text-2xl font-semibold text-white">Core values</h2>
+                                <p class="mt-2 text-sm text-neutral-400">Main startup settings from the env file.</p>
+                            </div>
+
+                            <button type="button"
+                                    @onclick="OpenCoreValuesInfoDialog"
+                                    class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/20 bg-cyan-400/15 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/25"
+                                    aria-label="Core values help">
+                                ?
+                            </button>
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <TextField Label="Map name" @bind-Value="_model.MapName" Hint="Default: TheIsland_WP" />
+                            <TextField Label="Server name" @bind-Value="_model.ServerName" />
+                            <NumberField Label="Max players" @bind-Value="_model.MaxPlayers" />
+                            <NumberField Label="Game port" @bind-Value="_model.GamePort" />
+                            <NumberField Label="Query port" @bind-Value="_model.QueryPort" />
+                            <NumberField Label="RCON port" @bind-Value="_model.RconPort" />
+                        </div>
+                    </section>
+
+                    <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                        <div class="mb-5 flex items-start justify-between gap-4">
+                            <div>
+                                <h2 class="text-2xl font-semibold text-white">Mods and cluster</h2>
+                                <p class="mt-2 text-sm text-neutral-400">Comma-separated mods and optional cluster setup. The cluster folder path is managed internally.</p>
+                                <a href="https://www.curseforge.com/ark-survival-ascended"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="mt-3 inline-flex text-sm font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
+                                    Find mods on CurseForge
+                                </a>
+                            </div>
+
+                            <button type="button"
+                                    @onclick="OpenModsAndClusterInfoDialog"
+                                    class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/20 bg-cyan-400/15 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/25"
+                                    aria-label="Mods and cluster help">
+                                ?
+                            </button>
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div class="md:col-span-2">
+                                <TextField Label="Mod IDs" @bind-Value="_model.ModIds" IsTextArea="true" Hint="Example: 12345,67890" />
+                            </div>
+                            <TextField Label="Cluster ID"
+                                       @bind-Value="_model.ClusterId"
+                                       Hint="@GetClusterIdHint()"
+                                       disabled="@_isClusterIdManagedByVpn" />
+                        </div>
+                    </section>
+
+                    <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                        <div class="mb-5 flex items-start justify-between gap-4">
+                            <div>
+                                <h2 class="text-2xl font-semibold text-white">Extra flags</h2>
+                                <p class="mt-2 text-sm text-neutral-400">Raw <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">EXTRA_ARGS</code> from the env file.</p>
+                                <a href="https://ark.wiki.gg/wiki/Server_configuration"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="mt-3 inline-flex text-sm font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
+                                    ASA server configuration reference
+                                </a>
+                            </div>
+
+                            <button type="button"
+                                    @onclick="OpenExtraFlagsInfoDialog"
+                                    class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/20 bg-cyan-400/15 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/25"
+                                    aria-label="Extra flags help">
+                                ?
+                            </button>
+                        </div>
+
+                        <div class="grid gap-4">
+                            <TextField Label="Custom extra args" @bind-Value="_model.CustomExtraArgs" IsTextArea="true" Hint="Example: -NoBattlEye -crossplay" />
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+        </EditForm>
+    </div>
+</section>
+
+<ConfirmationDialog IsOpen="@_showRestartDialog"
+                    IsBusy="@_isRestartingAsa"
+                    Eyebrow="Restart"
+                    Title="Do you want to restart the server right now to apply updates?"
+                    Message="A restart is required to apply updates. You can also do it later from the Game Shell page."
+                    ConfirmText="Yes"
+                    CancelText="Later"
+                    OnConfirm="RestartAsaAsync"
+                    OnCancel="CloseRestartDialog" />
+
+<ConfirmationDialog IsOpen="@_showCoreValuesInfoDialog"
+                    Eyebrow="Core values"
+                    Title="What do these values control?"
+                    ConfirmText="Close"
+                    HideCancelButton="true"
+                    OnConfirm="CloseCoreValuesInfoDialog"
+                    OnCancel="CloseCoreValuesInfoDialog">
+    <ChildContent>
+        <div class="space-y-4 text-sm leading-6 text-neutral-200">
+            <p>
+                These values are written into <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.env</code> and then used by the
+                <a href="/admin/install" class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">Install page</a>
+                start script to build the real server launch command.
+            </p>
+            <p>
+                <strong class="text-white">Map name</strong> selects the ASA map to boot.
+                <strong class="ml-1 text-white">Server name</strong> is the public server name players see.
+                <strong class="ml-1 text-white">Max players</strong> sets the player cap.
+            </p>
+            <p>
+                <strong class="text-white">Game port</strong> is the gameplay connection port.
+                <strong class="ml-1 text-white">Query port</strong> is used for server discovery and query info.
+                <strong class="ml-1 text-white">RCON port</strong> is used for remote admin commands.
+            </p>
+            <p>
+                If you know what you are doing, you can edit these values. If you just want a working ARK server, saving the defaults as-is will also work.
+            </p>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
+<ConfirmationDialog IsOpen="@_showModsAndClusterInfoDialog"
+                    Eyebrow="Mods and cluster"
+                    Title="How do mods and cluster settings work?"
+                    ConfirmText="Close"
+                    HideCancelButton="true"
+                    OnConfirm="CloseModsAndClusterInfoDialog"
+                    OnCancel="CloseModsAndClusterInfoDialog">
+    <ChildContent>
+        <div class="space-y-4 text-sm leading-6 text-neutral-200">
+            <p>
+                These values are also executed by the
+                <a href="/admin/install" class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">Install page</a>
+                start script when it builds the final ASA launch command.
+            </p>
+            <p>
+                <strong class="text-white">Mod IDs</strong> is a comma-separated list of CurseForge mod IDs to load on server start.
+                If this value is empty, the start script skips mod launch arguments.
+            </p>
+            <p>
+                <strong class="text-white">Cluster ID</strong> is the shared identifier used by each clustered server so they can communicate with each other.
+                The cluster folder is set to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/cluster</code>, so if you build a cluster manually those files must be able to touch each other there.
+            </p>
+            <p>
+                If you use the cluster helper and the control app, you normally do not need to touch cluster setup at all. We set up WireGuard, NFS, and pass the cluster folder to connected machines for you.
+            </p>
+            <p>
+                When the control app manages the node, the cluster ID is also set automatically from the remote side.
+            </p>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
+<ConfirmationDialog IsOpen="@_showExtraFlagsInfoDialog"
+                    Eyebrow="Extra flags"
+                    Title="What are extra flags used for?"
+                    ConfirmText="Close"
+                    HideCancelButton="true"
+                    OnConfirm="CloseExtraFlagsInfoDialog"
+                    OnCancel="CloseExtraFlagsInfoDialog">
+    <ChildContent>
+        <div class="space-y-4 text-sm leading-6 text-neutral-200">
+            <p>
+                Extra flags are used to manage the server starting behavior. They are written into
+                <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">EXTRA_ARGS</code>
+                and then passed by the
+                <a href="/admin/install" class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">Install page</a>
+                start script when the final ASA launch command is built.
+            </p>
+            <p>
+                This is the place for optional launch flags such as BattlEye, crossplay, and other ASA startup behavior that is not already covered by the core fields above.
+            </p>
+            <p>
+                If you know what you are doing, you can edit these flags directly. If you leave this empty, the server still starts normally with the default script behavior.
+            </p>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
+@code {
+    private asa_server_node_api.Models.ServerConfig.ServerConfigSettings _model = asa_server_node_api.Models.ServerConfig.ServerConfigSettings.Default();
+    private string? _statusMessage;
+    private bool _statusIsError;
+    private bool _hasConfigFile;
+    private bool _showRestartDialog;
+    private bool _isRestartingAsa;
+    private bool _isClusterIdManagedByVpn;
+    private bool _showCoreValuesInfoDialog;
+    private bool _showModsAndClusterInfoDialog;
+    private bool _showExtraFlagsInfoDialog;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _hasConfigFile = ServerConfigService.HasConfigFile();
+            _isClusterIdManagedByVpn = File.Exists(asa_server_node_api.Constants.InstallStateConstants.WireGuardConfigFilePath);
+            _model = await ServerConfigService.LoadAsync();
+            _statusMessage = _hasConfigFile ? null : "asa.env is missing. Showing built-in defaults until you save.";
+            _statusIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _model = asa_server_node_api.Models.ServerConfig.ServerConfigSettings.Default();
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        bool hadConfigFile = _hasConfigFile;
+
+        try
+        {
+            await ServerConfigService.SaveAsync(_model);
+            _statusMessage = "asa.env saved.";
+            _statusIsError = false;
+            _hasConfigFile = true;
+            await OpenRestartDialogIfNeededAsync(hadConfigFile);
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+    }
+
+    private async Task ResetDefaults()
+    {
+        string currentClusterId = _model.ClusterId;
+        _model = asa_server_node_api.Models.ServerConfig.ServerConfigSettings.Default();
+        if (_isClusterIdManagedByVpn)
+        {
+            _model.ClusterId = currentClusterId;
+        }
+
+        _statusMessage = null;
+        _statusIsError = false;
+    }
+
+    private string GetClusterIdHint()
+    {
+        return _isClusterIdManagedByVpn
+            ? "Cluster ID is managed by the remote control app while VPN is configured."
+            : string.Empty;
+    }
+
+    private string GetStatusMessageClass()
+    {
+        return _statusIsError
+            ? "rounded-2xl border border-red-300/20 bg-red-400/10 px-5 py-4 text-sm text-red-100 my-4"
+            : "rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-5 py-4 text-sm text-emerald-100 my-4";
+    }
+
+    private async Task OpenRestartDialogIfNeededAsync(bool hadConfigFile)
+    {
+        if (!hadConfigFile)
+        {
+            return;
+        }
+
+        await ManagerService.RefreshAsync();
+        _showRestartDialog = ManagerService.ShouldPromptForRestart;
+    }
+
+    private Task RestartAsaAsync()
+    {
+        _showRestartDialog = false;
+        _isRestartingAsa = true;
+        _statusMessage = "Restart requested.";
+        _statusIsError = false;
+        _ = RestartAsaInBackgroundAsync();
+        return Task.CompletedTask;
+    }
+
+    private async Task RestartAsaInBackgroundAsync()
+    {
+        try
+        {
+            _statusMessage = await ManagerService.RestartAsync();
+            _statusIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _statusMessage = exception.Message;
+            _statusIsError = true;
+        }
+        finally
+        {
+            _isRestartingAsa = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private Task CloseRestartDialog()
+    {
+        _showRestartDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenCoreValuesInfoDialog()
+    {
+        _showCoreValuesInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseCoreValuesInfoDialog()
+    {
+        _showCoreValuesInfoDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenModsAndClusterInfoDialog()
+    {
+        _showModsAndClusterInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseModsAndClusterInfoDialog()
+    {
+        _showModsAndClusterInfoDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenExtraFlagsInfoDialog()
+    {
+        _showExtraFlagsInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseExtraFlagsInfoDialog()
+    {
+        _showExtraFlagsInfoDialog = false;
+        return Task.CompletedTask;
+    }
+}

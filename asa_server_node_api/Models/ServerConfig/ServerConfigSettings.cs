@@ -1,0 +1,54 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace asa_server_node_api.Models.ServerConfig;
+
+public sealed class ServerConfigSettings
+{
+	[Required]
+	[StringLength(128)]
+	public string MapName { get; set; } = "TheIsland_WP";
+
+	[Required]
+	[StringLength(128)]
+	public string ServerName { get; set; } = "ARK ASA Server";
+
+	[Range(1, 200)]
+	public int MaxPlayers { get; set; } = 20;
+
+	[Range(1, 65535)]
+	public int GamePort { get; set; } = 7777;
+
+	[Range(1, 65535)]
+	public int QueryPort { get; set; } = 27015;
+
+	[Range(1, 65535)]
+	public int RconPort { get; set; } = 27020;
+
+	public string ModIds { get; set; } = string.Empty;
+
+	[StringLength(128)]
+	public string ClusterId { get; set; } = string.Empty;
+
+	[Required]
+	[StringLength(256)]
+	public string ClusterDir { get; set; } = "/opt/asa/cluster";
+
+	public string CustomExtraArgs { get; set; } = "-crossplay -NoBattlEye";
+
+	public static ServerConfigSettings Default() => new();
+
+	public ServerConfigSettings Clone() =>
+		new()
+		{
+			MapName = MapName,
+			ServerName = ServerName,
+			MaxPlayers = MaxPlayers,
+			GamePort = GamePort,
+			QueryPort = QueryPort,
+			RconPort = RconPort,
+			ModIds = ModIds,
+			ClusterId = ClusterId,
+			ClusterDir = ClusterDir,
+			CustomExtraArgs = CustomExtraArgs
+		};
+}

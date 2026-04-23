@@ -1,0 +1,850 @@
+@page "/admin/install"
+@using asa_server_node_api.Constants
+@inject asa_server_node_api.Services.InstallStateService InstallStateService
+@inject asa_server_node_api.Services.ManagerService ManagerService
+
+<PageTitle>Install</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-cyan-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
+    <div class="space-y-10">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">Install</p>
+                <StatusTag Text="Workspace" />
+            </div>
+
+            <button type="button"
+                    @onclick="InstallAllAsync"
+                    disabled="@(_isRefreshing || _isInstallingAll || _snapshot is null)"
+                    class="inline-flex items-center rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                @(_isInstallingAll ? "Installing..." : "Install All")
+            </button>
+        </div>
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Install workspace</h1>
+            <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
+                Proton, SteamCMD, and the server boot files live here. Missing files fall back to repo templates so you can review and apply them directly.
+            </p>
+            <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-400">
+                You can return here later to update installs or edit the boot files again. Saving or applying will overwrite the live files on disk.
+            </p>
+        </div>
+
+        @if (_snapshot is null)
+        {
+            @if (!string.IsNullOrWhiteSpace(_loadError))
+            {
+                <div class="rounded-[1.6rem] border border-red-300/20 bg-red-400/10 p-6 text-red-100">
+                    @_loadError
+                </div>
+            }
+            else
+            {
+                <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6 text-neutral-300">
+                    Loading install workspace...
+                </div>
+            }
+        }
+        else
+        {
+            <section class="relative z-[140] rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                    <div class="space-y-4">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h2 class="text-3xl font-semibold text-white">@_snapshot.Proton.Title</h2>
+                            @if (!string.Equals(_snapshot.Proton.VersionLabel, "Missing", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <StatusTag Text="@_snapshot.Proton.VersionLabel" />
+                            }
+                            @if (!string.IsNullOrWhiteSpace(_snapshot.Proton.LatestVersionLabel))
+                            {
+                                <StatusTag Text="@($"Latest {_snapshot.Proton.LatestVersionLabel}")" />
+                            }
+                            <button type="button"
+                                    @onclick="OpenProtonInfoDialog"
+                                    class="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/30 bg-cyan-400/15 text-sm font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
+                                    aria-label="Proton info">
+                                ?
+                            </button>
+                        </div>
+
+                        <p class="max-w-3xl text-base leading-7 text-neutral-300">
+                            @_snapshot.Proton.Description
+                        </p>
+
+                        <p class="text-sm text-neutral-400">
+                            Install path:
+                            <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">@_snapshot.Proton.InstallPath</code>
+                        </p>
+
+                        
+                    </div>
+
+                    <div class="flex flex-wrap items-end gap-3">
+                        @if (_protonVersions.Count > 0)
+                        {
+                            <div class="max-w-sm">
+                                <SelectField Label="Version to install"
+                                             Value="@_selectedProtonVersion"
+                                             ValueChanged="OnSelectedProtonVersionChanged"
+                                             Options="@_protonVersions" />
+                            </div>
+                        }
+                        <button type="button"
+                                @onclick="UpdateProtonAsync"
+                                disabled="@(!_snapshot.Proton.CanUpdate || _isRefreshing || _isUpdatingProton || _isInstallingAll)"
+                                class="inline-flex h-fit self-end rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">
+                            @GetProtonInstallActionText()
+                        </button>
+                        <button type="button"
+                                @onclick="UninstallProtonAsync"
+                                disabled="@(string.Equals(_snapshot.Proton.VersionLabel, "Missing", StringComparison.OrdinalIgnoreCase) || _isRefreshing || _isUpdatingProton || _isInstallingAll)"
+                                class="inline-flex h-fit self-end rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">
+                            @GetProtonUninstallActionText()
+                        </button>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_protonMessage))
+                {
+                    <p class="mt-4 text-sm text-cyan-100">@_protonMessage</p>
+                }
+            </section>
+
+            <section class="relative z-[20] rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                    <div class="space-y-4">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h2 class="text-3xl font-semibold text-white">@_snapshot.Steam.Title</h2>
+                            <button type="button"
+                                    @onclick="OpenSteamInfoDialog"
+                                    class="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/30 bg-cyan-400/15 text-sm font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
+                                    aria-label="SteamCMD info">
+                                ?
+                            </button>
+                        </div>
+
+                        <p class="max-w-3xl text-base leading-7 text-neutral-300">
+                            @_snapshot.Steam.Description
+                        </p>
+
+                        <p class="text-sm text-neutral-400">
+                            Install path:
+                            <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">@_snapshot.Steam.InstallPath</code>
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button"
+                                @onclick="UpdateSteamAsync"
+                                disabled="@(!_snapshot.Steam.CanUpdate || _isRefreshing || _isUpdatingSteam || _isInstallingAll)"
+                                class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                            @GetSteamActionText()
+                        </button>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_steamMessage))
+                {
+                    <p class="mt-4 text-sm text-cyan-100">@_steamMessage</p>
+                }
+            </section>
+
+            <section class="space-y-6 rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                <div class="space-y-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h2 class="text-3xl font-semibold text-white">Server boot files</h2>
+                    </div>
+
+                    <p class="max-w-3xl text-base leading-7 text-neutral-300">
+                        Edit the start script and systemd unit here. If the files do not exist yet, the editors load the repo templates so you can apply them directly to disk.
+                    </p>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="flex h-full flex-col rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+                        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div class="space-y-3">
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <h3 class="text-2xl font-semibold text-white">@_snapshot.StartScript.Title</h3>
+                                    <StatusTag Text="@_snapshot.StartScript.StateLabel" />
+                                    <button type="button"
+                                            @onclick="OpenStartScriptInfoDialog"
+                                            class="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/30 bg-cyan-400/15 text-sm font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
+                                            aria-label="Start script info">
+                                        ?
+                                    </button>
+                                </div>
+
+                                <p class="text-sm leading-6 text-neutral-300">@_snapshot.StartScript.Description</p>
+                                <p class="text-xs uppercase tracking-[0.28em] text-neutral-500">@_snapshot.StartScript.FilePath</p>
+                            </div>
+
+                            <button type="button"
+                                    @onclick="ApplyStartScriptAsync"
+                                    disabled="@(_isApplyingStartScript || _isInstallingAll)"
+                                    class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                @(_isApplyingStartScript ? "Applying..." : "Apply")
+                            </button>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(_startScriptMessage))
+                        {
+                            <p class="mt-4 text-sm text-cyan-100">@_startScriptMessage</p>
+                        }
+
+                        <textarea @bind="_startScriptContent"
+                                  @bind:event="oninput"
+                                  spellcheck="false"
+                                  class="mt-5 h-[44rem] w-full rounded-[1.3rem] border border-white/10 bg-black/40 p-4 font-mono text-sm leading-6 text-cyan-100 outline-none"></textarea>
+                    </div>
+
+                    <div class="flex h-full flex-col rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
+                        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div class="space-y-3">
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <h3 class="text-2xl font-semibold text-white">@_snapshot.ServiceFile.Title</h3>
+                                    <StatusTag Text="@_snapshot.ServiceFile.StateLabel" />
+                                    <button type="button"
+                                            @onclick="OpenServiceFileInfoDialog"
+                                            class="ml-auto inline-flex h-9 w-9 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/30 bg-cyan-400/15 text-sm font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
+                                            aria-label="Service file info">
+                                        ?
+                                    </button>
+                                </div>
+
+                                <p class="text-sm leading-6 text-neutral-300">@_snapshot.ServiceFile.Description</p>
+                                <p class="text-xs uppercase tracking-[0.28em] text-neutral-500">@_snapshot.ServiceFile.FilePath</p>
+                            </div>
+
+                            <button type="button"
+                                    @onclick="ApplyServiceFileAsync"
+                                    disabled="@(_isApplyingServiceFile || _isInstallingAll)"
+                                    class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                @(_isApplyingServiceFile ? "Applying..." : "Apply")
+                            </button>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(_serviceFileMessage))
+                        {
+                            <p class="mt-4 text-sm text-cyan-100">@_serviceFileMessage</p>
+                        }
+
+                        <textarea @bind="_serviceFileContent"
+                                  @bind:event="oninput"
+                                  spellcheck="false"
+                                  class="mt-5 h-[44rem] w-full rounded-[1.3rem] border border-white/10 bg-black/40 px-4 py-4 font-mono text-sm leading-6 text-cyan-100 outline-none"></textarea>
+                    </div>
+                </div>
+
+                <p class="text-sm text-neutral-400">
+                    The start script writes to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/start-asa.sh</code>.
+                    The service file writes to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/systemd/asa.service</code>.
+                    Systemd should point <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/etc/systemd/system/asa.service</code> to that file with a symlink.
+                </p>
+            </section>
+        }
+    </div>
+</section>
+
+<ConfirmationDialog IsOpen="@_showRestartDialog"
+                    IsBusy="@_isRestartingAsa"
+                    Eyebrow="Restart"
+                    Title="Do you want to restart the server right now to apply updates?"
+                    Message="A restart is required to apply updates. You can also do it later from the Game Shell page."
+                    ConfirmText="Yes"
+                    CancelText="Later"
+                    OnConfirm="RestartAsaAsync"
+                    OnCancel="CloseRestartDialog" />
+
+<ConfirmationDialog IsOpen="@_showStartScriptInfoDialog"
+                    IsBusy="false"
+                    Eyebrow="Start script"
+                    StatusText="Info"
+                    Title="How start-asa.sh works"
+                    ConfirmText="Got it"
+                    CancelText="Close"
+                    OnConfirm="CloseStartScriptInfoDialog"
+                    OnCancel="CloseStartScriptInfoDialog">
+    <ChildContent>
+        <div class="space-y-5">
+            <p class="text-base leading-7 text-neutral-300">
+                This script is executed under the hood to start the ARK: Survival Ascended server. It reads the live config values and builds the final server launch command, including map, server name, ports, player count, and optional extra args.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                The template is already good as-is. If cluster values are empty, it skips cluster launch info. If mod IDs are empty, it skips mod launch args. It also sets the game port, query port, and RCON port from this script.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                This file stays editable on purpose. If you know what you are doing, you can customize the launch behavior. If you just want a working ARK server, saving the default script as-is will also work.
+            </p>
+
+            <div class="rounded-[1.4rem] border border-white/10 bg-black/30 p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">asa.env variables used by start-asa.sh</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @foreach (string environmentVariable in StartScriptEnvironmentVariables)
+                    {
+                        <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100">
+                            @environmentVariable
+                        </span>
+                    }
+                </div>
+                <p class="mt-4 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">proton.env variables used by start-asa.sh</p>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @foreach (string environmentVariable in ProtonEnvironmentVariables)
+                    {
+                        <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100">
+                            @environmentVariable
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
+<ConfirmationDialog IsOpen="@_showServiceFileInfoDialog"
+                    IsBusy="false"
+                    Eyebrow="Service file"
+                    StatusText="Info"
+                    Title="How asa.service works"
+                    ConfirmText="Got it"
+                    CancelText="Close"
+                    OnConfirm="CloseServiceFileInfoDialog"
+                    OnCancel="CloseServiceFileInfoDialog">
+    <ChildContent>
+        <div class="space-y-5">
+            <p class="text-base leading-7 text-neutral-300">
+                A basic systemd service is the Linux way to define how a background process starts, stops, restarts, and behaves after boot. On Debian, systemd reads this file to know how your ASA server should be launched and managed.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                This is the service installed on the Debian machine for the ARK server. It does not contain the full game launch command itself. Instead, it runs the start script configured just above, and that script builds the final server launch with the current ports, map, mods, cluster values, and other args.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                This file also stays editable on purpose. If you know what you are doing, you can tune how the Linux service behaves. If you just want a working ARK server, saving the default service as-is will also work.
+            </p>
+
+            <div class="rounded-[1.4rem] border border-white/10 bg-black/30 p-4">
+                <div class="space-y-3 text-sm leading-6 text-neutral-300">
+                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Unit]</code> describes what the service is and what it should wait for before starting.</p>
+                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Service]</code> defines how the process runs, which user runs it, the working directory, restart behavior, and the command that gets executed.</p>
+                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">ExecStart</code> is the important line that points systemd at the launch command or script.</p>
+                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">Restart</code> and <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RestartSec</code> control how the service comes back if it stops or crashes.</p>
+                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Install]</code> tells systemd how the service should be attached to the machine boot flow when it is enabled.</p>
+                </div>
+            </div>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
+<ConfirmationDialog IsOpen="@_showProtonInfoDialog"
+                    IsBusy="false"
+                    Eyebrow="Proton"
+                    StatusText="Info"
+                    Title="Why Proton is needed"
+                    ConfirmText="Got it"
+                    CancelText="Close"
+                    OnConfirm="CloseProtonInfoDialog"
+                    OnCancel="CloseProtonInfoDialog">
+    <ChildContent>
+        <div class="space-y-5">
+            <p class="text-base leading-7 text-neutral-300">
+                Proton is needed to start the Windows ARK dedicated server build on Linux. ASA server binaries are Windows-based, so Proton provides the compatibility layer that lets the game server run on this Debian machine.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                In this panel, Proton is installed into the workspace and the selected version is what the start flow will use when launching the server. If Proton is missing, the server cannot boot correctly on Linux.
+            </p>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
+<ConfirmationDialog IsOpen="@_showSteamInfoDialog"
+                    IsBusy="false"
+                    Eyebrow="SteamCMD"
+                    StatusText="Info"
+                    Title="Why SteamCMD is needed"
+                    ConfirmText="Got it"
+                    CancelText="Close"
+                    OnConfirm="CloseSteamInfoDialog"
+                    OnCancel="CloseSteamInfoDialog">
+    <ChildContent>
+        <div class="space-y-5">
+            <p class="text-base leading-7 text-neutral-300">
+                SteamCMD is used to download and update your ARK server automatically. It is Valve’s command-line tool for fetching dedicated server files without using the full Steam desktop client.
+            </p>
+
+            <p class="text-base leading-7 text-neutral-300">
+                In this setup, SteamCMD lives in the workspace and is what the install and update flow uses to keep the server files present and current on disk.
+            </p>
+        </div>
+    </ChildContent>
+</ConfirmationDialog>
+
+@code {
+    private asa_server_node_api.Models.Install.InstallWorkspaceSnapshot? _snapshot;
+    private string _startScriptContent = string.Empty;
+    private string _serviceFileContent = string.Empty;
+    private bool _isRefreshing;
+    private bool _isUpdatingProton;
+    private bool _isUpdatingSteam;
+    private bool _isApplyingStartScript;
+    private bool _isApplyingServiceFile;
+    private bool _isInstallingAll;
+    private string? _loadError;
+    private string? _protonMessage;
+    private string? _steamMessage;
+    private string? _startScriptMessage;
+    private string? _serviceFileMessage;
+    private string? _activeProtonAction;
+    private IReadOnlyList<string> _protonVersions = Array.Empty<string>();
+    private string? _selectedProtonVersion;
+    private bool _showRestartDialog;
+    private bool _isRestartingAsa;
+    private bool _showProtonInfoDialog;
+    private bool _showSteamInfoDialog;
+    private bool _showStartScriptInfoDialog;
+    private bool _showServiceFileInfoDialog;
+    private static readonly string[] StartScriptEnvironmentVariables =
+    [
+        "MAP_NAME",
+        "SERVER_NAME",
+        "MAX_PLAYERS",
+        "GAME_PORT",
+        "QUERY_PORT",
+        "RCON_PORT",
+        "MOD_IDS",
+        "CLUSTER_ID",
+        "CLUSTER_DIR",
+        "EXTRA_ARGS"
+    ];
+    private static readonly string[] ProtonEnvironmentVariables =
+    [
+        "PROTON_VERSION"
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _isRefreshing = true;
+        _loadError = null;
+
+        try
+        {
+            _snapshot = await InstallStateService.LoadAsync();
+            await RefreshProtonVersionsAsync();
+            _startScriptContent = _snapshot.StartScript.Content;
+            _serviceFileContent = _snapshot.ServiceFile.Content;
+        }
+        catch (Exception exception)
+        {
+            _snapshot = null;
+            _loadError = exception.Message;
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
+    }
+
+    private async Task InstallAllAsync()
+    {
+        if (_snapshot is null || _isInstallingAll)
+        {
+            return;
+        }
+
+        bool hadInstalledProton = !string.Equals(_snapshot.Proton.VersionLabel, "Missing", StringComparison.OrdinalIgnoreCase);
+        bool hadSteamInstall = !string.Equals(_snapshot.Steam.VersionLabel, "Missing", StringComparison.OrdinalIgnoreCase);
+        bool hadStartScript = File.Exists(InstallStateConstants.StartScriptPath);
+        bool hadServiceFile = File.Exists(InstallStateConstants.ServiceFilePath);
+        bool shouldPromptRestart = hadInstalledProton || hadSteamInstall || hadStartScript || hadServiceFile;
+
+        _isInstallingAll = true;
+        _loadError = null;
+
+        try
+        {
+            _protonMessage = $"Installing Proton {GetRequestedProtonVersionLabel()}...";
+            _protonMessage = await InstallStateService.UpdateProtonAsync(_selectedProtonVersion);
+
+            _steamMessage = "Installing SteamCMD...";
+            _steamMessage = await InstallStateService.InstallSteamAsync();
+
+            _startScriptMessage = "Applying start script...";
+            await InstallStateService.SaveStartScriptAsync(_startScriptContent);
+            _startScriptMessage = "Start script applied.";
+
+            _serviceFileMessage = "Applying service file...";
+            await InstallStateService.SaveServiceFileAsync(_serviceFileContent);
+            _serviceFileMessage = "Service file applied.";
+
+            await RefreshAsync();
+            await OpenRestartDialogIfNeededAsync(shouldPromptRestart);
+        }
+        catch (Exception exception)
+        {
+            _loadError = exception.Message;
+        }
+        finally
+        {
+            _isInstallingAll = false;
+        }
+    }
+
+    private async Task UpdateProtonAsync()
+    {
+        bool hadInstalledProton = _snapshot is not null &&
+                                  !string.Equals(_snapshot.Proton.VersionLabel, "Missing", StringComparison.OrdinalIgnoreCase);
+        _isUpdatingProton = true;
+        _activeProtonAction = "install";
+        _protonMessage = $"Installing Proton {GetRequestedProtonVersionLabel()}...";
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            _protonMessage = await InstallStateService.UpdateProtonAsync(_selectedProtonVersion);
+            await OpenRestartDialogIfNeededAsync(hadInstalledProton);
+        }
+        catch (Exception exception)
+        {
+            _protonMessage = exception.Message;
+        }
+        finally
+        {
+            _isUpdatingProton = false;
+            _activeProtonAction = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
+        await RefreshProtonVersionsAsync();
+        await RefreshProtonAsync();
+    }
+
+    private async Task UninstallProtonAsync()
+    {
+        bool hadInstalledProton = _snapshot is not null &&
+                                  !string.Equals(_snapshot.Proton.VersionLabel, "Missing", StringComparison.OrdinalIgnoreCase);
+        _isUpdatingProton = true;
+        _activeProtonAction = "uninstall";
+        _protonMessage = "Uninstalling Proton...";
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            _protonMessage = await InstallStateService.UninstallProtonAsync();
+            await OpenRestartDialogIfNeededAsync(hadInstalledProton);
+        }
+        catch (Exception exception)
+        {
+            _protonMessage = exception.Message;
+        }
+        finally
+        {
+            _isUpdatingProton = false;
+            _activeProtonAction = null;
+        }
+
+        await InvokeAsync(StateHasChanged);
+        await RefreshProtonVersionsAsync();
+        await RefreshProtonAsync();
+    }
+
+    private async Task RefreshProtonAsync()
+    {
+        if (_snapshot is null)
+        {
+            await RefreshAsync();
+            return;
+        }
+
+        try
+        {
+            asa_server_node_api.Models.Install.InstallToolState proton = await InstallStateService.LoadProtonStateAsync();
+            _snapshot = _snapshot with
+            {
+                Proton = proton,
+                CheckedAtUtc = DateTimeOffset.UtcNow
+            };
+        }
+        catch (Exception exception)
+        {
+            _protonMessage = exception.Message;
+        }
+    }
+
+    private string GetProtonInstallActionText()
+    {
+        if (!string.Equals(_activeProtonAction, "install", StringComparison.Ordinal))
+        {
+            return "Install selected";
+        }
+
+        return "Installing...";
+    }
+
+    private string GetProtonUninstallActionText()
+    {
+        return string.Equals(_activeProtonAction, "uninstall", StringComparison.Ordinal) ? "Uninstalling..." : "Uninstall";
+    }
+
+    private Task UpdateSteamAsync()
+    {
+        return UpdateSteamAsyncCore();
+    }
+
+    private async Task UpdateSteamAsyncCore()
+    {
+        bool hadSteamInstall = _snapshot is not null &&
+                               !string.Equals(_snapshot.Steam.VersionLabel, "Missing", StringComparison.OrdinalIgnoreCase);
+        _isUpdatingSteam = true;
+
+        try
+        {
+            _steamMessage = await InstallStateService.InstallSteamAsync();
+            await OpenRestartDialogIfNeededAsync(hadSteamInstall);
+        }
+        catch (Exception exception)
+        {
+            _steamMessage = exception.Message;
+        }
+        finally
+        {
+            _isUpdatingSteam = false;
+        }
+
+        await RefreshSteamAsync();
+    }
+
+    private async Task RefreshSteamAsync()
+    {
+        if (_snapshot is null)
+        {
+            await RefreshAsync();
+            return;
+        }
+
+        try
+        {
+            asa_server_node_api.Models.Install.InstallToolState steam = await InstallStateService.LoadSteamStateAsync();
+            _snapshot = _snapshot with
+            {
+                Steam = steam,
+                CheckedAtUtc = DateTimeOffset.UtcNow
+            };
+        }
+        catch (Exception exception)
+        {
+            _steamMessage = exception.Message;
+        }
+    }
+
+    private string GetSteamActionText()
+    {
+        if (!_isUpdatingSteam)
+        {
+            return _snapshot?.Steam.VersionLabel == "Missing" ? "Install" : "Reinstall";
+        }
+
+        return _snapshot?.Steam.VersionLabel == "Missing" ? "Installing..." : "Reinstalling...";
+    }
+
+    private async Task RefreshProtonVersionsAsync()
+    {
+        try
+        {
+            _protonVersions = await InstallStateService.GetProtonVersionsAsync();
+            if (_protonVersions.Count == 0)
+            {
+                _selectedProtonVersion = null;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_selectedProtonVersion) || !_protonVersions.Contains(_selectedProtonVersion, StringComparer.OrdinalIgnoreCase))
+            {
+                _selectedProtonVersion = _protonVersions[0];
+            }
+        }
+        catch (Exception exception)
+        {
+            _protonVersions = Array.Empty<string>();
+            _selectedProtonVersion = null;
+            _protonMessage = exception.Message;
+        }
+    }
+
+    private Task OnSelectedProtonVersionChanged(string? value)
+    {
+        _selectedProtonVersion = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenStartScriptInfoDialog()
+    {
+        _showStartScriptInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseStartScriptInfoDialog()
+    {
+        _showStartScriptInfoDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenProtonInfoDialog()
+    {
+        _showProtonInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseProtonInfoDialog()
+    {
+        _showProtonInfoDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenSteamInfoDialog()
+    {
+        _showSteamInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseSteamInfoDialog()
+    {
+        _showSteamInfoDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private Task OpenServiceFileInfoDialog()
+    {
+        _showServiceFileInfoDialog = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseServiceFileInfoDialog()
+    {
+        _showServiceFileInfoDialog = false;
+        return Task.CompletedTask;
+    }
+
+    private string GetRequestedProtonVersionLabel()
+    {
+        return string.IsNullOrWhiteSpace(_selectedProtonVersion) ? "latest" : _selectedProtonVersion;
+    }
+
+    private async Task ApplyStartScriptAsync()
+    {
+        bool hadExistingFile = File.Exists(InstallStateConstants.StartScriptPath);
+        _isApplyingStartScript = true;
+
+        try
+        {
+            await InstallStateService.SaveStartScriptAsync(_startScriptContent);
+            _startScriptMessage = "Start script applied.";
+            await RefreshAsync();
+            await OpenRestartDialogIfNeededAsync(hadExistingFile);
+        }
+        catch (Exception exception)
+        {
+            _startScriptMessage = exception.Message;
+        }
+        finally
+        {
+            _isApplyingStartScript = false;
+        }
+    }
+
+    private async Task ApplyServiceFileAsync()
+    {
+        bool hadExistingFile = File.Exists(InstallStateConstants.ServiceFilePath);
+        _isApplyingServiceFile = true;
+
+        try
+        {
+            await InstallStateService.SaveServiceFileAsync(_serviceFileContent);
+            _serviceFileMessage = "Service file applied.";
+            await RefreshAsync();
+            await OpenRestartDialogIfNeededAsync(hadExistingFile);
+        }
+        catch (Exception exception)
+        {
+            _serviceFileMessage = exception.Message;
+        }
+        finally
+        {
+            _isApplyingServiceFile = false;
+        }
+    }
+
+    private async Task OpenRestartDialogIfNeededAsync(bool hadExistingFile)
+    {
+        if (!hadExistingFile)
+        {
+            return;
+        }
+
+        await ManagerService.RefreshAsync();
+        _showRestartDialog = ManagerService.ShouldPromptForRestart;
+    }
+
+    private Task RestartAsaAsync()
+    {
+        _showRestartDialog = false;
+        _isRestartingAsa = true;
+        SetRestartMessage("Restart requested.");
+        _ = RestartAsaInBackgroundAsync();
+        return Task.CompletedTask;
+    }
+
+    private async Task RestartAsaInBackgroundAsync()
+    {
+        try
+        {
+            string message = await ManagerService.RestartAsync();
+            SetRestartMessage(message);
+        }
+        catch (Exception exception)
+        {
+            SetRestartMessage(exception.Message);
+        }
+        finally
+        {
+            _isRestartingAsa = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void SetRestartMessage(string message)
+    {
+        if (!string.IsNullOrWhiteSpace(_startScriptMessage))
+        {
+            _startScriptMessage = message;
+        }
+        else if (!string.IsNullOrWhiteSpace(_serviceFileMessage))
+        {
+            _serviceFileMessage = message;
+        }
+        else if (!string.IsNullOrWhiteSpace(_steamMessage))
+        {
+            _steamMessage = message;
+        }
+        else
+        {
+            _protonMessage = message;
+        }
+    }
+
+    private Task CloseRestartDialog()
+    {
+        _showRestartDialog = false;
+        return Task.CompletedTask;
+    }
+}

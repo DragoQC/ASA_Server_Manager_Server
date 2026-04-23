@@ -1,4 +1,4 @@
-# ASA Server Manager Server
+# asa_server_node_api
 
 Neon-style web panel for running an `ARK: Survival Ascended` Linux server fast.
 
@@ -8,7 +8,7 @@ Main goal: one command -> working web panel in seconds -> manage one ASA server 
 
 ```bash
 apt update && apt upgrade -y && apt install curl -y
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/DragoQC/ASA_Server_Manager_Server/main/setup-server-webapp.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/DragoQC/asa_server_node_api/main/setup-server-webapp.sh)"
 ```
 
 After install:
@@ -33,7 +33,7 @@ keep everything local (no external dependencies required)
 
 ## What this repo is
 
-This repo contains the server-side node for ASA Server Manager.
+This repo contains the server-side node for asa_server_node_api.
 
 - 1 node = 1 ASA server
 - Blazor-based web UI
@@ -74,11 +74,11 @@ Today this repo already exposes a small per-server API. Multi-server orchestrati
 - SQLite
 - systemd
 
-Project file: [serverwebapp/AsaServerManager.Web.csproj](/home/drago/Git/ASA_Server_Manager_Server/serverwebapp/AsaServerManager.Web.csproj)
+Project file: [asa_server_node_api/asa_server_node_api.csproj](/home/drago/Git/asa_server_node_api/asa_server_node_api/asa_server_node_api.csproj)
 
 ## What the installer does
 
-Script: [setup-server-webapp.sh](/home/drago/Git/ASA_Server_Manager_Server/setup-server-webapp.sh)
+Script: [setup-server-webapp.sh](/home/drago/Git/asa_server_node_api/setup-server-webapp.sh)
 
 It will:
 
@@ -86,7 +86,7 @@ It will:
 - install latest `.NET SDK 10.0`
 - create user `asa_web_app`
 - prepare `/opt/asa`
-- clone `DragoQC/ASA_Server_Manager_Server`
+- clone `DragoQC/asa_server_node_api`
 - publish the web app
 - create and start `asa-webapp.service`
 - prepare `/opt/asa/systemd/asa.service`
@@ -175,7 +175,7 @@ SignalR hub:
 ## Local dev
 
 ```bash
-cd serverwebapp
+cd asa_server_node_api
 dotnet watch
 ```
 
@@ -185,23 +185,23 @@ Default app URL:
 http://0.0.0.0:8000
 ```
 
-SQLite connection string is in [serverwebapp/appsettings.json](/home/drago/Git/ASA_Server_Manager_Server/serverwebapp/appsettings.json).
+SQLite connection string is in [asa_server_node_api/appsettings.json](/home/drago/Git/asa_server_node_api/asa_server_node_api/appsettings.json).
 
 ## Repo layout
 
 ```text
-ASA_Server_Manager_Server/
-├── serverwebapp/
+asa_server_node_api/
+├── asa_server_node_api/
 ├── Utils/
 ├── setup-server-webapp.sh
-├── ASA_Server_Manager_Server.sln
+├── asa_server_node_api.sln
 ├── Notes.md
 └── README.md
 ```
 
 ## Utils
 
-Reference files in [Utils](/home/drago/Git/ASA_Server_Manager_Server/Utils):
+Reference files in [Utils](/home/drago/Git/asa_server_node_api/Utils):
 
 - `Game.ini`
 - `GameUserSettings.ini`

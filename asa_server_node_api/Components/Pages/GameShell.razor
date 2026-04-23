@@ -1,0 +1,403 @@
+@page "/admin/game-shell"
+@implements IAsyncDisposable
+@using asa_server_node_api.Models.Asa
+@using asa_server_node_api.Models.Rcon
+@inject asa_server_node_api.Services.InstallStateService InstallStateService
+@inject asa_server_node_api.Services.GameConfigService GameConfigService
+@inject asa_server_node_api.Services.ManagerService ManagerService
+@inject asa_server_node_api.Services.RconService RconService
+
+<PageTitle>Game Shell</PageTitle>
+
+<section class="rounded-b-[2rem] border-x border-b border-cyan-200/10 bg-gradient-to-br from-black/35 via-[#0b0b15]/30 to-[#0b1325]/35 p-8 shadow-[0_0_70px_rgba(0,255,255,0.12)] backdrop-blur-[2px]">
+    <div class="space-y-8">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">RCON</p>
+                <StatusTag Text="@_rconStatus.StateLabel" />
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button"
+                        @onclick="StartAsaServiceAsync"
+                        disabled="@(_isStartingAsa || _isStoppingAsa || _isSendingCommand || !_asaServiceStatus.CanStart)"
+                        class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-50">
+                    @(_isStartingAsa ? "Starting..." : "Start asa")
+                </button>
+
+                <button type="button"
+                        @onclick="StopAsaServiceAsync"
+                        disabled="@(_isStartingAsa || _isStoppingAsa || _isSendingCommand || !_asaServiceStatus.CanStop)"
+                        class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">
+                    @(_isStoppingAsa ? "Stopping..." : "Stop asa")
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_serviceMessage))
+        {
+            <p class="@GetMessageClass(_serviceMessageIsError)">@_serviceMessage</p>
+        }
+
+        <div>
+            <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Game shell</h1>
+            <p class="mt-4 max-w-3xl text-base leading-7 text-neutral-300 md:text-lg">
+                Sends game admin commands through RCON on <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">port @DisplayedRconPortText</code>. Command history stays only on this page.
+            </p>
+            <p class="mt-3 max-w-3xl text-sm leading-7 text-cyan-200/80 md:text-base">
+                To use RCON, set <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RCONEnabled=true</code>, <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RCONPort</code>, and <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">ServerAdminPassword</code> in <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">GameUserSettings.ini</code>. You can set those manually in <a href="/admin/game-config" class="font-semibold text-cyan-100 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-50">Game Config</a>.
+            </p>
+            <p class="mt-3 max-w-3xl text-sm leading-7 text-cyan-200/80 md:text-base">
+                For a full list of ASA console commands, see <a href="https://ark.wiki.gg/wiki/Console_commands" target="_blank" rel="noopener noreferrer" class="font-semibold text-cyan-100 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-50">ark.wiki.gg Console commands</a>.
+            </p>
+        </div>
+
+        <div class="rounded-[1.6rem] border border-white/10 bg-black/40 p-4 shadow-[0_0_30px_rgba(0,255,255,0.08)]">
+            <div class="mb-5 rounded-[1.2rem] border border-cyan-300/10 bg-cyan-400/5 p-4">
+                <p class="text-sm leading-7 text-cyan-200/80">
+                    The server must be instantiated at least one time before <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">GameUserSettings.ini</code> appears in the right place. You can set the required RCON values manually in <a href="/admin/game-config" class="font-semibold text-cyan-100 underline decoration-cyan-300/40 underline-offset-4 hover:text-cyan-50">Game Config</a>.
+                </p>
+                <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">GameUserSettings.ini</p>
+                        <div class="mt-2 flex items-center gap-3">
+                            <StatusTag Text="@GameUserSettingsFileText" />
+                        </div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">RCON enabled</p>
+                        <div class="mt-2 flex items-center gap-3">
+                            <StatusTag Text="@RconEnabledText" />
+                        </div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">Server admin password</p>
+                        <div class="mt-2 flex items-center gap-3">
+                            <StatusTag Text="@RconPasswordText" />
+                        </div>
+                    </div>
+                    <div class="rounded-2xl border border-white/10 bg-black/20 p-3">
+                        <p class="text-xs uppercase tracking-[0.24em] text-neutral-400">RCON port</p>
+                        <div class="mt-2 flex items-center gap-3">
+                            <StatusTag Text="@RconPortText" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <StatusTag Text="@_rconStatus.StateLabel" />
+                    <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-neutral-300">
+                        Port @DisplayedRconPortText
+                    </span>
+                </div>
+
+                <button type="button"
+                        @onclick="ClearTranscript"
+                        disabled="@_isSendingCommand"
+                        class="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
+                    Clear
+                </button>
+            </div>
+
+            <pre class="h-[32rem] overflow-auto rounded-[1.2rem] border border-white/10 bg-[#05070d] p-4 font-mono text-sm leading-6 whitespace-pre-wrap text-cyan-100 shadow-[inset_0_0_25px_rgba(34,211,238,0.08)]">@_transcript</pre>
+            <label class="block py-2 text-sm font-medium text-neutral-300">Command</label>
+            <p class="pb-3 text-sm text-cyan-200/80">Service: @_asaServiceStatus.DisplayText. RCON: @_connectionMessage</p>
+            <div class="flex flex-col gap-3 md:flex-row">
+                <input value="@_command"
+                       @oninput="OnCommandInput"
+                       @onkeydown="OnCommandKeyDown"
+                       class="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 font-mono text-white outline-none"
+                       placeholder="Type an ASA RCON command"
+                       disabled="@(!_isRconConnected || _isSendingCommand)" />
+                <button type="button"
+                        @onclick="SendCommandAsync"
+                        disabled="@(!_isRconConnected || _isSendingCommand || string.IsNullOrWhiteSpace(_command))"
+                        class="inline-flex items-center justify-center rounded-full border border-cyan-300/20 bg-cyan-400/15 px-5 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                    @(_isSendingCommand ? "Sending..." : "Run")
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private string _command = string.Empty;
+    private string _transcript = string.Empty;
+    private AsaServiceStatus _asaServiceStatus = AsaServiceStatus.Unknown();
+    private RconStatus _rconStatus = RconStatus.Unknown();
+    private RconSettings _rconSettings = RconSettings.Default();
+    private bool _hasGameUserSettingsFile;
+    private bool _isRconConnected;
+    private bool _isRefreshingRcon;
+    private bool _isSendingCommand;
+    private bool _isStartingAsa;
+    private bool _isStoppingAsa;
+    private bool _serviceMessageIsError;
+    private string _connectionMessage = "Checking RCON connection...";
+    private string? _serviceMessage;
+    private readonly List<string> _history = [];
+    private int _historyIndex;
+    private string _draftCommand = string.Empty;
+    private CancellationTokenSource? _refreshLoopCancellationTokenSource;
+    private string GameUserSettingsFileText => _hasGameUserSettingsFile ? "OK" : "Missing";
+    private string RconEnabledText => !_hasGameUserSettingsFile || !_rconStatus.HasEnabledKey
+        ? "Missing"
+        : _rconSettings.IsEnabled ? "True" : "False";
+    private string RconPasswordText => !_hasGameUserSettingsFile || !_rconStatus.HasEnabledKey || !_rconSettings.IsEnabled || !_rconStatus.HasPasswordKey || !_rconStatus.HasPassword
+        ? "Missing"
+        : "OK";
+    private string DisplayedRconPortText => _hasGameUserSettingsFile && _rconStatus.HasPort
+        ? _rconSettings.Port.ToString()
+        : "Missing";
+    private string RconPortText => DisplayedRconPortText;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ManagerService.Changed += OnAsaManagerChanged;
+        await ManagerService.EnsureStartedAsync();
+        _asaServiceStatus = ManagerService.CurrentStatus;
+        await RefreshAsync();
+        _refreshLoopCancellationTokenSource = new CancellationTokenSource();
+        _ = RunRefreshLoopAsync(_refreshLoopCancellationTokenSource.Token);
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_isRefreshingRcon)
+        {
+            return;
+        }
+
+        _isRefreshingRcon = true;
+
+        try
+        {
+            _asaServiceStatus = ManagerService.CurrentStatus;
+
+            _hasGameUserSettingsFile = GameConfigService.HasGameUserSettingsIniFile();
+            if (!_hasGameUserSettingsFile)
+            {
+                _rconStatus = RconStatus.Unknown() with
+                {
+                    StateLabel = "Missing",
+                    Message = "GameUserSettings.ini missing."
+                };
+                _rconSettings = RconSettings.Default();
+                _isRconConnected = false;
+                _connectionMessage = "GameUserSettings.ini missing.";
+                return;
+            }
+
+            _rconSettings = await RconService.GetSettingsAsync();
+            RconStatus status = await RconService.GetStatusAsync();
+            RconProbeResult probe = await RconService.ProbeAsync();
+            _rconStatus = status with
+            {
+                StateLabel = probe.StateLabel,
+                Message = probe.Message
+            };
+            _isRconConnected = probe.IsConnected;
+            _connectionMessage = probe.Message;
+        }
+        catch (Exception exception)
+        {
+            _rconStatus = RconStatus.Unknown() with { StateLabel = "Unavailable", Message = exception.Message };
+            _isRconConnected = false;
+            _connectionMessage = exception.Message;
+        }
+        finally
+        {
+            _isRefreshingRcon = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RunRefreshLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using PeriodicTimer timer = new(TimeSpan.FromSeconds(2));
+
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await RefreshAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task SendCommandAsync()
+    {
+        string trimmedCommand = _command.Trim();
+        if (string.IsNullOrWhiteSpace(trimmedCommand))
+        {
+            return;
+        }
+
+        _isSendingCommand = true;
+        AppendTranscript($"> {trimmedCommand}");
+
+        _history.Add(trimmedCommand);
+        _historyIndex = _history.Count;
+        _draftCommand = string.Empty;
+        _command = string.Empty;
+
+        try
+        {
+            string response = await RconService.ExecuteAsync(trimmedCommand);
+            AppendTranscript(response);
+            _serviceMessage = null;
+        }
+        catch (Exception exception)
+        {
+            AppendTranscript($"Error: {exception.Message}");
+            _serviceMessage = exception.Message;
+            _serviceMessageIsError = true;
+            _isRconConnected = false;
+            _connectionMessage = exception.Message;
+            _rconStatus = _rconStatus with { StateLabel = "Unavailable", Message = exception.Message };
+        }
+        finally
+        {
+            _isSendingCommand = false;
+        }
+    }
+
+    private void OnAsaManagerChanged()
+    {
+        _ = InvokeAsync(RefreshAsync);
+    }
+
+    private async Task StartAsaServiceAsync()
+    {
+        _isStartingAsa = true;
+
+        try
+        {
+            _serviceMessage = await ManagerService.StartAsync();
+            _serviceMessageIsError = false;
+            await RefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            _serviceMessage = exception.Message;
+            _serviceMessageIsError = true;
+        }
+        finally
+        {
+            _isStartingAsa = false;
+        }
+    }
+
+    private async Task StopAsaServiceAsync()
+    {
+        _isStoppingAsa = true;
+
+        try
+        {
+            _serviceMessage = await ManagerService.StopAsync();
+            _serviceMessageIsError = false;
+            _isRconConnected = false;
+            _connectionMessage = "ASA stopped.";
+            await RefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            _serviceMessage = exception.Message;
+            _serviceMessageIsError = true;
+        }
+        finally
+        {
+            _isStoppingAsa = false;
+        }
+    }
+
+    private void OnCommandInput(ChangeEventArgs eventArgs)
+    {
+        _command = eventArgs.Value?.ToString() ?? string.Empty;
+        if (_historyIndex >= _history.Count)
+        {
+            _draftCommand = _command;
+        }
+    }
+
+    private async Task OnCommandKeyDown(KeyboardEventArgs eventArgs)
+    {
+        if (eventArgs.Key == "Enter")
+        {
+            await SendCommandAsync();
+            return;
+        }
+
+        if (_history.Count == 0)
+        {
+            return;
+        }
+
+        if (eventArgs.Key == "ArrowUp")
+        {
+            if (_historyIndex == _history.Count)
+            {
+                _draftCommand = _command;
+            }
+
+            if (_historyIndex > 0)
+            {
+                _historyIndex--;
+                _command = _history[_historyIndex];
+            }
+
+            return;
+        }
+
+        if (eventArgs.Key == "ArrowDown")
+        {
+            if (_historyIndex < _history.Count)
+            {
+                _historyIndex++;
+            }
+
+            _command = _historyIndex == _history.Count
+                ? _draftCommand
+                : _history[_historyIndex];
+        }
+    }
+
+    private void ClearTranscript()
+    {
+        _transcript = string.Empty;
+        _history.Clear();
+        _historyIndex = 0;
+        _draftCommand = string.Empty;
+        _command = string.Empty;
+    }
+
+    private void AppendTranscript(string line)
+    {
+        _transcript = string.IsNullOrWhiteSpace(_transcript)
+            ? line
+            : $"{_transcript}\n{line}";
+    }
+
+    private static string GetMessageClass(bool isError)
+    {
+        return isError
+            ? "text-sm text-red-200"
+            : "text-sm text-cyan-100";
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (_refreshLoopCancellationTokenSource is not null)
+        {
+            _refreshLoopCancellationTokenSource.Cancel();
+            _refreshLoopCancellationTokenSource.Dispose();
+            _refreshLoopCancellationTokenSource = null;
+        }
+
+        return ValueTask.CompletedTask;
+    }
+}
