@@ -63,16 +63,23 @@ builder.Services.AddSingleton<ServerMonitorService>();
 builder.Services.AddHostedService(services => services.GetRequiredService<ServerMonitorService>());
 builder.Services.AddSingleton<PlayerCountMonitorService>();
 builder.Services.AddHostedService(services => services.GetRequiredService<PlayerCountMonitorService>());
+builder.Services.AddSingleton<AdminHostMetricsMonitorService>();
+builder.Services.AddHostedService(services => services.GetRequiredService<AdminHostMetricsMonitorService>());
+builder.Services.AddSingleton<AdminInstallStateHubService>();
 builder.Services.AddSingleton<StateHubPublisherService>();
 builder.Services.AddHostedService(services => services.GetRequiredService<StateHubPublisherService>());
+builder.Services.AddSingleton<AdminStateHubPublisherService>();
+builder.Services.AddHostedService(services => services.GetRequiredService<AdminStateHubPublisherService>());
 builder.Services.AddScoped<ActionMappingService>();
 builder.Services.AddScoped<ConsoleLogService>();
 builder.Services.AddScoped<LogsService>();
 builder.Services.AddScoped<ManagerService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<BackupExportService>();
+builder.Services.AddScoped<ClusterClientInstallService>();
 builder.Services.AddScoped<GameConfigService>();
 builder.Services.AddScoped<InstallStateService>();
+builder.Services.AddScoped<ProtonInstallService>();
 builder.Services.AddScoped<ProtonConfigService>();
 builder.Services.AddScoped<RconService>();
 builder.Services.AddScoped<ShellConsoleService>();
@@ -163,6 +170,8 @@ app.MapGet("/admin/settings/export/download/{format}",
 app.MapStaticAssets();
 app.MapControllers();
 app.MapHub<AsaStateHub>(AsaStateHubConstants.Route);
+app.MapHub<AdminStateHub>(AdminStateHubConstants.Route);
+app.MapHub<AdminInstallStateHub>(AdminInstallStateHubConstants.Route);
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

@@ -1,7 +1,7 @@
 using asa_server_node_api.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace asa_server_node_api.Controllers;
+namespace asa_server_node_api.Controllers.Public;
 
 [ApiController]
 [Route("api/server")]
@@ -9,8 +9,8 @@ public sealed class ServerInfoController(SystemMetricsService systemMetricsServi
 {
 	private readonly SystemMetricsService _systemMetricsService = systemMetricsService;
 
-	[HttpGet("me")]
-	public async Task<IActionResult> Me(CancellationToken cancellationToken)
+	[HttpGet("server-info")]
+	public async Task<IActionResult> ServerInfo(CancellationToken cancellationToken)
 	{
 		Models.SystemMetrics.ServerInfoSnapshot snapshot =
 						await _systemMetricsService.LoadServerInfoAsync(cancellationToken);

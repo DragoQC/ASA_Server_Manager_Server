@@ -4,7 +4,7 @@ using asa_server_node_api.Models.Rcon;
 using asa_server_node_api.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace asa_server_node_api.Controllers;
+namespace asa_server_node_api.Controllers.Admin;
 
 [ApiController]
 [RequireApiKey]

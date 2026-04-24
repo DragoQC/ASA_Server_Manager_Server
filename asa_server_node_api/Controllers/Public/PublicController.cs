@@ -1,7 +1,7 @@
 using asa_server_node_api.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace asa_server_node_api.Controllers;
+namespace asa_server_node_api.Controllers.Public;
 
 [ApiController]
 [Route("api")]

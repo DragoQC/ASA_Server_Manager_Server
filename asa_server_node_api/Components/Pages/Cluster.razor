@@ -1,5 +1,6 @@
 @page "/admin/cluster"
 @page "/admin/vpn"
+@inject asa_server_node_api.Services.ClusterClientInstallService ClusterClientInstallService
 @inject asa_server_node_api.Services.InstallStateService InstallStateService
 @inject asa_server_node_api.Services.VpnConfigService VpnConfigService
 @inject asa_server_node_api.Services.NfsConfigService NfsConfigService
@@ -243,7 +244,7 @@
     private string? _nfsInviteUrl;
     private string? _statusMessage;
     private bool _statusIsError;
-    private bool IsInstallingClusterClient => InstallStateService.IsInstallingClusterClient;
+    private bool IsInstallingClusterClient => ClusterClientInstallService.IsInstalling;
     private bool CanFetchNfsConfig => _hasClusterClientInstall && _hasWireGuardConfig && !_isFetchingNfsConfig;
 
     protected override async Task OnInitializedAsync()
@@ -304,7 +305,7 @@
     {
         try
         {
-            _statusMessage = await InstallStateService.InstallClusterClientAsync();
+            _statusMessage = await ClusterClientInstallService.InstallAsync();
             _statusIsError = false;
             await RefreshClusterStateAsync();
         }
@@ -374,9 +375,9 @@
 
     private async Task RefreshClusterStateAsync()
     {
-        _hasWireGuardClientInstall = InstallStateService.HasWireGuardClientInstall();
-        _hasNfsClientInstall = InstallStateService.HasNfsClientInstall();
-        _hasClusterClientInstall = InstallStateService.HasClusterClientInstall();
+        _hasWireGuardClientInstall = ClusterClientInstallService.HasWireGuardClientInstall();
+        _hasNfsClientInstall = ClusterClientInstallService.HasNfsClientInstall();
+        _hasClusterClientInstall = ClusterClientInstallService.HasClusterClientInstall();
         _hasWireGuardConfig = File.Exists(asa_server_node_api.Constants.InstallStateConstants.WireGuardConfigFilePath);
         _hasNfsClientConfig = File.Exists(asa_server_node_api.Constants.InstallStateConstants.NfsClientConfigFilePath);
         _wireGuardConfigContent = await VpnConfigService.LoadConfigContentAsync();

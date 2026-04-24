@@ -2,6 +2,7 @@
 @using asa_server_node_api.Constants
 @inject asa_server_node_api.Services.InstallStateService InstallStateService
 @inject asa_server_node_api.Services.ManagerService ManagerService
+@inject asa_server_node_api.Services.ProtonInstallService ProtonInstallService
 
 <PageTitle>Install</PageTitle>
 
@@ -15,7 +16,7 @@
 
             <button type="button"
                     @onclick="InstallAllAsync"
-                    disabled="@(_isRefreshing || _isInstallingAll || _snapshot is null)"
+                    disabled="@(_isRefreshing || _isInstallingAll || _isUpdatingProton || _snapshot is null)"
                     class="inline-flex items-center rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                 @(_isInstallingAll ? "Installing..." : "Install All")
             </button>
@@ -303,7 +304,6 @@
     private string _startScriptContent = string.Empty;
     private string _serviceFileContent = string.Empty;
     private bool _isRefreshing;
-    private bool _isUpdatingProton;
     private bool _isUpdatingSteam;
     private bool _isApplyingStartScript;
     private bool _isApplyingServiceFile;
@@ -313,11 +313,18 @@
     private string? _steamMessage;
     private string? _startScriptMessage;
     private string? _serviceFileMessage;
-    private string? _activeProtonAction;
     private IReadOnlyList<string> _protonVersions = Array.Empty<string>();
     private string? _selectedProtonVersion;
     private bool _showRestartDialog;
     private bool _isRestartingAsa;
+    private bool _isUpdatingProton
+    {
+        get => ProtonInstallService.IsUpdating;
+    }
+    private string? _activeProtonAction
+    {
+        get => ProtonInstallService.ActiveAction;
+    }
     private static readonly string[] StartScriptEnvironmentVariables =
     [
         "MAP_NAME",
@@ -383,7 +390,7 @@
         try
         {
             _protonMessage = $"Installing Proton {GetRequestedProtonVersionLabel()}...";
-            _protonMessage = await InstallStateService.UpdateProtonAsync(_selectedProtonVersion);
+            _protonMessage = await ProtonInstallService.UpdateAsync(_selectedProtonVersion);
 
             _steamMessage = "Installing SteamCMD...";
             _steamMessage = await InstallStateService.InstallSteamAsync();
@@ -413,26 +420,18 @@
     {
         bool hadInstalledProton = _snapshot is not null &&
                                   !string.Equals(_snapshot.Proton.VersionLabel, "Missing", StringComparison.OrdinalIgnoreCase);
-        _isUpdatingProton = true;
-        _activeProtonAction = "install";
         _protonMessage = $"Installing Proton {GetRequestedProtonVersionLabel()}...";
         await InvokeAsync(StateHasChanged);
 
         try
         {
-            _protonMessage = await InstallStateService.UpdateProtonAsync(_selectedProtonVersion);
+            _protonMessage = await ProtonInstallService.UpdateAsync(_selectedProtonVersion);
             await OpenRestartDialogIfNeededAsync(hadInstalledProton);
         }
         catch (Exception exception)
         {
             _protonMessage = exception.Message;
         }
-        finally
-        {
-            _isUpdatingProton = false;
-            _activeProtonAction = null;
-        }
-
         await InvokeAsync(StateHasChanged);
         await RefreshProtonVersionsAsync();
         await RefreshProtonAsync();
@@ -442,26 +441,18 @@
     {
         bool hadInstalledProton = _snapshot is not null &&
                                   !string.Equals(_snapshot.Proton.VersionLabel, "Missing", StringComparison.OrdinalIgnoreCase);
-        _isUpdatingProton = true;
-        _activeProtonAction = "uninstall";
         _protonMessage = "Uninstalling Proton...";
         await InvokeAsync(StateHasChanged);
 
         try
         {
-            _protonMessage = await InstallStateService.UninstallProtonAsync();
+            _protonMessage = await ProtonInstallService.UninstallAsync();
             await OpenRestartDialogIfNeededAsync(hadInstalledProton);
         }
         catch (Exception exception)
         {
             _protonMessage = exception.Message;
         }
-        finally
-        {
-            _isUpdatingProton = false;
-            _activeProtonAction = null;
-        }
-
         await InvokeAsync(StateHasChanged);
         await RefreshProtonVersionsAsync();
         await RefreshProtonAsync();
@@ -477,7 +468,7 @@
 
         try
         {
-            asa_server_node_api.Models.Install.InstallToolState proton = await InstallStateService.LoadProtonStateAsync();
+            asa_server_node_api.Models.Install.InstallToolState proton = await ProtonInstallService.LoadStateAsync();
             _snapshot = _snapshot with
             {
                 Proton = proton,
@@ -570,7 +561,7 @@
     {
         try
         {
-            _protonVersions = await InstallStateService.GetProtonVersionsAsync();
+            _protonVersions = await ProtonInstallService.GetVersionsAsync();
             if (_protonVersions.Count == 0)
             {
                 _selectedProtonVersion = null;

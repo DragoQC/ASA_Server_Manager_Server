@@ -4,30 +4,9 @@ using asa_server_node_api.Contracts.Api.Admin;
 namespace asa_server_node_api.Services;
 
 public sealed class UploadedFileService(
-    ServerConfigService serverConfigService,
     GameConfigService gameConfigService)
 {
-    private readonly ServerConfigService _serverConfigService = serverConfigService;
     private readonly GameConfigService _gameConfigService = gameConfigService;
-
-    public async Task<UploadFileResult> UploadServerConfigAsync(IFormFile? file, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            string content = await ReadContentAsync(file);
-            await _serverConfigService.SaveRawAsync(content, cancellationToken);
-
-            return new UploadFileResult(true, "asa.env updated.", ServerConfigConstants.EnvFilePath);
-        }
-        catch (ArgumentException ex)
-        {
-            return new UploadFileResult(false, ex.Message, null);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return new UploadFileResult(false, ex.Message, null);
-        }
-    }
 
     public async Task<UploadFileResult> UploadGameIniAsync(IFormFile? file, CancellationToken cancellationToken = default)
     {

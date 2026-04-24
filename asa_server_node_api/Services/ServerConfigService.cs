@@ -1,4 +1,6 @@
+using System.ComponentModel.DataAnnotations;
 using asa_server_node_api.Constants;
+using asa_server_node_api.Contracts.Api.Admin;
 using asa_server_node_api.Models.ServerConfig;
 
 namespace asa_server_node_api.Services;
@@ -42,6 +44,28 @@ public sealed class ServerConfigService
 				? _hasConfigFile
 				: File.Exists(ServerConfigConstants.EnvFilePath);
 	}
+
+    public async Task<ServerConfigSettings> LoadExistingAsync(CancellationToken cancellationToken = default)
+    {
+        if (!HasConfigFile())
+        {
+            throw new InvalidOperationException("asa.env is missing.");
+        }
+
+        return await LoadAsync(cancellationToken);
+    }
+
+    public async Task<ServerConfigSettings> EnsureExistsAsync(CancellationToken cancellationToken = default)
+    {
+        if (HasConfigFile())
+        {
+            return await LoadAsync(cancellationToken);
+        }
+
+        ServerConfigSettings settings = ServerConfigSettings.Default();
+        await SaveAsync(settings, cancellationToken);
+        return settings;
+    }
 
 	public async Task SaveAsync(ServerConfigSettings settings, CancellationToken cancellationToken = default)
 	{
@@ -115,6 +139,47 @@ public sealed class ServerConfigService
 		ServerConfigSettings settings = await LoadAsync(cancellationToken);
 		return settings.RconPort;
 	}
+
+    public async Task<ServerConfigSettings> PatchAsync(PatchServerConfigRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        ServerConfigSettings settings = await LoadAsync(cancellationToken);
+
+        if (request.ServerName is not null)
+        {
+            settings.ServerName = NormalizeRequiredText(request.ServerName, "Server name", 128);
+        }
+
+        if (request.MapName is not null)
+        {
+            settings.MapName = NormalizeRequiredText(request.MapName, "Map name", 128);
+        }
+
+        if (request.MaxPlayers.HasValue)
+        {
+            settings.MaxPlayers = request.MaxPlayers.Value;
+        }
+
+        if (request.GamePort.HasValue)
+        {
+            settings.GamePort = request.GamePort.Value;
+        }
+
+        if (request.ModIds is not null)
+        {
+            settings.ModIds = NormalizeModIds(request.ModIds);
+        }
+
+        if (request.ClusterId is not null)
+        {
+            settings.ClusterId = NormalizeClusterId(request.ClusterId);
+        }
+
+        ValidateSettings(settings);
+        await SaveAsync(settings, cancellationToken);
+        return settings;
+    }
 
     public async Task<string> UpdateClusterIdAsync(string? clusterId, CancellationToken cancellationToken = default)
     {
@@ -297,6 +362,71 @@ public sealed class ServerConfigService
 	{
 		return value.Replace("\"", "\\\"", StringComparison.Ordinal);
 	}
+
+    private static void ValidateSettings(ServerConfigSettings settings)
+    {
+        List<ValidationResult> validationResults = [];
+        ValidationContext validationContext = new(settings);
+        bool isValid = Validator.TryValidateObject(settings, validationContext, validationResults, validateAllProperties: true);
+        if (isValid)
+        {
+            return;
+        }
+
+        string message = string.Join(' ', validationResults
+            .Select(result => result.ErrorMessage)
+            .Where(message => !string.IsNullOrWhiteSpace(message)));
+
+        throw new ArgumentException(string.IsNullOrWhiteSpace(message) ? "Server config is invalid." : message);
+    }
+
+    private static string NormalizeRequiredText(string value, string fieldName, int maxLength)
+    {
+        string normalizedValue = value.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedValue))
+        {
+            throw new ArgumentException($"{fieldName} is required.");
+        }
+
+        if (normalizedValue.IndexOfAny(['\0', '\r', '\n', '\u001a']) >= 0)
+        {
+            throw new ArgumentException($"{fieldName} contains invalid characters.");
+        }
+
+        if (normalizedValue.Length > maxLength)
+        {
+            throw new ArgumentException($"{fieldName} cannot exceed {maxLength} characters.");
+        }
+
+        return normalizedValue;
+    }
+
+    private static string NormalizeModIds(IReadOnlyList<string> modIds)
+    {
+        if (modIds.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        List<string> normalizedModIds = [];
+        foreach (string modId in modIds)
+        {
+            string normalizedModId = modId?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalizedModId))
+            {
+                continue;
+            }
+
+            if (normalizedModId.IndexOfAny(['\0', '\r', '\n', '\u001a']) >= 0)
+            {
+                throw new ArgumentException("Mod IDs contain invalid characters.");
+            }
+
+            normalizedModIds.Add(normalizedModId);
+        }
+
+        return string.Join(',', normalizedModIds);
+    }
 
     private static string NormalizeClusterId(string? clusterId)
     {

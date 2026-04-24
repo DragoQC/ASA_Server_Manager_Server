@@ -1,7 +1,8 @@
-using System.Net.Http.Json;
 using asa_server_node_api.Constants;
+using asa_server_node_api.Contracts.Api.Admin;
 using asa_server_node_api.Models.Asa;
 using asa_server_node_api.Models.Install;
+using asa_server_node_api.Models.ServerConfig;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -9,22 +10,22 @@ namespace asa_server_node_api.Services;
 
 public sealed class InstallStateService(
     IWebHostEnvironment environment,
-    IHttpClientFactory httpClientFactory,
     ILogger<InstallStateService> logger,
-    ProtonConfigService protonConfigService)
+    ProtonInstallService protonInstallService,
+    ServerConfigService serverConfigService,
+    AdminInstallStateHubService adminInstallStateHubService)
 {
     private readonly IWebHostEnvironment _environment = environment;
-    private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
     private readonly ILogger<InstallStateService> _logger = logger;
-    private readonly ProtonConfigService _protonConfigService = protonConfigService;
-
-    public bool IsInstallingClusterClient { get; private set; }
+    private readonly ProtonInstallService _protonInstallService = protonInstallService;
+    private readonly ServerConfigService _serverConfigService = serverConfigService;
+    private readonly AdminInstallStateHubService _adminInstallStateHubService = adminInstallStateHubService;
 
     public async Task<InstallWorkspaceSnapshot> LoadAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            InstallToolState proton = await BuildProtonStateAsync(cancellationToken);
+            InstallToolState proton = await _protonInstallService.LoadStateAsync(cancellationToken);
             InstallToolState steam = BuildSteamState();
             InstallFileState startScript = await LoadFileStateAsync(
                 "Start script",
@@ -54,120 +55,86 @@ public sealed class InstallStateService(
         }
     }
 
-    public Task<InstallToolState> LoadProtonStateAsync(CancellationToken cancellationToken = default)
-    {
-        return BuildProtonStateAsync(cancellationToken);
-    }
-
     public Task<InstallToolState> LoadSteamStateAsync(CancellationToken cancellationToken = default)
     {
         return Task.FromResult(BuildSteamState());
     }
 
-    public async Task<ProtonReleaseState> CheckProtonReleaseAsync(CancellationToken cancellationToken = default)
+    public Task<ServerConfigSettings> LoadExistingServerConfigAsync(CancellationToken cancellationToken = default)
     {
-        ProtonRelease release = await GetLatestProtonReleaseAsync(cancellationToken);
-        string? currentDirectoryPath = await GetInstalledProtonDirectoryPathAsync(cancellationToken);
-        string currentVersion = string.IsNullOrWhiteSpace(currentDirectoryPath)
-            ? "Missing"
-            : Path.GetFileName(currentDirectoryPath);
-
-        bool updateAvailable = !string.Equals(currentVersion, release.Version, StringComparison.OrdinalIgnoreCase);
-
-        return new ProtonReleaseState(
-            currentVersion,
-            release.Version,
-            release.DownloadUrl,
-            updateAvailable);
+        return _serverConfigService.LoadExistingAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<string>> GetProtonVersionsAsync(CancellationToken cancellationToken = default)
+    public async Task<ServerConfigSettings> PatchServerConfigAsync(PatchServerConfigRequest request, CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<GitHubReleaseResponse> releases = await GetProtonReleasesAsync(cancellationToken);
-        return releases
-            .Where(release => !string.IsNullOrWhiteSpace(release.TagName))
-            .Select(release => release.TagName)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        ServerConfigSettings settings = await _serverConfigService.PatchAsync(request, cancellationToken);
+        await RestartAsaAfterConfigChangeAsync(cancellationToken);
+        return settings;
     }
 
-    public async Task<string> UpdateProtonAsync(string? selectedVersion, CancellationToken cancellationToken = default)
+    public async Task<InstallAllResponse> InstallAllAsync(CancellationToken cancellationToken = default)
     {
-        ProtonRelease release = await ResolveProtonReleaseAsync(selectedVersion, cancellationToken);
-
-        Directory.CreateDirectory(InstallStateConstants.ProtonRootPath);
-
-        string targetDirectoryPath = Path.Combine(InstallStateConstants.ProtonRootPath, release.Version);
-        string targetFilesDirectoryPath = Path.Combine(targetDirectoryPath, "files");
-        if (Directory.Exists(targetFilesDirectoryPath))
-        {
-            await _protonConfigService.SaveVersionAsync(release.Version, cancellationToken);
-            return $"Proton {release.Version} is already installed.";
-        }
+        await _adminInstallStateHubService.BroadcastProgressAsync(
+            new InstallProgressSnapshot(
+                Operation: "install-all",
+                Step: "received",
+                State: "Running",
+                Message: "Install all command received.",
+                UpdatedAtUtc: DateTimeOffset.UtcNow),
+            cancellationToken);
 
         try
         {
-            Directory.CreateDirectory(targetDirectoryPath);
+            InstallWorkspaceSnapshot snapshot = await LoadAsync(cancellationToken);
 
-            string archivePath = Path.Combine(targetDirectoryPath, $"{release.Version}.tar.gz");
-            await RunProcessAsync(
-                "/usr/bin/env",
-                ["wget", "-q", "-O", archivePath, release.DownloadUrl],
+            string protonMessage = await _protonInstallService.UpdateAsync(null, cancellationToken);
+            await _adminInstallStateHubService.BroadcastProgressAsync(
+                new InstallProgressSnapshot("install-all", "proton", "Completed", protonMessage, DateTimeOffset.UtcNow),
+                cancellationToken);
+            await _adminInstallStateHubService.BroadcastWorkspaceAsync(cancellationToken);
+
+            string steamMessage = await InstallSteamAsync(cancellationToken);
+            await _adminInstallStateHubService.BroadcastProgressAsync(
+                new InstallProgressSnapshot("install-all", "steamcmd", "Completed", steamMessage, DateTimeOffset.UtcNow),
+                cancellationToken);
+            await _adminInstallStateHubService.BroadcastWorkspaceAsync(cancellationToken);
+
+            await SaveStartScriptAsync(snapshot.StartScript.Content, cancellationToken);
+            await _adminInstallStateHubService.BroadcastProgressAsync(
+                new InstallProgressSnapshot("install-all", "start-script", "Completed", "Start script applied.", DateTimeOffset.UtcNow),
+                cancellationToken);
+            await _adminInstallStateHubService.BroadcastWorkspaceAsync(cancellationToken);
+
+            await SaveServiceFileAsync(snapshot.ServiceFile.Content, cancellationToken);
+            await _adminInstallStateHubService.BroadcastProgressAsync(
+                new InstallProgressSnapshot("install-all", "service-file", "Completed", "Service file applied.", DateTimeOffset.UtcNow),
+                cancellationToken);
+            await _adminInstallStateHubService.BroadcastWorkspaceAsync(cancellationToken);
+
+            ServerConfigSettings serverConfig = await _serverConfigService.EnsureExistsAsync(cancellationToken);
+            await _adminInstallStateHubService.BroadcastProgressAsync(
+                new InstallProgressSnapshot("install-all", "server-config", "Completed", "Default server config ensured.", DateTimeOffset.UtcNow),
+                cancellationToken);
+            await _adminInstallStateHubService.BroadcastWorkspaceAsync(cancellationToken);
+
+            await _adminInstallStateHubService.BroadcastProgressAsync(
+                new InstallProgressSnapshot("install-all", "completed", "Completed", "Install all finished.", DateTimeOffset.UtcNow),
                 cancellationToken);
 
-            await RunProcessAsync(
-                "/usr/bin/env",
-                ["tar", "-xzf", archivePath, "-C", targetDirectoryPath, "--strip-components=1"],
-                cancellationToken);
-
-            File.Delete(archivePath);
-
-            if (!Directory.Exists(targetFilesDirectoryPath))
-            {
-                throw new InvalidOperationException($"Proton install for {release.Version} did not create the expected files directory.");
-            }
-
-            await _protonConfigService.SaveVersionAsync(release.Version, cancellationToken);
-
-            return $"Installed Proton {release.Version}.";
+            return new InstallAllResponse(
+                ProtonMessage: protonMessage,
+                SteamMessage: steamMessage,
+                StartScriptMessage: "Start script applied.",
+                ServiceFileMessage: "Service file applied.",
+                ServerConfig: serverConfig);
         }
-        catch
+        catch (Exception ex)
         {
-            if (Directory.Exists(targetDirectoryPath))
-            {
-                Directory.Delete(targetDirectoryPath, recursive: true);
-            }
-
+            await _adminInstallStateHubService.BroadcastProgressAsync(
+                new InstallProgressSnapshot("install-all", "failed", "Failed", ex.Message, DateTimeOffset.UtcNow),
+                cancellationToken);
             throw;
         }
-    }
-
-    public async Task<string> UninstallProtonAsync(CancellationToken cancellationToken = default)
-    {
-        if (!Directory.Exists(InstallStateConstants.ProtonRootPath))
-        {
-            return "Proton is already missing.";
-        }
-
-        string[] installedDirectoryPaths = Directory.GetDirectories(InstallStateConstants.ProtonRootPath, "*", SearchOption.TopDirectoryOnly)
-            .Where(path => Directory.Exists(Path.Combine(path, "files")) || File.Exists(Path.Combine(path, "proton")))
-            .ToArray();
-
-        if (installedDirectoryPaths.Length == 0)
-        {
-            await _protonConfigService.DeleteAsync(cancellationToken);
-            return "Proton is already missing.";
-        }
-
-        foreach (string installedDirectoryPath in installedDirectoryPaths)
-        {
-            Directory.Delete(installedDirectoryPath, recursive: true);
-        }
-
-        await _protonConfigService.DeleteAsync(cancellationToken);
-        return installedDirectoryPaths.Length == 1
-            ? $"Uninstalled Proton {Path.GetFileName(installedDirectoryPaths[0])}."
-            : $"Uninstalled {installedDirectoryPaths.Length} Proton versions.";
     }
 
     public async Task<string> InstallSteamAsync(CancellationToken cancellationToken = default)
@@ -295,6 +262,27 @@ public sealed class InstallStateService(
         return "Restart command accepted for asa.";
     }
 
+    public async Task<string> RestartAsaAfterConfigChangeAsync(CancellationToken cancellationToken = default)
+    {
+        AsaServiceStatus status = await GetAsaServiceStatusAsync(cancellationToken);
+        if (status.IsUnavailable)
+        {
+            throw new InvalidOperationException("asa service state is unavailable.");
+        }
+
+        if (status.IsRunning || status.IsStarting)
+        {
+            await RunProcessAsync(
+                SystemCommandConstants.SudoPath,
+                ["-n", SystemCommandConstants.SystemctlPath, "restart", "--no-block", "asa"],
+                cancellationToken);
+
+            return "Restart command accepted for asa.";
+        }
+
+        return $"asa config updated. Current state: {status.DisplayText}. No restart was performed.";
+    }
+
     public async Task<string> RestartAsaIfRunningAsync(CancellationToken cancellationToken = default)
     {
         AsaServiceStatus status = await GetAsaServiceStatusAsync(cancellationToken);
@@ -304,86 +292,6 @@ public sealed class InstallStateService(
         }
 
         return await RestartAsaServiceAsync(cancellationToken);
-    }
-
-    public bool HasWireGuardClientInstall()
-    {
-        return File.Exists("/usr/bin/wg") &&
-               File.Exists("/usr/bin/wg-quick");
-    }
-
-    public bool HasNfsClientInstall()
-    {
-        return (File.Exists("/sbin/mount.nfs") || File.Exists("/usr/sbin/mount.nfs"))
-               && IsPackageFullyInstalled("nfs-common")
-               && IsPackageFullyInstalled("rpcbind");
-    }
-
-    public bool HasClusterClientInstall()
-    {
-        return HasWireGuardClientInstall() && HasNfsClientInstall();
-    }
-
-    private static bool IsPackageFullyInstalled(string packageName)
-    {
-        try
-        {
-            using System.Diagnostics.Process process = new()
-            {
-                StartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "/usr/bin/dpkg-query",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-
-            process.StartInfo.ArgumentList.Add("-W");
-            process.StartInfo.ArgumentList.Add("--showformat=${db:Status-Abbrev}");
-            process.StartInfo.ArgumentList.Add(packageName);
-
-            process.Start();
-            process.WaitForExit();
-
-            if (process.ExitCode != 0)
-            {
-                return false;
-            }
-
-            string output = process.StandardOutput.ReadToEnd().Trim();
-            return string.Equals(output, "ii ", StringComparison.Ordinal)
-                || string.Equals(output, "ii", StringComparison.Ordinal);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    public async Task<string> InstallClusterClientAsync(CancellationToken cancellationToken = default)
-    {
-        if (IsInstallingClusterClient)
-        {
-            throw new InvalidOperationException("Cluster client install is already running.");
-        }
-
-        IsInstallingClusterClient = true;
-
-        try
-        {
-            await RunProcessAsync(
-                SystemCommandConstants.SudoPath,
-                ["-n", InstallStateConstants.PrepareClusterClientScriptPath],
-                cancellationToken);
-
-            return "Installed cluster client tools. This node is ready to receive WireGuard and NFS configuration.";
-        }
-        finally
-        {
-            IsInstallingClusterClient = false;
-        }
     }
 
     public async Task<string> EnableWireGuardAsync(CancellationToken cancellationToken = default)
@@ -538,46 +446,6 @@ public sealed class InstallStateService(
         return missingItems;
     }
 
-    private async Task<InstallToolState> BuildProtonStateAsync(CancellationToken cancellationToken)
-    {
-        string? currentDirectoryPath = await GetInstalledProtonDirectoryPathAsync(cancellationToken);
-        ProtonRelease? latestRelease = await TryGetLatestProtonReleaseAsync(cancellationToken);
-
-        if (string.IsNullOrWhiteSpace(currentDirectoryPath))
-        {
-            string missingStateLabel = "Missing";
-            return new InstallToolState(
-                "Proton",
-                "Runs the Windows ASA dedicated server build on Linux.",
-                "FAILED",
-                missingStateLabel,
-                "Missing",
-                latestRelease is null ? null : $"V{ExtractVersionLabel(latestRelease.Version)}",
-                InstallStateConstants.ProtonRootPath,
-                latestRelease is not null,
-                false);
-        }
-
-        string currentVersion = Path.GetFileName(currentDirectoryPath);
-        string versionLabel = $"V{ExtractVersionLabel(currentVersion)}";
-        string? latestVersionLabel = latestRelease is null ? null : $"V{ExtractVersionLabel(latestRelease.Version)}";
-        bool updateAvailable = latestRelease is not null &&
-                               !string.Equals(currentVersion, latestRelease.Version, StringComparison.OrdinalIgnoreCase);
-
-        string stateLabel = updateAvailable ? "Update available" : "Ready";
-
-        return new InstallToolState(
-            "Proton",
-            "Runs the Windows ASA dedicated server build on Linux.",
-            "OK",
-            stateLabel,
-            versionLabel,
-            latestVersionLabel,
-            currentDirectoryPath,
-            latestRelease is not null,
-            false);
-    }
-
     private InstallToolState BuildSteamState()
     {
         if (!File.Exists(InstallStateConstants.SteamCmdPath))
@@ -661,66 +529,6 @@ public sealed class InstallStateService(
         }
 
         return await File.ReadAllTextAsync(templatePath, cancellationToken);
-    }
-
-    private async Task<ProtonRelease> GetLatestProtonReleaseAsync(CancellationToken cancellationToken)
-    {
-        HttpClient client = _httpClientFactory.CreateClient("proton-ge");
-        GitHubReleaseResponse? release = await client.GetFromJsonAsync<GitHubReleaseResponse>(
-            "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest",
-            cancellationToken);
-
-        if (release is null || string.IsNullOrWhiteSpace(release.TagName))
-        {
-            throw new InvalidOperationException("GitHub did not return a valid Proton release.");
-        }
-
-        string downloadUrl = release.Assets?
-            .FirstOrDefault(asset => string.Equals(asset.Name, $"{release.TagName}.tar.gz", StringComparison.OrdinalIgnoreCase))
-            ?.BrowserDownloadUrl
-            ?? $"https://github.com/GloriousEggroll/proton-ge-custom/releases/download/{release.TagName}/{release.TagName}.tar.gz";
-
-        return new ProtonRelease(release.TagName, downloadUrl);
-    }
-
-    private async Task<IReadOnlyList<GitHubReleaseResponse>> GetProtonReleasesAsync(CancellationToken cancellationToken)
-    {
-        HttpClient client = _httpClientFactory.CreateClient("proton-ge");
-        IReadOnlyList<GitHubReleaseResponse>? releases = await client.GetFromJsonAsync<IReadOnlyList<GitHubReleaseResponse>>(
-            "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases",
-            cancellationToken);
-
-        if (releases is null || releases.Count == 0)
-        {
-            throw new InvalidOperationException("GitHub did not return any Proton releases.");
-        }
-
-        return releases;
-    }
-
-    private async Task<ProtonRelease?> TryGetLatestProtonReleaseAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await GetLatestProtonReleaseAsync(cancellationToken);
-        }
-        catch (Exception exception)
-        {
-            _logger.LogWarning(exception, "Failed to query latest Proton release.");
-            return null;
-        }
-    }
-
-    private async Task<ProtonRelease> ResolveProtonReleaseAsync(string? selectedVersion, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(selectedVersion))
-        {
-            return await GetLatestProtonReleaseAsync(cancellationToken);
-        }
-
-        return new ProtonRelease(
-            selectedVersion,
-            $"https://github.com/GloriousEggroll/proton-ge-custom/releases/download/{selectedVersion}/{selectedVersion}.tar.gz");
     }
 
     private static async Task SaveFileAsync(
@@ -827,36 +635,6 @@ public sealed class InstallStateService(
         }
     }
 
-    private async Task<string?> GetInstalledProtonDirectoryPathAsync(CancellationToken cancellationToken)
-    {
-        string configuredVersion = await _protonConfigService.LoadVersionAsync(cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(configuredVersion))
-        {
-            string configuredDirectoryPath = Path.Combine(InstallStateConstants.ProtonRootPath, configuredVersion);
-            if (Directory.Exists(Path.Combine(configuredDirectoryPath, "files")) || File.Exists(Path.Combine(configuredDirectoryPath, "proton")))
-            {
-                return configuredDirectoryPath;
-            }
-        }
-
-        return GetCurrentProtonDirectoryPath();
-    }
-
-    private static string? GetCurrentProtonDirectoryPath()
-    {
-        if (!Directory.Exists(InstallStateConstants.ProtonRootPath))
-        {
-            return null;
-        }
-
-        return Directory.GetDirectories(InstallStateConstants.ProtonRootPath, "*", SearchOption.TopDirectoryOnly)
-            .Where(path => !path.EndsWith(".old", StringComparison.OrdinalIgnoreCase))
-            .Where(path => Directory.Exists(Path.Combine(path, "files")) || File.Exists(Path.Combine(path, "proton")))
-            .OrderByDescending(path => path, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-    }
-
     private static string? ReadSteamVersionLabel()
     {
         string versionFilePath = Path.Combine(InstallStateConstants.SteamRootPath, "version.txt");
@@ -867,20 +645,6 @@ public sealed class InstallStateService(
 
         string version = File.ReadAllText(versionFilePath).Trim();
         return string.IsNullOrWhiteSpace(version) ? null : $"V{version}";
-    }
-
-    private static string ExtractVersionLabel(string directoryName)
-    {
-        string sanitized = directoryName.EndsWith(".old", StringComparison.OrdinalIgnoreCase)
-            ? directoryName[..^4]
-            : directoryName;
-
-        if (sanitized.StartsWith("GE-Proton", StringComparison.OrdinalIgnoreCase))
-        {
-            return sanitized["GE-Proton".Length..];
-        }
-
-        return sanitized;
     }
 
 }
