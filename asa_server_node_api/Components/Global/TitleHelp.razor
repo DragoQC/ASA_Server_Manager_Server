@@ -1,0 +1,69 @@
+<div class="flex flex-wrap items-center gap-3">
+    <h2 class="@TitleClass">@Title</h2>
+
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
+
+    <button type="button"
+            @onclick="OpenDialog"
+            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-sm font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
+            aria-label="@($"{Title} help")">
+        ?
+    </button>
+</div>
+
+<ConfirmationDialog IsOpen="@_isDialogOpen"
+                    IsBusy="false"
+                    Eyebrow="@Title"
+                    StatusText="Info"
+                    Title="@Title"
+                    ConfirmText="Got it"
+                    CancelText="Close"
+                    OnConfirm="CloseDialog"
+                    OnCancel="CloseDialog">
+    <ChildContent>
+        @if (DescriptionContent is not null)
+        {
+            @DescriptionContent
+        }
+        else if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <div class="space-y-5">
+                <p class="text-base leading-7 text-neutral-300">@Description</p>
+            </div>
+        }
+    </ChildContent>
+</ConfirmationDialog>
+
+@code {
+    private bool _isDialogOpen;
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public string TitleClass { get; set; } = "text-3xl font-semibold text-white";
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public RenderFragment? DescriptionContent { get; set; }
+
+    private Task OpenDialog()
+    {
+        _isDialogOpen = true;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseDialog()
+    {
+        _isDialogOpen = false;
+        return Task.CompletedTask;
+    }
+}
