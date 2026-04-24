@@ -30,8 +30,8 @@ CONFIG_LINE="$(printf '%s\n' "${CONFIG_LINE}" | awk '
 
   option_count = split($4, options, ",")
   filtered = ""
-  for (index = 1; index <= option_count; index++) {
-    option = options[index]
+  for (option_index = 1; option_index <= option_count; option_index++) {
+    option = options[option_index]
     if (option == "x-systemd.automount") {
       continue
     }
