@@ -233,6 +233,21 @@
                                    disabled="@(_isUploadingRestore || _isRestoring)"
                                    class="block w-full rounded-[1rem] border border-white/10 bg-black/30 p-3 text-sm text-neutral-200 file:mr-4 file:rounded-full file:border-0 file:bg-cyan-400/15 file:px-4 file:py-2 file:text-sm file:font-medium file:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60" />
 
+                        @if (!string.IsNullOrWhiteSpace(_restoreSelectedFileName) || !string.IsNullOrWhiteSpace(_restoreProgressText))
+                        {
+                            <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
+                                @if (!string.IsNullOrWhiteSpace(_restoreSelectedFileName))
+                                {
+                                    <p class="text-sm font-semibold text-white">@_restoreSelectedFileName</p>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(_restoreProgressText))
+                                {
+                                    <p class="mt-2 text-sm leading-6 text-cyan-100">@_restoreProgressText</p>
+                                }
+                            </div>
+                        }
+
                         @if (_restorePreview is BackupImportPreview restorePreview)
                         {
                             <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
@@ -341,6 +356,8 @@
     private bool _isUploadingRestore;
     private bool _showRestoreDialog;
     private bool _isRestoring;
+    private string? _restoreSelectedFileName;
+    private string? _restoreProgressText;
     private bool IsCreatingArchive => _isCreatingZip || _isCreatingTarGz;
     private string ImportStatusText => (_hasZipTools, _hasTarTools) switch
     {
@@ -525,13 +542,25 @@
         try
         {
             IBrowserFile file = args.File;
+            _restoreSelectedFileName = file.Name;
+            _restoreProgressText = $"Selected {file.Name}. Preparing upload...";
+            await InvokeAsync(StateHasChanged);
+            await Task.Yield();
+
             if (NeedsMissingRestoreTool(file.Name))
             {
                 return;
             }
 
+            Progress<string> progress = new(message =>
+            {
+                _restoreProgressText = message;
+                _ = InvokeAsync(StateHasChanged);
+            });
+
             await using Stream stream = file.OpenReadStream(MaxRestoreUploadBytes);
-            _restorePreview = await BackupExportService.SaveImportArchiveAsync(file.Name, stream);
+            _restorePreview = await BackupExportService.SaveImportArchiveAsync(file.Name, stream, progress);
+            _restoreProgressText = $"Preview ready for {file.Name}. Next: review entries, then click Restore archive.";
             _message = "Archive uploaded. Review the restore preview before continuing.";
         }
         catch (Exception exception)
@@ -548,6 +577,7 @@
     {
         if (_restorePreview is not null)
         {
+            _restoreProgressText = $"Ready to restore {_restorePreview.FileName}. Next: confirm restore to replace /opt/asa/server.";
             _showRestoreDialog = true;
         }
     }
@@ -572,7 +602,17 @@
 
         try
         {
-            _message = await BackupExportService.RestoreImportArchiveAsync(_restorePreview);
+            _restoreProgressText = "Restore confirmed. Starting restore flow...";
+            await InvokeAsync(StateHasChanged);
+            await Task.Yield();
+
+            Progress<string> progress = new(message =>
+            {
+                _restoreProgressText = message;
+                _ = InvokeAsync(StateHasChanged);
+            });
+
+            _message = await BackupExportService.RestoreImportArchiveAsync(_restorePreview, progress);
             _showRestoreDialog = false;
         }
         catch (Exception exception)

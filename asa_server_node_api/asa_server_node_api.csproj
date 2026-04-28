@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0-rc.2.25502.107">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0-rc.2.25502.107" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0-rc.2.25502.107" />
   </ItemGroup>
@@ -22,12 +26,6 @@
 
   <Target Name="BuildTailwind" BeforeTargets="Build" Condition="Exists('tools/tailwindcss')">
     <Exec Command="./tools/tailwindcss -i ./Styles/app.css -o ./wwwroot/app.css --minify" />
-  </Target>
-
-  <Target Name="RecreateDevDatabase"
-          AfterTargets="Build"
-          Condition="'$(Configuration)' == 'Debug' and '$(DesignTimeBuild)' != 'true' and '$(BuildingInsideVisualStudio)' != 'true'">
-    <Exec Command="dotnet run --project ./asa_server_node_api.csproj --no-build --no-launch-profile -- --bootstrap-db" />
   </Target>
 
 </Project>

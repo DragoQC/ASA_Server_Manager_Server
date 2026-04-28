@@ -100,6 +100,7 @@ public sealed class BackupExportService(InstallStateService installStateService)
     public async Task<BackupImportPreview> SaveImportArchiveAsync(
         string fileName,
         Stream stream,
+        IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
         string format = GetFormat(fileName);
@@ -110,6 +111,7 @@ public sealed class BackupExportService(InstallStateService installStateService)
             InstallStateConstants.BackupImportRootPath,
             $"{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{SanitizeFileName(fileName)}");
 
+        progress?.Report($"Uploading {fileName} to the node...");
         await using (FileStream fileStream = new(
                          archivePath,
                          FileMode.CreateNew,
@@ -119,12 +121,14 @@ public sealed class BackupExportService(InstallStateService installStateService)
             await stream.CopyToAsync(fileStream, cancellationToken);
         }
 
-        return await CreateImportPreviewAsync(archivePath, format, cancellationToken);
+        progress?.Report($"Upload finished. Reading {fileName} and building restore preview...");
+        return await CreateImportPreviewAsync(archivePath, format, progress, cancellationToken);
     }
 
     public async Task<BackupImportPreview> CreateImportPreviewAsync(
         string archivePath,
         string format,
+        IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
         FileInfo fileInfo = new(archivePath);
@@ -138,6 +142,7 @@ public sealed class BackupExportService(InstallStateService installStateService)
             throw new InvalidOperationException("Import archive is too large.");
         }
 
+        progress?.Report($"Validating archive format {format}...");
         IReadOnlyList<string> entries = format switch
         {
             ZipFormat => ListZipEntries(archivePath),
@@ -145,7 +150,10 @@ public sealed class BackupExportService(InstallStateService installStateService)
             _ => throw new InvalidOperationException("Unsupported backup format.")
         };
 
+        progress?.Report("Checking archive entries and restore path...");
         ValidateArchiveEntries(entries);
+
+        progress?.Report($"Preview ready. Found {entries.Count} entries. You can review and restore when ready.");
 
         return new BackupImportPreview(
             format,
@@ -157,9 +165,13 @@ public sealed class BackupExportService(InstallStateService installStateService)
             InstallStateConstants.ServerRootPath);
     }
 
-    public async Task<string> RestoreImportArchiveAsync(BackupImportPreview preview, CancellationToken cancellationToken = default)
+    public async Task<string> RestoreImportArchiveAsync(
+        BackupImportPreview preview,
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         RequireFormatTool(preview.Format);
+        progress?.Report("Stopping asa.service before restore...");
         await StopAsaUntilSafeAsync(cancellationToken, requireServerDirectory: false);
 
         string restoreId = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss");
@@ -171,6 +183,7 @@ public sealed class BackupExportService(InstallStateService installStateService)
         {
             if (preview.Format == ZipFormat)
             {
+                progress?.Report("Extracting zip archive into restore workspace...");
                 string unzipPath = RequireTool(UnzipToolPaths, "unzip");
                 await RunProcessAsync(
                     unzipPath,
@@ -179,6 +192,7 @@ public sealed class BackupExportService(InstallStateService installStateService)
             }
             else
             {
+                progress?.Report("Extracting tar.gz archive into restore workspace...");
                 string tarPath = RequireTool(TarToolPaths, "tar");
                 await RunProcessAsync(
                     tarPath,
@@ -186,6 +200,7 @@ public sealed class BackupExportService(InstallStateService installStateService)
                     cancellationToken);
             }
 
+            progress?.Report("Resolving restored server folder...");
             string sourcePath = ResolveRestoredServerSourcePath(extractPath);
             Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
 
@@ -195,10 +210,13 @@ public sealed class BackupExportService(InstallStateService installStateService)
 
             if (Directory.Exists(InstallStateConstants.ServerRootPath))
             {
+                progress?.Report("Moving current /opt/asa/server into backup...");
                 Directory.Move(InstallStateConstants.ServerRootPath, previousServerBackupPath);
             }
 
+            progress?.Report("Placing restored files into /opt/asa/server...");
             Directory.Move(sourcePath, InstallStateConstants.ServerRootPath);
+            progress?.Report("Restore completed. asa.service was left stopped.");
             return Directory.Exists(previousServerBackupPath)
                 ? $"Restore completed. Previous server folder saved at {previousServerBackupPath}. asa.service was left stopped."
                 : "Restore completed. asa.service was left stopped.";

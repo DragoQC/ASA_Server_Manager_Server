@@ -49,6 +49,8 @@ BASE_DIR="${BASE_DIR:-/opt/asa}"
 WEBAPP_ROOT="${WEBAPP_ROOT:-$BASE_DIR/webapp}"
 REPO_DIR="${REPO_DIR:-$WEBAPP_ROOT/src}"
 PUBLISH_DIR="${PUBLISH_DIR:-$WEBAPP_ROOT/publish}"
+NEXT_PUBLISH_DIR="${NEXT_PUBLISH_DIR:-$WEBAPP_ROOT/publish-next}"
+PREVIOUS_PUBLISH_DIR="${PREVIOUS_PUBLISH_DIR:-$WEBAPP_ROOT/publish-prev}"
 SERVICE_NAME="${SERVICE_NAME:-asa-webapp}"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 REPO_URL="${REPO_URL:-https://github.com/DragoQC/asa_server_node_api.git}"
@@ -60,7 +62,12 @@ APP_PROJECT_RELATIVE_PATH="asa_server_node_api/asa_server_node_api.csproj"
 APP_DLL_NAME="asa_server_node_api.dll"
 APP_URL="${APP_URL:-http://0.0.0.0:8000}"
 APP_HOME="${APP_HOME:-$BASE_DIR}"
+APP_DATA_ROOT="${APP_DATA_ROOT:-$BASE_DIR/data}"
+APP_DB_PATH="${APP_DATA_ROOT}/asa-manager.db"
+LEGACY_DB_PATH="${PUBLISH_DIR}/Data/asa-manager.db"
 SUDOERS_FILE="/etc/sudoers.d/${USER_NAME}-systemctl"
+UPDATE_LINK_PATH="${UPDATE_LINK_PATH:-/usr/local/bin/update-asa-server-webapp}"
+SHORT_UPDATE_LINK_PATH="${SHORT_UPDATE_LINK_PATH:-/usr/local/bin/update}"
 GAME_SERVICE_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Install/asa.service"
 GAME_SERVICE_DIR="${BASE_DIR}/systemd"
 GAME_SERVICE_FILE="${GAME_SERVICE_DIR}/asa.service"
@@ -96,6 +103,17 @@ run_as_app_user() {
 
 run_as_app_user_bash() {
   runuser -u "${USER_NAME}" -- bash -lc "$1"
+}
+
+install_update_command() {
+  local command_path="$1"
+
+  cat <<EOF > "${command_path}"
+#!/usr/bin/env bash
+exec "${REPO_DIR}/update-asa-server-webapp.sh" "\$@"
+EOF
+
+  chmod 0755 "${command_path}"
 }
 
 find_first_available_package() {
@@ -152,6 +170,7 @@ fi
 
 mkdir -p \
   "${BASE_DIR}" \
+  "${APP_DATA_ROOT}" \
   "${BASE_DIR}/cluster" \
   "${BASE_DIR}/backup" \
   "${BASE_DIR}/backup/imports" \
@@ -169,6 +188,12 @@ mkdir -p \
 chown -R "${USER_NAME}:${GROUP_NAME}" "${BASE_DIR}"
 chmod 0755 "${BASE_DIR}"
 log_ok "Prepared ${BASE_DIR}."
+
+if [ ! -f "${APP_DB_PATH}" ] && [ -f "${LEGACY_DB_PATH}" ]; then
+  cp -a "${LEGACY_DB_PATH}" "${APP_DB_PATH}"
+  chown "${USER_NAME}:${GROUP_NAME}" "${APP_DB_PATH}"
+  log_ok "Migrated existing app DB to ${APP_DB_PATH}."
+fi
 
 cat <<EOF > "${SUDOERS_FILE}"
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload
@@ -237,11 +262,6 @@ chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"
 
 run_as_app_user_bash "export DOTNET_ROOT='${DOTNET_ROOT}'; export PATH='${DOTNET_ROOT}:/usr/local/bin:/usr/bin:/bin'; cd '${REPO_DIR}'; '${DOTNET_BIN}' publish '${APP_PROJECT_RELATIVE_PATH}' -c Release -o '${PUBLISH_DIR}'"
 
-if [ -d "${REPO_DIR}/asa_server_node_api/Data" ]; then
-  mkdir -p "${PUBLISH_DIR}/Data"
-  cp -a "${REPO_DIR}/asa_server_node_api/Data/." "${PUBLISH_DIR}/Data/"
-fi
-
 if [ ! -f "${GAME_SERVICE_FILE}" ] && [ -f "${REPO_DIR}/${GAME_SERVICE_TEMPLATE_RELATIVE_PATH}" ]; then
   cp "${REPO_DIR}/${GAME_SERVICE_TEMPLATE_RELATIVE_PATH}" "${GAME_SERVICE_FILE}"
 fi
@@ -296,6 +316,14 @@ chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"
 chown -R "${USER_NAME}:${GROUP_NAME}" "${GAME_SERVICE_DIR}"
 log_ok "Published web app to ${PUBLISH_DIR}."
 
+if [ -f "${REPO_DIR}/update-asa-server-webapp.sh" ]; then
+  chmod 0755 "${REPO_DIR}/update-asa-server-webapp.sh"
+  install_update_command "${UPDATE_LINK_PATH}"
+  install_update_command "${SHORT_UPDATE_LINK_PATH}"
+  log_ok "Installed ${UPDATE_LINK_PATH} updater command."
+  log_ok "Installed ${SHORT_UPDATE_LINK_PATH} updater command."
+fi
+
 ln -sfn "${GAME_SERVICE_FILE}" "${SYSTEMD_GAME_SERVICE_FILE}"
 systemctl daemon-reload
 systemctl enable --now asa-cluster-mount.timer
@@ -315,6 +343,7 @@ Group=${GROUP_NAME}
 WorkingDirectory=${PUBLISH_DIR}
 Environment=DOTNET_ROOT=${DOTNET_ROOT}
 Environment=ASPNETCORE_URLS=${APP_URL}
+Environment=ASA_SERVER_NODE_DATA_DIR=${APP_DATA_ROOT}
 ExecStart=${DOTNET_BIN} ${PUBLISH_DIR}/${APP_DLL_NAME}
 Restart=always
 RestartSec=5
