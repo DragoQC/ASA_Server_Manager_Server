@@ -6,7 +6,8 @@ namespace asa_server_node_api.Services;
 
 public sealed class GameConfigService
 {
-    private static readonly SearchValues<char> InvalidIniIdentifierCharacters = SearchValues.Create("/\\[]");
+    private static readonly SearchValues<char> InvalidIniKeyCharacters = SearchValues.Create("/\\[]");
+    private static readonly SearchValues<char> InvalidIniSectionCharacters = SearchValues.Create("[]");
 
     public bool HasGameIniFile()
     {
@@ -136,9 +137,9 @@ public sealed class GameConfigService
                     throw new ArgumentException("Config file contains an empty section name.");
                 }
 
-                if (sectionName.AsSpan().IndexOfAny(InvalidIniIdentifierCharacters) >= 0)
+                if (sectionName.AsSpan().IndexOfAny(InvalidIniSectionCharacters) >= 0)
                 {
-                    throw new ArgumentException("Config file contains invalid section characters.");
+                    throw new ArgumentException("Config file contains invalid section characters. Unreal-style sections like [/Script/ShooterGame.ShooterGameMode] are allowed.");
                 }
 
                 continue;
@@ -156,7 +157,7 @@ public sealed class GameConfigService
                 throw new ArgumentException("Config file contains an empty key.");
             }
 
-            if (key.AsSpan().IndexOfAny(InvalidIniIdentifierCharacters) >= 0)
+            if (key.AsSpan().IndexOfAny(InvalidIniKeyCharacters) >= 0)
             {
                 throw new ArgumentException("Config file contains invalid key characters.");
             }

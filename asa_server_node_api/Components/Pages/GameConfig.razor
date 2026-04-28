@@ -253,7 +253,19 @@
 
         try
         {
-            await GameConfigService.SaveAsync(_editorFile.FilePath, _editorContent);
+            if (string.Equals(_editorFile.FilePath, asa_server_node_api.Constants.GameConfigConstants.GameIniPath, StringComparison.Ordinal))
+            {
+                await GameConfigService.SaveGameIniAsync(_editorContent);
+            }
+            else if (string.Equals(_editorFile.FilePath, asa_server_node_api.Constants.GameConfigConstants.GameUserSettingsIniPath, StringComparison.Ordinal))
+            {
+                await GameConfigService.SaveGameUserSettingsIniAsync(_editorContent);
+            }
+            else
+            {
+                await GameConfigService.SaveAsync(_editorFile.FilePath, _editorContent);
+            }
+
             _editorMessage = $"{_editorFile.Title} saved.";
             _editorMessageIsError = false;
             await RefreshAsync();

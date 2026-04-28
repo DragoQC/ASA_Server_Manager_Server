@@ -1,0 +1,82 @@
+Modlist : 
+940975 : Cyber structures QoL+
+929684 : no untamable
+935408 : der dino finder
+929420 : Super spyglass plus
+1213562 : Maeguana creature spawn
+948062 : XtraTranqs
+942024 : Dino depot
+929578 : Death recovery
+1050566 : Majungasaurus
+1269533 : Husky wolf
+1131978 : No p2w
+965961 : Gecko
+972484 : Native aquatics
+1190317 : Tyrannodominator
+1013349 : Bombardier beetle
+1058624 : Antrodemus
+1095961 : Laelaps
+1007609 : Jumping spider
+1100147 : Noxcalvasaurus
+1063373 : Dragon's kingdom
+1011119 : Pyjaks
+928708 : Custom level
+1121944 : Illuminating trait
+1114862 : trait upgrade
+950891 : colossuscorpius
+999254 : Hatzegopterix
+1192977 : Spearcrest
+928549 : All arena ascended (Can be configured ins server settings)
+1148431 : europasaurus
+938642 : Better oviraptor
+
+1383490 : More aberrant variants
+928661 : Transferable element and tributes
+
+//Optional
+1319129 : Creature spawn griffin
+1067961 : Creature spawn Shastasaurus
+1166819 : Tek dino everywhere (Dont use on extinction)
+1165229 : Safe OSD & element vein // only extinction
+927090 : Winter wondeland
+994715 : Easy Transferable Element //Using transferable tributes
+
+//problems
+1195964 : QoL raid dino //Dosent work properly crash servers
+961162 : meraxes //Dosent download for users servers no problems
+1121958 : Server lagg (assorted traits)
+954199 : Vastatyrannus TOOMANYSPAWN
+
+
+Good working:
+994715,940975,929684,935408,929420,1213562,948062,942024,1050566,1269533,1131978,965961,972484,1190317,1013349,1058624,1095961,1007609,1100147,1063373,1011119,928708,928549,938642,1383490
+
+services:
+  asa-server-1:
+    container_name: TheIsland
+    hostname: asa-server-1
+    entrypoint: "/usr/bin/start_server"
+    user: gameserver
+    image: "mschnitzer/asa-linux-server:latest"
+    tty: true
+    environment:
+      - ASA_START_PARAMS=TheIsland_WP?listen?Port=7777?RCONPort=27020?RCONEnabled=True?SessionName="Goldracore The Island" -WinLiveMaxPlayers=4 -clusterid=DragoQC -NoBattlEye -mods=940975,929684,935408,929420,1213562,948062,942024,929578,1050566,1269533,1131978,965961,972484,1190317,1013349,1058624,1095961,1007609,1100147,1063373,1011119,928708 -noundermeshchecking -AllowFlyerSpeedLeveling -ForceAllowCaveFlyers -ForceRespawnDinos -ClusterDirOverride="/home/gameserver/cluster-shared"
+      - ENABLE_DEBUG=0
+    ports:
+      - 0.0.0.0:7777:7777/udp
+      - 0.0.0.0:27020:27020/tcp
+    depends_on:
+      - set-permissions-1
+    volumes:
+      - steam-1:/home/gameserver/Steam:rw
+      - steamcmd-1:/home/gameserver/steamcmd:rw
+      - server-files-1:/home/gameserver/server-files:rw
+      - cluster-shared:/home/gameserver/cluster-shared:rw
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      asa-network:
+  
+
+
+
+  -noundermeshchecking -AllowFlyerSpeedLeveling -ForceAllowCaveFlyers -ForceRespawnDinos -NoBattlEye

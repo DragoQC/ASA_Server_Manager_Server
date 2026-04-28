@@ -49,16 +49,20 @@ public sealed class BackupExportService(InstallStateService installStateService)
         Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
 
         string archivePath = BuildArchivePath("zip");
+        string temporaryArchivePath = BuildTemporaryArchivePath(archivePath);
         try
         {
             await RunProcessAsync(
                 zipPath,
-                ["-r", archivePath, "server"],
+                ["-r", temporaryArchivePath, "server"],
                 cancellationToken,
                 InstallStateConstants.BaseDirectoryPath);
+
+            PromoteCompletedArchive(temporaryArchivePath, archivePath);
         }
         catch
         {
+            DeletePartialArchive(temporaryArchivePath);
             DeletePartialArchive(archivePath);
             throw;
         }
@@ -73,15 +77,19 @@ public sealed class BackupExportService(InstallStateService installStateService)
         Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
 
         string archivePath = BuildArchivePath("tar.gz");
+        string temporaryArchivePath = BuildTemporaryArchivePath(archivePath);
         try
         {
             await RunProcessAsync(
                 tarPath,
-                ["-czf", archivePath, "-C", InstallStateConstants.BaseDirectoryPath, "server"],
+                ["-czf", temporaryArchivePath, "-C", InstallStateConstants.BaseDirectoryPath, "server"],
                 cancellationToken);
+
+            PromoteCompletedArchive(temporaryArchivePath, archivePath);
         }
         catch
         {
+            DeletePartialArchive(temporaryArchivePath);
             DeletePartialArchive(archivePath);
             throw;
         }
@@ -267,6 +275,11 @@ public sealed class BackupExportService(InstallStateService installStateService)
         return Path.Combine(InstallStateConstants.BackupRootPath, $"asa-server-{timestamp}.{extension}");
     }
 
+    private static string BuildTemporaryArchivePath(string archivePath)
+    {
+        return $"{archivePath}.partial";
+    }
+
     private static string GetFormat(string fileName)
     {
         if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
@@ -353,6 +366,21 @@ public sealed class BackupExportService(InstallStateService installStateService)
     {
         FileInfo fileInfo = new(archivePath);
         return new BackupArchiveInfo(format, fileInfo.Name, fileInfo.FullName, fileInfo.Length, fileInfo.LastWriteTimeUtc);
+    }
+
+    private static void PromoteCompletedArchive(string temporaryArchivePath, string archivePath)
+    {
+        if (!File.Exists(temporaryArchivePath))
+        {
+            throw new InvalidOperationException("Archive creation did not produce an output file.");
+        }
+
+        if (File.Exists(archivePath))
+        {
+            File.Delete(archivePath);
+        }
+
+        File.Move(temporaryArchivePath, archivePath);
     }
 
     private static void DeletePartialArchive(string archivePath)

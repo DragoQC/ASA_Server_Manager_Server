@@ -5,5 +5,6 @@ public sealed record ServerInfoSnapshot(
     string MapName,
     int GamePort,
     int MaxPlayers,
+    int CpuCount,
     IReadOnlyList<string> ModIds,
     DateTimeOffset CheckedAtUtc);

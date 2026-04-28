@@ -20,6 +20,7 @@ public sealed class SystemMetricsService(ServerConfigService serverConfigService
             MapName: settings.MapName,
             GamePort: settings.GamePort,
             MaxPlayers: settings.MaxPlayers,
+            CpuCount: Environment.ProcessorCount,
             ModIds: modIds,
             CheckedAtUtc: DateTimeOffset.UtcNow);
 

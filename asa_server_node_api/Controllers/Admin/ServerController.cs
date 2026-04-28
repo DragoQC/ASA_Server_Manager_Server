@@ -32,6 +32,7 @@ public sealed class ServerController(
             mapName = serverInfo.MapName,
             gamePort = serverInfo.GamePort,
             maxPlayers = serverInfo.MaxPlayers,
+            cpuCount = serverInfo.CpuCount,
             modIds = serverInfo.ModIds,
             totalRam = metrics.RamTotal,
             ramPercentage = metrics.RamPercentage,
