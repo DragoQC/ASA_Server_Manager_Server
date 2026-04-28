@@ -178,6 +178,13 @@
                     </button>
                 </div>
 
+                @if (!string.IsNullOrWhiteSpace(_exportProgressText))
+                {
+                    <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
+                        <p class="text-sm leading-6 text-cyan-100">@_exportProgressText</p>
+                    </div>
+                }
+
                 @if (_zipArchive is not null || _tarGzArchive is not null)
                 {
                     <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
@@ -356,6 +363,7 @@
     private bool _isUploadingRestore;
     private bool _showRestoreDialog;
     private bool _isRestoring;
+    private string? _exportProgressText;
     private string? _restoreSelectedFileName;
     private string? _restoreProgressText;
     private bool IsCreatingArchive => _isCreatingZip || _isCreatingTarGz;
@@ -426,7 +434,17 @@
 
         try
         {
-            _zipArchive = await BackupExportService.CreateZipArchiveAsync();
+            _exportProgressText = "Starting zip backup...";
+            await InvokeAsync(StateHasChanged);
+            await Task.Yield();
+
+            Progress<string> progress = new(message =>
+            {
+                _exportProgressText = message;
+                _ = InvokeAsync(StateHasChanged);
+            });
+
+            _zipArchive = await BackupExportService.CreateZipArchiveAsync(progress);
             _message = $"Zip archive saved at {_zipArchive.FilePath}. Download is ready.";
         }
         catch (Exception exception)
@@ -447,7 +465,17 @@
 
         try
         {
-            _tarGzArchive = await BackupExportService.CreateTarGzArchiveAsync();
+            _exportProgressText = "Starting tar.gz backup...";
+            await InvokeAsync(StateHasChanged);
+            await Task.Yield();
+
+            Progress<string> progress = new(message =>
+            {
+                _exportProgressText = message;
+                _ = InvokeAsync(StateHasChanged);
+            });
+
+            _tarGzArchive = await BackupExportService.CreateTarGzArchiveAsync(progress);
             _message = $"Tar.gz archive saved at {_tarGzArchive.FilePath}. Download is ready.";
         }
         catch (Exception exception)

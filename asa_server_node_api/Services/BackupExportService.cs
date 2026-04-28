@@ -42,9 +42,12 @@ public sealed class BackupExportService(InstallStateService installStateService)
         return "Tar tools installed. Tar.gz backup and restore are ready.";
     }
 
-    public async Task<BackupArchiveInfo> CreateZipArchiveAsync(CancellationToken cancellationToken = default)
+    public async Task<BackupArchiveInfo> CreateZipArchiveAsync(
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         string zipPath = RequireTool(ZipToolPaths, "zip");
+        progress?.Report("Stopping asa.service before creating zip backup...");
         await StopAsaUntilSafeAsync(cancellationToken);
         Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
 
@@ -52,12 +55,14 @@ public sealed class BackupExportService(InstallStateService installStateService)
         string temporaryArchivePath = BuildTemporaryArchivePath(archivePath);
         try
         {
+            progress?.Report("Creating zip archive from /opt/asa/server...");
             await RunProcessAsync(
                 zipPath,
                 ["-r", temporaryArchivePath, "server"],
                 cancellationToken,
                 InstallStateConstants.BaseDirectoryPath);
 
+            progress?.Report("Finalizing zip archive...");
             PromoteCompletedArchive(temporaryArchivePath, archivePath);
         }
         catch
@@ -67,12 +72,16 @@ public sealed class BackupExportService(InstallStateService installStateService)
             throw;
         }
 
+        progress?.Report("Zip archive ready. Download is available.");
         return ToArchiveInfo(ZipFormat, archivePath);
     }
 
-    public async Task<BackupArchiveInfo> CreateTarGzArchiveAsync(CancellationToken cancellationToken = default)
+    public async Task<BackupArchiveInfo> CreateTarGzArchiveAsync(
+        IProgress<string>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         string tarPath = RequireTool(TarToolPaths, "tar");
+        progress?.Report("Stopping asa.service before creating tar.gz backup...");
         await StopAsaUntilSafeAsync(cancellationToken);
         Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
 
@@ -80,11 +89,13 @@ public sealed class BackupExportService(InstallStateService installStateService)
         string temporaryArchivePath = BuildTemporaryArchivePath(archivePath);
         try
         {
+            progress?.Report("Creating tar.gz archive from /opt/asa/server...");
             await RunProcessAsync(
                 tarPath,
                 ["-czf", temporaryArchivePath, "-C", InstallStateConstants.BaseDirectoryPath, "server"],
                 cancellationToken);
 
+            progress?.Report("Finalizing tar.gz archive...");
             PromoteCompletedArchive(temporaryArchivePath, archivePath);
         }
         catch
@@ -94,6 +105,7 @@ public sealed class BackupExportService(InstallStateService installStateService)
             throw;
         }
 
+        progress?.Report("Tar.gz archive ready. Download is available.");
         return ToArchiveInfo(TarGzFormat, archivePath);
     }
 
