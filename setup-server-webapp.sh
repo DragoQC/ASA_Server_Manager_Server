@@ -14,6 +14,7 @@ ERROR_COLOR='\033[38;5;196m'
 SECTION_COLOR='\033[38;5;141m'
 GIT_COLOR='\033[38;5;45m'
 DOTNET_COLOR='\033[38;5;39m'
+VERBOSE=0
 
 log_webapp() {
   echo -e "${SECTION_COLOR}[WebApp]${RESET} $1"
@@ -41,6 +42,27 @@ log_warn() {
 
 log_error() {
   echo -e "${ERROR_COLOR}✖ $1${RESET}"
+}
+
+while (($# > 0)); do
+  case "$1" in
+    -v|--verbose)
+      VERBOSE=1
+      shift
+      ;;
+    *)
+      log_error "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
+
+run_quiet() {
+  if [ "${VERBOSE}" -eq 1 ]; then
+    "$@"
+  else
+    "$@" >/dev/null 2>&1
+  fi
 }
 
 USER_NAME="${USER_NAME:-asa_web_app}"
@@ -91,6 +113,7 @@ TAR_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Back
 TAR_TOOLS_PREP_SCRIPT_PATH="${BACKUP_DIR}/prepare-tar-tools.sh"
 WIREGUARD_DIR="/etc/wireguard"
 WIREGUARD_CONFIG_LINK_PATH="${WIREGUARD_DIR}/wg0.conf"
+export DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 if [ "${EUID}" -ne 0 ]; then
   log_error "This script must be run as root."
@@ -130,13 +153,13 @@ find_first_available_package() {
 log_webapp "asa_server_node_api – Web App Installer"
 
 log_webapp "Installing dependencies..."
-dpkg --add-architecture i386
-apt update
+run_quiet dpkg --add-architecture i386
+run_quiet apt update
 ICU_PACKAGE="$(find_first_available_package libicu76 libicu72 libicu-dev)" || {
   log_error "Could not find a supported libicu package in apt."
   exit 1
 }
-apt install -y \
+run_quiet apt install -y \
   git \
   curl \
   wget \
@@ -224,43 +247,58 @@ ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u wg-quick@wg0 -n 80 --no
 ${USER_NAME} ALL=(root) NOPASSWD: /usr/bin/journalctl -u opt-asa-cluster.mount -n 80 --no-pager
 EOF
 chmod 0440 "${SUDOERS_FILE}"
-visudo -cf "${SUDOERS_FILE}"
+run_quiet visudo -cf "${SUDOERS_FILE}"
 log_ok "Granted ${USER_NAME} access to query systemd, read asa and WireGuard logs, manage asa, run the cluster client scripts, prepare backup tools per format, update /etc/fstab through the apply script, and control wg-quick@wg0."
 
 if [ ! -x "${DOTNET_BIN}" ] || ! "${DOTNET_BIN}" --list-sdks 2>/dev/null | grep -q "^${DOTNET_VERSION}\\."; then
   log_dotnet "Installing latest .NET SDK ${DOTNET_VERSION}..."
   TEMP_INSTALL_SCRIPT="$(mktemp)"
-  curl -fsSL https://dot.net/v1/dotnet-install.sh -o "${TEMP_INSTALL_SCRIPT}"
-  bash "${TEMP_INSTALL_SCRIPT}" --channel "${DOTNET_VERSION}" --install-dir "${DOTNET_ROOT}"
+  run_quiet curl -fsSL https://dot.net/v1/dotnet-install.sh -o "${TEMP_INSTALL_SCRIPT}"
+  run_quiet bash "${TEMP_INSTALL_SCRIPT}" --channel "${DOTNET_VERSION}" --install-dir "${DOTNET_ROOT}"
   rm -f "${TEMP_INSTALL_SCRIPT}"
-  ln -sf "${DOTNET_ROOT}/dotnet" "${DOTNET_BIN}"
+  run_quiet ln -sf "${DOTNET_ROOT}/dotnet" "${DOTNET_BIN}"
   log_ok "Installed latest .NET SDK ${DOTNET_VERSION}."
 else
   log_ok ".NET SDK ${DOTNET_VERSION} already installed."
 fi
 
 export DOTNET_ROOT
+export DOTNET_CLI_TELEMETRY_OPTOUT
 export PATH="/usr/local/bin:${PATH}"
 
 log_git "Fetching repository..."
 if [ ! -d "${REPO_DIR}/.git" ]; then
   rm -rf "${REPO_DIR}"
   mkdir -p "$(dirname "${REPO_DIR}")"
-  run_as_app_user env GIT_TERMINAL_PROMPT=0 git clone --branch "${REPO_BRANCH}" "${REPO_URL}" "${REPO_DIR}"
+  if [ "${VERBOSE}" -eq 1 ]; then
+    run_as_app_user env GIT_TERMINAL_PROMPT=0 git clone --branch "${REPO_BRANCH}" "${REPO_URL}" "${REPO_DIR}"
+  else
+    run_as_app_user env GIT_TERMINAL_PROMPT=0 git clone --quiet --branch "${REPO_BRANCH}" "${REPO_URL}" "${REPO_DIR}" >/dev/null 2>&1
+  fi
   log_ok "Cloned ${REPO_URL}."
 else
-  run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" fetch --all --prune
-  run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" checkout "${REPO_BRANCH}"
-  run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" reset --hard "origin/${REPO_BRANCH}"
+  if [ "${VERBOSE}" -eq 1 ]; then
+    run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" fetch --all --prune
+    run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" checkout "${REPO_BRANCH}"
+    run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" reset --hard "origin/${REPO_BRANCH}"
+  else
+    run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" fetch --all --prune --quiet >/dev/null 2>&1
+    run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" checkout "${REPO_BRANCH}" >/dev/null 2>&1
+    run_as_app_user env GIT_TERMINAL_PROMPT=0 git -C "${REPO_DIR}" reset --hard "origin/${REPO_BRANCH}" >/dev/null 2>&1
+  fi
   log_ok "Updated local repository copy."
 fi
 
 log_dotnet "Publishing web app..."
-rm -rf "${PUBLISH_DIR}"
-mkdir -p "${PUBLISH_DIR}"
+run_quiet rm -rf "${PUBLISH_DIR}"
+run_quiet mkdir -p "${PUBLISH_DIR}"
 chown -R "${USER_NAME}:${GROUP_NAME}" "${WEBAPP_ROOT}"
 
-run_as_app_user_bash "export DOTNET_ROOT='${DOTNET_ROOT}'; export PATH='${DOTNET_ROOT}:/usr/local/bin:/usr/bin:/bin'; cd '${REPO_DIR}'; '${DOTNET_BIN}' publish '${APP_PROJECT_RELATIVE_PATH}' -c Release -o '${PUBLISH_DIR}'"
+if [ "${VERBOSE}" -eq 1 ]; then
+  run_as_app_user_bash "export DOTNET_ROOT='${DOTNET_ROOT}'; export DOTNET_CLI_TELEMETRY_OPTOUT='${DOTNET_CLI_TELEMETRY_OPTOUT}'; export PATH='${DOTNET_ROOT}:/usr/local/bin:/usr/bin:/bin'; cd '${REPO_DIR}'; '${DOTNET_BIN}' publish '${APP_PROJECT_RELATIVE_PATH}' -c Release -o '${PUBLISH_DIR}'"
+else
+  run_as_app_user_bash "export DOTNET_ROOT='${DOTNET_ROOT}'; export DOTNET_CLI_TELEMETRY_OPTOUT='${DOTNET_CLI_TELEMETRY_OPTOUT}'; export PATH='${DOTNET_ROOT}:/usr/local/bin:/usr/bin:/bin'; cd '${REPO_DIR}'; '${DOTNET_BIN}' publish '${APP_PROJECT_RELATIVE_PATH}' -c Release -o '${PUBLISH_DIR}' >/dev/null 2>&1"
+fi
 
 if [ ! -f "${GAME_SERVICE_FILE}" ] && [ -f "${REPO_DIR}/${GAME_SERVICE_TEMPLATE_RELATIVE_PATH}" ]; then
   cp "${REPO_DIR}/${GAME_SERVICE_TEMPLATE_RELATIVE_PATH}" "${GAME_SERVICE_FILE}"
@@ -324,9 +362,9 @@ if [ -f "${REPO_DIR}/update-asa-server-webapp.sh" ]; then
   log_ok "Installed ${SHORT_UPDATE_LINK_PATH} updater command."
 fi
 
-ln -sfn "${GAME_SERVICE_FILE}" "${SYSTEMD_GAME_SERVICE_FILE}"
-systemctl daemon-reload
-systemctl enable --now asa-cluster-mount.timer
+run_quiet ln -sfn "${GAME_SERVICE_FILE}" "${SYSTEMD_GAME_SERVICE_FILE}"
+run_quiet systemctl daemon-reload
+run_quiet systemctl enable --now asa-cluster-mount.timer
 log_ok "Linked ${SYSTEMD_GAME_SERVICE_FILE} to ${GAME_SERVICE_FILE}."
 log_info "The game server service asa.service is prepared only. It is not enabled or started automatically."
 # Needs to do that so we can make our user able to run and change it
@@ -344,6 +382,7 @@ WorkingDirectory=${PUBLISH_DIR}
 Environment=DOTNET_ROOT=${DOTNET_ROOT}
 Environment=ASPNETCORE_URLS=${APP_URL}
 Environment=ASA_SERVER_NODE_DATA_DIR=${APP_DATA_ROOT}
+Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
 ExecStart=${DOTNET_BIN} ${PUBLISH_DIR}/${APP_DLL_NAME}
 Restart=always
 RestartSec=5
@@ -353,8 +392,8 @@ KillSignal=SIGINT
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
-systemctl enable --now "${SERVICE_NAME}"
+run_quiet systemctl daemon-reload
+run_quiet systemctl enable --now "${SERVICE_NAME}"
 log_ok "Created and started ${SERVICE_NAME}."
 
 MACHINE_IP="$(hostname -I | awk '{print $1}')"
@@ -365,5 +404,9 @@ fi
 log_webapp "Current IPv4 addresses:"
 ip -4 -o addr show scope global | awk '{print "  - " $2 ": " $4}'
 log_webapp "You can now connect at http://${MACHINE_IP}:8000 and use admin / admin"
-log_webapp "Service status:"
-systemctl status "${SERVICE_NAME}" --no-pager
+if [ "${VERBOSE}" -eq 1 ]; then
+  log_webapp "Service status:"
+  systemctl status "${SERVICE_NAME}" --no-pager
+else
+  log_info "Service ${SERVICE_NAME} is active."
+fi
