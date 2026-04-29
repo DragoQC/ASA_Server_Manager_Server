@@ -18,6 +18,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
     private static readonly TimeSpan StopTimeout = TimeSpan.FromMinutes(3);
     private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
     private readonly ToastService _toastService = toastService;
+    private CancellationTokenSource? _restoreCancellationTokenSource;
     private ArchiveFingerprint? _validatedRestoreArchive;
 
     public event Action? Changed;
@@ -166,20 +167,42 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
             throw new InvalidOperationException("No restore preview is loaded.");
         }
 
+        if (IsRestoring)
+        {
+            throw new InvalidOperationException("Restore is already running.");
+        }
+
         StartRestore("Restore confirmed. Starting restore flow...");
         _toastService.ShowInfo("Restore started.", "Restore");
+        using CancellationTokenSource linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _restoreCancellationTokenSource = linkedCancellationTokenSource;
         try
         {
             Progress<string> progress = new(UpdateRestoreProgress);
-            string message = await RestoreImportArchiveAsync(RestorePreview, progress, cancellationToken);
+            string message = await RestoreImportArchiveAsync(RestorePreview, progress, linkedCancellationTokenSource.Token);
             FinishRestore("Restore completed. asa.service was left stopped.");
             return message;
+        }
+        catch (OperationCanceledException)
+        {
+            FailRestore("Restore canceled.");
+            _toastService.ShowInfo("Restore canceled.", "Restore");
+            throw new InvalidOperationException("Restore canceled.");
         }
         catch
         {
             FailRestore();
             throw;
         }
+        finally
+        {
+            _restoreCancellationTokenSource = null;
+        }
+    }
+
+    public void CancelRestore()
+    {
+        _restoreCancellationTokenSource?.Cancel();
     }
 
     public void MarkRestoreReadyForConfirmation()

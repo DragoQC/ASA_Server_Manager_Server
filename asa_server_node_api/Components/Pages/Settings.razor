@@ -156,21 +156,21 @@
                 <div class="flex flex-wrap gap-3">
                     <button type="button"
                             @onclick="OpenZipToolsDialog"
-                            disabled="@(_isInstallingZipTools || _hasZipTools)"
+                            disabled="@(_isInstallingZipTools || _hasZipTools || IsBackupActionActive)"
                             class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
                         @(_hasZipTools ? "Zip tools ready" : "Prepare zip tools")
                     </button>
 
                     <button type="button"
                             @onclick="OpenTarToolsDialog"
-                            disabled="@(_isInstallingTarTools || _hasTarTools)"
+                            disabled="@(_isInstallingTarTools || _hasTarTools || IsBackupActionActive)"
                             class="inline-flex rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-neutral-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60">
                         @(_hasTarTools ? "Tar tools ready" : "Prepare tar tools")
                     </button>
 
                     <button type="button"
                             @onclick="CreateZipArchiveAsync"
-                            disabled="@(!_hasZipTools || IsCreatingArchive)"
+                            disabled="@(!_hasZipTools || IsBackupActionActive)"
                             class="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                         @if (_isCreatingZip)
                         {
@@ -181,7 +181,7 @@
 
                     <button type="button"
                             @onclick="CreateTarGzArchiveAsync"
-                            disabled="@(!_hasTarTools || IsCreatingArchive)"
+                            disabled="@(!_hasTarTools || IsBackupActionActive)"
                             class="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                         @if (_isCreatingTarGz)
                         {
@@ -218,18 +218,23 @@
                                     <div class="flex flex-wrap gap-3">
                                         <button type="button"
                                                 @onclick="UseLatestZipBackupAsync"
-                                                class="inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-5 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20">
-                                            @LatestZipRestoreActionText
+                                                disabled="@IsZipRestoreButtonDisabled"
+                                                class="@(_isRestoring && IsSelectedRestoreFormat("zip")
+                                                    ? "inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    : "inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-5 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60")">
+                                            @ZipRestoreButtonText
                                         </button>
 
-                                        <a href="/admin/settings/export/download/zip"
-                                           class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                                        <button type="button"
+                                           @onclick="DownloadLatestZipArchive"
+                                           disabled="@IsZipDownloadDisabled"
+                                           class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                                             Download zip
-                                        </a>
+                                        </button>
 
                                         <button type="button"
                                                 @onclick="DeleteLatestZipArchiveAsync"
-                                                disabled="@_isDeletingZipArchive"
+                                                disabled="@IsZipDeleteDisabled"
                                                 class="inline-flex items-center gap-2 rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60">
                                             @if (_isDeletingZipArchive)
                                             {
@@ -252,18 +257,23 @@
                                     <div class="flex flex-wrap gap-3">
                                         <button type="button"
                                                 @onclick="UseLatestTarGzBackupAsync"
-                                                class="inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-5 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20">
-                                            @LatestTarGzRestoreActionText
+                                                disabled="@IsTarGzRestoreButtonDisabled"
+                                                class="@(_isRestoring && IsSelectedRestoreFormat("tar.gz")
+                                                    ? "inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    : "inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-5 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60")">
+                                            @TarGzRestoreButtonText
                                         </button>
 
-                                        <a href="/admin/settings/export/download/tar.gz"
-                                           class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                                        <button type="button"
+                                           @onclick="DownloadLatestTarGzArchive"
+                                           disabled="@IsTarGzDownloadDisabled"
+                                           class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                                             Download tar.gz
-                                        </a>
+                                        </button>
 
                                         <button type="button"
                                                 @onclick="DeleteLatestTarGzArchiveAsync"
-                                                disabled="@_isDeletingTarGzArchive"
+                                                disabled="@IsTarGzDeleteDisabled"
                                                 class="inline-flex items-center gap-2 rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60">
                                             @if (_isDeletingTarGzArchive)
                                             {
@@ -291,7 +301,7 @@
                     <div class="mt-5 flex flex-col gap-4">
                         <InputFile OnChange="HandleRestoreArchiveSelected"
                                    accept=".zip,.tar.gz,.tgz,application/zip,application/gzip"
-                                   disabled="@(_isUploadingRestore || _isPreparingRestorePreview || _isRestoring)"
+                                   disabled="@IsBackupActionActive"
                                    class="block w-full rounded-[1rem] border border-white/10 bg-black/30 p-3 text-sm text-neutral-200 file:mr-4 file:rounded-full file:border-0 file:bg-cyan-400/15 file:px-4 file:py-2 file:text-sm file:font-medium file:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60" />
 
                         @if (!string.IsNullOrWhiteSpace(_restoreSelectedFileName) || !string.IsNullOrWhiteSpace(_restoreProgressText))
@@ -315,17 +325,6 @@
                                             @restorePreview.Format · @restorePreview.SizeText · @restorePreview.EntryCount entries
                                         </p>
                                     </div>
-
-                                    <button type="button"
-                                            @onclick="OpenRestoreDialog"
-                                            disabled="@(_isRestoring || RestorePreview is null)"
-                                            class="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                                        @if (_isRestoring)
-                                        {
-                                            <span class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-300/25 border-t-cyan-200"></span>
-                                        }
-                                        <span>@(_isRestoring ? "Restoring..." : "Restore archive")</span>
-                                    </button>
                                 </div>
 
                                 <p class="mt-4 text-xs uppercase tracking-[0.24em] text-cyan-300">Will restore to</p>
@@ -431,12 +430,26 @@
     private long? _restoreProgressTotalBytes => BackupService.RestoreProgressTotalBytes;
     private bool IsCreatingArchive => BackupService.IsCreatingZip || BackupService.IsCreatingTarGz;
     private bool IsRestoreProgressBusy => _isUploadingRestore || _isPreparingRestorePreview || _isRestoring;
+    private bool IsRestoreWorkflowActive => _isUploadingRestore || _isPreparingRestorePreview || _isRestoring;
+    private bool IsBackupActionActive => IsCreatingArchive || _isDeletingZipArchive || _isDeletingTarGzArchive || IsRestoreWorkflowActive;
     private string LatestZipRestoreActionText => BackupService.IsLatestArchiveValidatedForRestore("zip")
         ? "Restore"
         : "Prepare restore";
     private string LatestTarGzRestoreActionText => BackupService.IsLatestArchiveValidatedForRestore("tar.gz")
         ? "Restore"
         : "Prepare restore";
+    private string ZipRestoreButtonText => _isRestoring && IsSelectedRestoreFormat("zip")
+        ? "Cancel restore"
+        : LatestZipRestoreActionText;
+    private string TarGzRestoreButtonText => _isRestoring && IsSelectedRestoreFormat("tar.gz")
+        ? "Cancel restore"
+        : LatestTarGzRestoreActionText;
+    private bool IsZipRestoreButtonDisabled => _zipArchive is null || (_isRestoring ? !IsSelectedRestoreFormat("zip") : IsBackupActionActive);
+    private bool IsTarGzRestoreButtonDisabled => _tarGzArchive is null || (_isRestoring ? !IsSelectedRestoreFormat("tar.gz") : IsBackupActionActive);
+    private bool IsZipDownloadDisabled => _zipArchive is null || IsBackupActionActive;
+    private bool IsTarGzDownloadDisabled => _tarGzArchive is null || IsBackupActionActive;
+    private bool IsZipDeleteDisabled => _zipArchive is null || _isDeletingZipArchive || IsBackupActionActive;
+    private bool IsTarGzDeleteDisabled => _tarGzArchive is null || _isDeletingTarGzArchive || IsBackupActionActive;
     private string RestoreProgressTitle => _isUploadingRestore
         ? "Upload"
         : _isPreparingRestorePreview
@@ -457,6 +470,11 @@
         BackupService.Changed += OnBackupOperationStateChanged;
         await LoadApiKeysAsync();
         await BackupService.InitializeAsync();
+    }
+
+    private bool IsSelectedRestoreFormat(string format)
+    {
+        return string.Equals(RestorePreview?.Format, format, StringComparison.OrdinalIgnoreCase);
     }
 
     private void OpenResetPasswordPage()
@@ -580,6 +598,12 @@
         _message = null;
         _error = null;
 
+        if (_isRestoring && IsSelectedRestoreFormat("zip"))
+        {
+            BackupService.CancelRestore();
+            return;
+        }
+
         try
         {
             if (BackupService.TryPrepareLatestArchiveForRestore("zip"))
@@ -602,6 +626,12 @@
     {
         _message = null;
         _error = null;
+
+        if (_isRestoring && IsSelectedRestoreFormat("tar.gz"))
+        {
+            BackupService.CancelRestore();
+            return;
+        }
 
         try
         {
@@ -745,6 +775,22 @@
         catch (Exception exception)
         {
             _error = exception.Message;
+        }
+    }
+
+    private void DownloadLatestZipArchive()
+    {
+        if (!IsZipDownloadDisabled)
+        {
+            NavigationManager.NavigateTo("/admin/settings/export/download/zip", forceLoad: true);
+        }
+    }
+
+    private void DownloadLatestTarGzArchive()
+    {
+        if (!IsTarGzDownloadDisabled)
+        {
+            NavigationManager.NavigateTo("/admin/settings/export/download/tar.gz", forceLoad: true);
         }
     }
 
