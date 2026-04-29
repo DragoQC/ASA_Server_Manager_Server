@@ -1,19 +1,18 @@
-<div class="relative pr-10">
-    <button type="button"
-            @onclick="OpenDialog"
-            class="absolute right-0 top-0 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-[0.7rem] font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
-            aria-label="@($"{Title} help")">
-        ?
-    </button>
-
-    <div class="flex flex-wrap items-center gap-3">
+<div class="flex flex-wrap items-center gap-3">
+    <div class="relative inline-block pr-8">
         <h2 class="@TitleClass">@Title</h2>
-
-        @if (ChildContent is not null)
-        {
-            @ChildContent
-        }
+        <button type="button"
+                @onclick="OpenDialog"
+                class="absolute right-0 top-0 inline-flex h-7 w-7 shrink-0 -translate-y-1/4 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-[0.7rem] font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
+                aria-label="@($"{Title} help")">
+            ?
+        </button>
     </div>
+
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
 </div>
 
 <ConfirmationDialog IsOpen="@_isDialogOpen"
