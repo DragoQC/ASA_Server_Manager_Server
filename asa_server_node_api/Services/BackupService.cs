@@ -191,6 +191,7 @@ public sealed class BackupService(InstallStateService installStateService)
         ArchiveProgressPlan progressPlan = BuildArchiveProgressPlan(
             InstallStateConstants.ServerRootPath,
             "server");
+        DeleteExistingArchives(ZipFormat);
 
         string archivePath = BuildArchivePath("zip");
         string temporaryArchivePath = BuildTemporaryArchivePath(archivePath);
@@ -230,6 +231,7 @@ public sealed class BackupService(InstallStateService installStateService)
         ArchiveProgressPlan progressPlan = BuildArchiveProgressPlan(
             InstallStateConstants.ServerRootPath,
             "server");
+        DeleteExistingArchives(TarGzFormat);
 
         string archivePath = BuildArchivePath("tar.gz");
         string temporaryArchivePath = BuildTemporaryArchivePath(archivePath);
@@ -583,6 +585,29 @@ public sealed class BackupService(InstallStateService installStateService)
     private static string BuildTemporaryArchivePath(string archivePath)
     {
         return $"{archivePath}.partial";
+    }
+
+    private static void DeleteExistingArchives(string format)
+    {
+        string searchPattern = format switch
+        {
+            ZipFormat => "asa-server-*.zip",
+            TarGzFormat => "asa-server-*.tar.gz",
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(searchPattern) || !Directory.Exists(InstallStateConstants.BackupRootPath))
+        {
+            return;
+        }
+
+        foreach (string filePath in Directory.EnumerateFiles(
+                     InstallStateConstants.BackupRootPath,
+                     searchPattern,
+                     SearchOption.TopDirectoryOnly))
+        {
+            File.Delete(filePath);
+        }
     }
 
     private static ArchiveProgressPlan BuildArchiveProgressPlan(string sourceRootPath, string archiveRootName)
