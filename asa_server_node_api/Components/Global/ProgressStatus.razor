@@ -1,0 +1,67 @@
+@using asa_server_node_api.Models
+
+<div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
+    @if (Percent is double percent)
+    {
+        <div class="mb-4">
+            <div class="mb-2 flex items-center justify-between text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">
+                <span>@Title</span>
+                <span>@($"{Math.Round(percent)}%")</span>
+            </div>
+
+            <div class="h-2.5 w-full overflow-hidden rounded-full border border-cyan-300/20 bg-black/40 shadow-[inset_0_0_25px_rgba(34,211,238,0.08)]">
+                <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 via-cyan-300 to-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.35)] transition-[width] duration-300 ease-out"
+                     style="@($"width: {percent:0.#}%;")"></div>
+            </div>
+
+            @if (CurrentBytes.HasValue && TotalBytes.HasValue)
+            {
+                <p class="mt-2 text-xs leading-5 text-neutral-400">
+                    @BackupArchiveInfo.FormatBytes(CurrentBytes.Value) / @BackupArchiveInfo.FormatBytes(TotalBytes.Value)
+                </p>
+            }
+        </div>
+    }
+
+    <div class="flex items-start gap-3">
+        @if (IsBusy)
+        {
+            <span class="mt-1 inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-300/25 border-t-cyan-200"></span>
+        }
+
+        <div>
+            @if (!string.IsNullOrWhiteSpace(FileName))
+            {
+                <p class="text-sm font-semibold text-white">@FileName</p>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(StatusText))
+            {
+                <p class="mt-2 text-sm leading-6 text-cyan-100">@StatusText</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    [Parameter]
+    public string? FileName { get; set; }
+
+    [Parameter]
+    public string? StatusText { get; set; }
+
+    [Parameter]
+    public double? Percent { get; set; }
+
+    [Parameter]
+    public long? CurrentBytes { get; set; }
+
+    [Parameter]
+    public long? TotalBytes { get; set; }
+}

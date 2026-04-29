@@ -25,12 +25,17 @@ public sealed class BackupService(InstallStateService installStateService)
     public bool IsCreatingZip { get; private set; }
     public bool IsCreatingTarGz { get; private set; }
     public bool IsUploadingRestore { get; private set; }
+    public bool IsPreparingRestorePreview { get; private set; }
     public bool IsRestoring { get; private set; }
     public string? ExportProgressText { get; private set; }
     public double? ExportProgressPercent { get; private set; }
+    public long? ExportProgressCurrentBytes { get; private set; }
+    public long? ExportProgressTotalBytes { get; private set; }
     public string? RestoreSelectedFileName { get; private set; }
     public string? RestoreProgressText { get; private set; }
-    public double? RestoreUploadProgressPercent { get; private set; }
+    public double? RestoreProgressPercent { get; private set; }
+    public long? RestoreProgressCurrentBytes { get; private set; }
+    public long? RestoreProgressTotalBytes { get; private set; }
     public BackupImportPreview? RestorePreview { get; private set; }
 
     public Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -210,8 +215,11 @@ public sealed class BackupService(InstallStateService installStateService)
         RestoreSelectedFileName = archive.FileName;
         RestorePreview = null;
         IsUploadingRestore = false;
+        IsPreparingRestorePreview = true;
         IsRestoring = false;
-        RestoreUploadProgressPercent = null;
+        RestoreProgressPercent = null;
+        RestoreProgressCurrentBytes = null;
+        RestoreProgressTotalBytes = null;
         RestoreProgressText = $"Reading {archive.FileName} and building restore preview...";
         NotifyChanged();
 
@@ -331,6 +339,7 @@ public sealed class BackupService(InstallStateService installStateService)
             await CopyStreamWithProgressAsync(stream, fileStream, totalBytes, cancellationToken);
         }
 
+        StartRestoreValidation($"Upload finished. Reading {fileName} and building restore preview...");
         progress?.Report($"Upload finished. Reading {fileName} and building restore preview...");
         return await CreateImportPreviewAsync(archivePath, format, progress, cancellationToken);
     }
@@ -381,7 +390,7 @@ public sealed class BackupService(InstallStateService installStateService)
         CancellationToken cancellationToken = default)
     {
         RequireFormatTool(preview.Format);
-        progress?.Report("Stopping asa.service before restore...");
+        UpdateRestoreProgress("Stopping asa.service before restore...", 0D, 0, null);
         await StopAsaUntilSafeAsync(cancellationToken, requireServerDirectory: false);
 
         string restoreId = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss");
@@ -391,26 +400,37 @@ public sealed class BackupService(InstallStateService installStateService)
 
         try
         {
+            ArchiveProgressPlan progressPlan = await BuildRestoreProgressPlanAsync(
+                preview.Format,
+                preview.ArchivePath,
+                cancellationToken);
+
             if (preview.Format == ZipFormat)
             {
-                progress?.Report("Extracting zip archive into restore workspace...");
+                UpdateRestoreProgress("Extracting zip archive into restore workspace...", 0D, 0, progressPlan.TotalBytes);
                 string unzipPath = RequireTool(UnzipToolPaths, "unzip");
-                await RunProcessAsync(
+                await RunRestoreProcessWithProgressAsync(
                     unzipPath,
-                    ["-q", preview.ArchivePath, "-d", extractPath],
+                    ["-o", preview.ArchivePath, "-d", extractPath],
+                    progressPlan,
+                    ParseUnzipRestoreOutputPath,
+                    "Restoring zip archive",
                     cancellationToken);
             }
             else
             {
-                progress?.Report("Extracting tar.gz archive into restore workspace...");
+                UpdateRestoreProgress("Extracting tar.gz archive into restore workspace...", 0D, 0, progressPlan.TotalBytes);
                 string tarPath = RequireTool(TarToolPaths, "tar");
-                await RunProcessAsync(
+                await RunRestoreProcessWithProgressAsync(
                     tarPath,
-                    ["--no-same-owner", "--no-same-permissions", "-xzf", preview.ArchivePath, "-C", extractPath],
+                    ["--no-same-owner", "--no-same-permissions", "-xvzf", preview.ArchivePath, "-C", extractPath],
+                    progressPlan,
+                    ParseTarArchiveOutputPath,
+                    "Restoring tar.gz archive",
                     cancellationToken);
             }
 
-            progress?.Report("Resolving restored server folder...");
+            UpdateRestoreProgress("Resolving restored server folder...", 100D, progressPlan.TotalBytes, progressPlan.TotalBytes);
             string sourcePath = ResolveRestoredServerSourcePath(extractPath);
             Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
 
@@ -420,13 +440,13 @@ public sealed class BackupService(InstallStateService installStateService)
 
             if (Directory.Exists(InstallStateConstants.ServerRootPath))
             {
-                progress?.Report("Moving current /opt/asa/server into backup...");
+                UpdateRestoreProgress("Moving current /opt/asa/server into backup...", 100D, progressPlan.TotalBytes, progressPlan.TotalBytes);
                 Directory.Move(InstallStateConstants.ServerRootPath, previousServerBackupPath);
             }
 
-            progress?.Report("Placing restored files into /opt/asa/server...");
+            UpdateRestoreProgress("Placing restored files into /opt/asa/server...", 100D, progressPlan.TotalBytes, progressPlan.TotalBytes);
             Directory.Move(sourcePath, InstallStateConstants.ServerRootPath);
-            progress?.Report("Restore completed. asa.service was left stopped.");
+            UpdateRestoreProgress("Restore completed. asa.service was left stopped.", 100D, progressPlan.TotalBytes, progressPlan.TotalBytes);
             return Directory.Exists(previousServerBackupPath)
                 ? $"Restore completed. Previous server folder saved at {previousServerBackupPath}. asa.service was left stopped."
                 : "Restore completed. asa.service was left stopped.";
@@ -477,6 +497,8 @@ public sealed class BackupService(InstallStateService installStateService)
         IsCreatingTarGz = false;
         ExportProgressText = message;
         ExportProgressPercent = 0D;
+        ExportProgressCurrentBytes = 0;
+        ExportProgressTotalBytes = null;
         NotifyChanged();
     }
 
@@ -486,6 +508,8 @@ public sealed class BackupService(InstallStateService installStateService)
         IsCreatingTarGz = true;
         ExportProgressText = message;
         ExportProgressPercent = 0D;
+        ExportProgressCurrentBytes = 0;
+        ExportProgressTotalBytes = null;
         NotifyChanged();
     }
 
@@ -502,12 +526,23 @@ public sealed class BackupService(InstallStateService installStateService)
         NotifyChanged();
     }
 
+    private void UpdateExportProgress(string message, double? percent, long? currentBytes, long? totalBytes)
+    {
+        ExportProgressText = message;
+        ExportProgressPercent = percent is null ? null : Math.Clamp(percent.Value, 0D, 100D);
+        ExportProgressCurrentBytes = currentBytes;
+        ExportProgressTotalBytes = totalBytes;
+        NotifyChanged();
+    }
+
     private void FinishExport(string message)
     {
         IsCreatingZip = false;
         IsCreatingTarGz = false;
         ExportProgressText = message;
         ExportProgressPercent = null;
+        ExportProgressCurrentBytes = null;
+        ExportProgressTotalBytes = null;
         RefreshToolState();
         NotifyChanged();
     }
@@ -522,6 +557,8 @@ public sealed class BackupService(InstallStateService installStateService)
         }
 
         ExportProgressPercent = null;
+        ExportProgressCurrentBytes = null;
+        ExportProgressTotalBytes = null;
         RefreshToolState();
         NotifyChanged();
     }
@@ -531,15 +568,21 @@ public sealed class BackupService(InstallStateService installStateService)
         RestoreSelectedFileName = fileName;
         RestorePreview = null;
         IsUploadingRestore = true;
+        IsPreparingRestorePreview = false;
         IsRestoring = false;
         RestoreProgressText = message;
-        RestoreUploadProgressPercent = 0D;
+        RestoreProgressPercent = 0D;
+        RestoreProgressCurrentBytes = 0;
+        RestoreProgressTotalBytes = null;
         NotifyChanged();
     }
 
     private void UpdateRestoreProgress(string message)
     {
         RestoreProgressText = message;
+        RestoreProgressPercent = null;
+        RestoreProgressCurrentBytes = null;
+        RestoreProgressTotalBytes = null;
         NotifyChanged();
     }
 
@@ -547,8 +590,11 @@ public sealed class BackupService(InstallStateService installStateService)
     {
         RestorePreview = preview;
         IsUploadingRestore = false;
+        IsPreparingRestorePreview = false;
         RestoreProgressText = message;
-        RestoreUploadProgressPercent = null;
+        RestoreProgressPercent = null;
+        RestoreProgressCurrentBytes = null;
+        RestoreProgressTotalBytes = null;
         LoadArchives();
         NotifyChanged();
     }
@@ -556,9 +602,12 @@ public sealed class BackupService(InstallStateService installStateService)
     private void StartRestore(string message)
     {
         IsUploadingRestore = false;
+        IsPreparingRestorePreview = false;
         IsRestoring = true;
         RestoreProgressText = message;
-        RestoreUploadProgressPercent = null;
+        RestoreProgressPercent = 0D;
+        RestoreProgressCurrentBytes = 0;
+        RestoreProgressTotalBytes = null;
         NotifyChanged();
     }
 
@@ -566,7 +615,9 @@ public sealed class BackupService(InstallStateService installStateService)
     {
         IsRestoring = false;
         RestoreProgressText = message;
-        RestoreUploadProgressPercent = null;
+        RestoreProgressPercent = null;
+        RestoreProgressCurrentBytes = null;
+        RestoreProgressTotalBytes = null;
         RefreshToolState();
         LoadArchives();
         NotifyChanged();
@@ -575,13 +626,37 @@ public sealed class BackupService(InstallStateService installStateService)
     private void FailRestore(string? message = null)
     {
         IsUploadingRestore = false;
+        IsPreparingRestorePreview = false;
         IsRestoring = false;
         if (!string.IsNullOrWhiteSpace(message))
         {
             RestoreProgressText = message;
         }
 
-        RestoreUploadProgressPercent = null;
+        RestoreProgressPercent = null;
+        RestoreProgressCurrentBytes = null;
+        RestoreProgressTotalBytes = null;
+        NotifyChanged();
+    }
+
+    private void StartRestoreValidation(string message)
+    {
+        IsUploadingRestore = false;
+        IsPreparingRestorePreview = true;
+        IsRestoring = false;
+        RestoreProgressText = message;
+        RestoreProgressPercent = null;
+        RestoreProgressCurrentBytes = null;
+        RestoreProgressTotalBytes = null;
+        NotifyChanged();
+    }
+
+    private void UpdateRestoreProgress(string message, double? percent, long? currentBytes, long? totalBytes)
+    {
+        RestoreProgressText = message;
+        RestoreProgressPercent = percent is null ? null : Math.Clamp(percent.Value, 0D, 100D);
+        RestoreProgressCurrentBytes = currentBytes;
+        RestoreProgressTotalBytes = totalBytes;
         NotifyChanged();
     }
 
@@ -916,7 +991,96 @@ public sealed class BackupService(InstallStateService installStateService)
 
             UpdateExportProgress(
                 $"{operationLabel}... {processedFiles}/{progressPlan.TotalFiles} files",
-                percent);
+                percent,
+                processedBytes,
+                progressPlan.TotalBytes);
+        }
+
+        await process.WaitForExitAsync(cancellationToken);
+
+        if (process.ExitCode != 0)
+        {
+            string error = await standardErrorTask;
+            throw new InvalidOperationException(string.IsNullOrWhiteSpace(error) ? "Archive command failed." : error.Trim());
+        }
+    }
+
+    private async Task RunRestoreProcessWithProgressAsync(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        ArchiveProgressPlan progressPlan,
+        Func<string, string?> parseEntryPath,
+        string operationLabel,
+        CancellationToken cancellationToken)
+    {
+        using Process process = new()
+        {
+            StartInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
+
+        foreach (string argument in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(argument);
+        }
+
+        using CancellationTokenRegistration registration = cancellationToken.Register(() =>
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch
+            {
+            }
+        });
+
+        process.Start();
+        Task<string> standardErrorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
+        HashSet<string> processedEntries = new(StringComparer.Ordinal);
+        long processedBytes = 0;
+        int processedFiles = 0;
+
+        while (true)
+        {
+            string? line = await process.StandardOutput.ReadLineAsync().WaitAsync(cancellationToken);
+            if (line is null)
+            {
+                break;
+            }
+
+            string? archiveEntryPath = parseEntryPath(line);
+            if (string.IsNullOrWhiteSpace(archiveEntryPath) ||
+                !progressPlan.FileSizes.TryGetValue(archiveEntryPath, out long sizeBytes) ||
+                !processedEntries.Add(archiveEntryPath))
+            {
+                continue;
+            }
+
+            processedBytes += sizeBytes;
+            processedFiles++;
+
+            double percent = CalculateArchiveProgressPercent(
+                processedBytes,
+                progressPlan.TotalBytes,
+                processedFiles,
+                progressPlan.TotalFiles);
+
+            UpdateRestoreProgress(
+                $"{operationLabel}... {processedFiles}/{progressPlan.TotalFiles} files",
+                percent,
+                processedBytes,
+                progressPlan.TotalBytes);
         }
 
         await process.WaitForExitAsync(cancellationToken);
@@ -1024,9 +1188,11 @@ public sealed class BackupService(InstallStateService installStateService)
             if (totalBytes > 0)
             {
                 double percent = Math.Clamp((double)uploadedBytes / totalBytes * 100D, 0D, 100D);
-                RestoreUploadProgressPercent = percent;
-                RestoreProgressText = $"Uploading {RestoreSelectedFileName}... {uploadedBytes / 1024D / 1024D:0.#} MB / {totalBytes / 1024D / 1024D:0.#} MB";
-                NotifyChanged();
+                UpdateRestoreProgress(
+                    $"Uploading {RestoreSelectedFileName}...",
+                    percent,
+                    uploadedBytes,
+                    totalBytes);
             }
         }
     }
@@ -1074,6 +1240,23 @@ public sealed class BackupService(InstallStateService installStateService)
         return NormalizeArchiveOutputPath(trimmedLine);
     }
 
+    private static string? ParseUnzipRestoreOutputPath(string line)
+    {
+        string trimmedLine = line.Trim();
+        string[] prefixes = ["inflating: ", "extracting: ", "  inflating: ", "  extracting: "];
+
+        foreach (string prefix in prefixes)
+        {
+            if (trimmedLine.StartsWith(prefix.TrimStart(), StringComparison.Ordinal))
+            {
+                string value = trimmedLine[prefix.TrimStart().Length..];
+                return NormalizeArchiveOutputPath(value);
+            }
+        }
+
+        return null;
+    }
+
     private static string? ParseTarArchiveOutputPath(string line)
     {
         return NormalizeArchiveOutputPath(line);
@@ -1088,6 +1271,90 @@ public sealed class BackupService(InstallStateService installStateService)
         }
 
         return string.IsNullOrWhiteSpace(normalizedPath) ? null : normalizedPath;
+    }
+
+    private static async Task<ArchiveProgressPlan> BuildRestoreProgressPlanAsync(
+        string format,
+        string archivePath,
+        CancellationToken cancellationToken)
+    {
+        return format switch
+        {
+            ZipFormat => BuildZipRestoreProgressPlan(archivePath),
+            TarGzFormat => await BuildTarRestoreProgressPlanAsync(archivePath, cancellationToken),
+            _ => throw new InvalidOperationException("Unsupported backup format.")
+        };
+    }
+
+    private static ArchiveProgressPlan BuildZipRestoreProgressPlan(string archivePath)
+    {
+        Dictionary<string, long> fileSizes = new(StringComparer.Ordinal);
+        long totalBytes = 0;
+
+        using ZipArchive archive = ZipFile.OpenRead(archivePath);
+        foreach (ZipArchiveEntry entry in archive.Entries)
+        {
+            string entryPath = NormalizeArchiveOutputPath(entry.FullName) ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(entryPath) || entry.FullName.EndsWith("/", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            fileSizes[entryPath] = entry.Length;
+            totalBytes += entry.Length;
+        }
+
+        return new ArchiveProgressPlan(fileSizes, totalBytes, fileSizes.Count);
+    }
+
+    private static async Task<ArchiveProgressPlan> BuildTarRestoreProgressPlanAsync(string archivePath, CancellationToken cancellationToken)
+    {
+        string tarPath = RequireTool(TarToolPaths, "tar");
+        string output = await RunProcessForOutputAsync(tarPath, ["-tvzf", archivePath], cancellationToken);
+        Dictionary<string, long> fileSizes = new(StringComparer.Ordinal);
+        long totalBytes = 0;
+
+        foreach (string line in output.Replace("\r\n", "\n", StringComparison.Ordinal)
+                     .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!TryParseTarListLine(line, out string? entryPath, out long sizeBytes) ||
+                string.IsNullOrWhiteSpace(entryPath))
+            {
+                continue;
+            }
+
+            fileSizes[entryPath] = sizeBytes;
+            totalBytes += sizeBytes;
+        }
+
+        return new ArchiveProgressPlan(fileSizes, totalBytes, fileSizes.Count);
+    }
+
+    private static bool TryParseTarListLine(string line, out string? entryPath, out long sizeBytes)
+    {
+        entryPath = null;
+        sizeBytes = 0;
+
+        string[] parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length < 6 || parts[0].StartsWith('d'))
+        {
+            return false;
+        }
+
+        if (!long.TryParse(parts[2], out sizeBytes))
+        {
+            return false;
+        }
+
+        string rawPath = string.Join(' ', parts.Skip(5));
+        int symlinkIndex = rawPath.IndexOf(" -> ", StringComparison.Ordinal);
+        if (symlinkIndex >= 0)
+        {
+            rawPath = rawPath[..symlinkIndex];
+        }
+
+        entryPath = NormalizeArchiveOutputPath(rawPath);
+        return !string.IsNullOrWhiteSpace(entryPath);
     }
 
     private sealed record ArchiveProgressPlan(

@@ -3,6 +3,7 @@
 @inject asa_server_node_api.Services.AuthService AuthService
 @inject asa_server_node_api.Services.BackupService BackupService
 @inject NavigationManager NavigationManager
+@using asa_server_node_api.Components.Global
 @using asa_server_node_api.Constants
 @using asa_server_node_api.Models
 @using asa_server_node_api.Models.Auth
@@ -192,26 +193,12 @@
 
                 @if (!string.IsNullOrWhiteSpace(_exportProgressText))
                 {
-                    <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
-                        @if (IsCreatingArchive && _exportProgressPercent is double exportProgressPercent)
-                        {
-                            <div class="mb-4">
-                                <div class="mb-2 flex items-center justify-between text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">
-                                    <span>Compression</span>
-                                    <span>@($"{Math.Round(exportProgressPercent)}%")</span>
-                                </div>
-
-                                <div class="h-2.5 w-full overflow-hidden rounded-full border border-cyan-300/20 bg-black/40 shadow-[inset_0_0_25px_rgba(34,211,238,0.08)]">
-                                    <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 via-cyan-300 to-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.35)] transition-[width] duration-300 ease-out"
-                                         style="@($"width: {exportProgressPercent:0.#}%;")"></div>
-                                </div>
-                            </div>
-                        }
-
-                        <div class="flex items-start gap-3">
-                            <p class="text-sm leading-6 text-cyan-100">@_exportProgressText</p>
-                        </div>
-                    </div>
+                    <ProgressStatus Title="Compression"
+                                    IsBusy="@IsCreatingArchive"
+                                    StatusText="@_exportProgressText"
+                                    Percent="@_exportProgressPercent"
+                                    CurrentBytes="@_exportProgressCurrentBytes"
+                                    TotalBytes="@_exportProgressTotalBytes" />
                 }
 
                 @if (_zipArchive is not null || _tarGzArchive is not null)
@@ -294,45 +281,18 @@
                     <div class="mt-5 flex flex-col gap-4">
                         <InputFile OnChange="HandleRestoreArchiveSelected"
                                    accept=".zip,.tar.gz,.tgz,application/zip,application/gzip"
-                                   disabled="@(_isUploadingRestore || _isRestoring)"
+                                   disabled="@(_isUploadingRestore || _isPreparingRestorePreview || _isRestoring)"
                                    class="block w-full rounded-[1rem] border border-white/10 bg-black/30 p-3 text-sm text-neutral-200 file:mr-4 file:rounded-full file:border-0 file:bg-cyan-400/15 file:px-4 file:py-2 file:text-sm file:font-medium file:text-cyan-100 disabled:cursor-not-allowed disabled:opacity-60" />
 
                         @if (!string.IsNullOrWhiteSpace(_restoreSelectedFileName) || !string.IsNullOrWhiteSpace(_restoreProgressText))
                         {
-                            <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
-                                @if (_isUploadingRestore && _restoreUploadProgressPercent is double restoreUploadProgressPercent)
-                                {
-                                    <div class="mb-4">
-                                        <div class="mb-2 flex items-center justify-between text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">
-                                            <span>Upload</span>
-                                            <span>@($"{Math.Round(restoreUploadProgressPercent)}%")</span>
-                                        </div>
-
-                                        <div class="h-2.5 w-full overflow-hidden rounded-full border border-cyan-300/20 bg-black/40 shadow-[inset_0_0_25px_rgba(34,211,238,0.08)]">
-                                            <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 via-cyan-300 to-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.35)] transition-[width] duration-300 ease-out"
-                                                 style="@($"width: {restoreUploadProgressPercent:0.#}%;")"></div>
-                                        </div>
-                                    </div>
-                                }
-
-                                <div class="flex items-start gap-3">
-                                    @if (_isUploadingRestore || _isRestoring)
-                                    {
-                                        <span class="mt-1 inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-300/25 border-t-cyan-200"></span>
-                                    }
-                                    <div>
-                                        @if (!string.IsNullOrWhiteSpace(_restoreSelectedFileName))
-                                        {
-                                            <p class="text-sm font-semibold text-white">@_restoreSelectedFileName</p>
-                                        }
-
-                                        @if (!string.IsNullOrWhiteSpace(_restoreProgressText))
-                                        {
-                                            <p class="mt-2 text-sm leading-6 text-cyan-100">@_restoreProgressText</p>
-                                        }
-                                    </div>
-                                </div>
-                            </div>
+                            <ProgressStatus Title="@RestoreProgressTitle"
+                                            IsBusy="@IsRestoreProgressBusy"
+                                            FileName="@_restoreSelectedFileName"
+                                            StatusText="@_restoreProgressText"
+                                            Percent="@_restoreProgressPercent"
+                                            CurrentBytes="@_restoreProgressCurrentBytes"
+                                            TotalBytes="@_restoreProgressTotalBytes" />
                         }
 
                         @if (RestorePreview is BackupImportPreview restorePreview)
@@ -446,13 +406,26 @@
     private bool _isCreatingTarGz => BackupService.IsCreatingTarGz;
     private BackupImportPreview? RestorePreview => BackupService.RestorePreview;
     private bool _isUploadingRestore => BackupService.IsUploadingRestore;
+    private bool _isPreparingRestorePreview => BackupService.IsPreparingRestorePreview;
     private bool _isRestoring => BackupService.IsRestoring;
     private string? _exportProgressText => BackupService.ExportProgressText;
     private double? _exportProgressPercent => BackupService.ExportProgressPercent;
+    private long? _exportProgressCurrentBytes => BackupService.ExportProgressCurrentBytes;
+    private long? _exportProgressTotalBytes => BackupService.ExportProgressTotalBytes;
     private string? _restoreSelectedFileName => BackupService.RestoreSelectedFileName;
     private string? _restoreProgressText => BackupService.RestoreProgressText;
-    private double? _restoreUploadProgressPercent => BackupService.RestoreUploadProgressPercent;
+    private double? _restoreProgressPercent => BackupService.RestoreProgressPercent;
+    private long? _restoreProgressCurrentBytes => BackupService.RestoreProgressCurrentBytes;
+    private long? _restoreProgressTotalBytes => BackupService.RestoreProgressTotalBytes;
     private bool IsCreatingArchive => BackupService.IsCreatingZip || BackupService.IsCreatingTarGz;
+    private bool IsRestoreProgressBusy => _isUploadingRestore || _isPreparingRestorePreview || _isRestoring;
+    private string RestoreProgressTitle => _isUploadingRestore
+        ? "Upload"
+        : _isPreparingRestorePreview
+            ? "Validation"
+            : _isRestoring
+                ? "Restore"
+                : "Restore";
     private string ImportStatusText => (_hasZipTools, _hasTarTools) switch
     {
         (true, true) => "Ready",
