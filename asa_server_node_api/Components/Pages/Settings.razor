@@ -190,11 +190,22 @@
                 @if (!string.IsNullOrWhiteSpace(_exportProgressText))
                 {
                     <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
+                        @if (IsCreatingArchive && _exportProgressPercent is double exportProgressPercent)
+                        {
+                            <div class="mb-4">
+                                <div class="mb-2 flex items-center justify-between text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">
+                                    <span>Compression</span>
+                                    <span>@($"{Math.Round(exportProgressPercent)}%")</span>
+                                </div>
+
+                                <div class="h-2.5 w-full overflow-hidden rounded-full border border-cyan-300/20 bg-black/40 shadow-[inset_0_0_25px_rgba(34,211,238,0.08)]">
+                                    <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 via-cyan-300 to-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.35)] transition-[width] duration-300 ease-out"
+                                         style="@($"width: {exportProgressPercent:0.#}%;")"></div>
+                                </div>
+                            </div>
+                        }
+
                         <div class="flex items-start gap-3">
-                            @if (IsCreatingArchive)
-                            {
-                                <span class="mt-1 inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-300/25 border-t-cyan-200"></span>
-                            }
                             <p class="text-sm leading-6 text-cyan-100">@_exportProgressText</p>
                         </div>
                     </div>
@@ -391,6 +402,7 @@
     private bool _isUploadingRestore => BackupService.IsUploadingRestore;
     private bool _isRestoring => BackupService.IsRestoring;
     private string? _exportProgressText => BackupService.ExportProgressText;
+    private double? _exportProgressPercent => BackupService.ExportProgressPercent;
     private string? _restoreSelectedFileName => BackupService.RestoreSelectedFileName;
     private string? _restoreProgressText => BackupService.RestoreProgressText;
     private bool IsCreatingArchive => BackupService.IsCreatingZip || BackupService.IsCreatingTarGz;
