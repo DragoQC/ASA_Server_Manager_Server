@@ -30,6 +30,7 @@ public sealed class BackupService(InstallStateService installStateService)
     public double? ExportProgressPercent { get; private set; }
     public string? RestoreSelectedFileName { get; private set; }
     public string? RestoreProgressText { get; private set; }
+    public double? RestoreUploadProgressPercent { get; private set; }
     public BackupImportPreview? RestorePreview { get; private set; }
 
     public Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -126,13 +127,17 @@ public sealed class BackupService(InstallStateService installStateService)
         return false;
     }
 
-    public async Task<BackupImportPreview> UploadRestoreArchiveAsync(string fileName, Stream stream, CancellationToken cancellationToken = default)
+    public async Task<BackupImportPreview> UploadRestoreArchiveAsync(
+        string fileName,
+        long totalBytes,
+        Stream stream,
+        CancellationToken cancellationToken = default)
     {
         StartRestoreUpload(fileName, $"Selected {fileName}. Preparing upload...");
         try
         {
             Progress<string> progress = new(UpdateRestoreProgress);
-            RestorePreview = await SaveImportArchiveAsync(fileName, stream, progress, cancellationToken);
+            RestorePreview = await SaveImportArchiveAsync(fileName, totalBytes, stream, progress, cancellationToken);
             SetRestorePreview(RestorePreview, $"Preview ready for {fileName}. Next: review entries, then click Restore archive.");
             return RestorePreview;
         }
@@ -188,6 +193,32 @@ public sealed class BackupService(InstallStateService installStateService)
         LoadArchives();
         NotifyChanged();
         return Task.CompletedTask;
+    }
+
+    public async Task<BackupImportPreview> LoadRestorePreviewFromLatestArchiveAsync(
+        string format,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        BackupArchiveInfo? archive = GetLatestArchive(format);
+        if (archive is null || !File.Exists(archive.FilePath))
+        {
+            throw new InvalidOperationException($"No latest {format} backup is available.");
+        }
+
+        RestoreSelectedFileName = archive.FileName;
+        RestorePreview = null;
+        IsUploadingRestore = false;
+        IsRestoring = false;
+        RestoreUploadProgressPercent = null;
+        RestoreProgressText = $"Reading {archive.FileName} and building restore preview...";
+        NotifyChanged();
+
+        Progress<string> progress = new(UpdateRestoreProgress);
+        RestorePreview = await CreateImportPreviewAsync(archive.FilePath, archive.Format, progress, cancellationToken);
+        SetRestorePreview(RestorePreview, $"Preview ready for {archive.FileName}. Next: review entries, then click Restore archive.");
+        return RestorePreview;
     }
 
     private bool DetectHasZipTools() =>
@@ -278,17 +309,17 @@ public sealed class BackupService(InstallStateService installStateService)
 
     public async Task<BackupImportPreview> SaveImportArchiveAsync(
         string fileName,
+        long totalBytes,
         Stream stream,
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
         string format = GetFormat(fileName);
         RequireFormatTool(format);
-        Directory.CreateDirectory(InstallStateConstants.BackupImportRootPath);
+        Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
+        DeleteExistingArchives(format);
 
-        string archivePath = Path.Combine(
-            InstallStateConstants.BackupImportRootPath,
-            $"{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{SanitizeFileName(fileName)}");
+        string archivePath = BuildArchivePath(format);
 
         progress?.Report($"Uploading {fileName} to the node...");
         await using (FileStream fileStream = new(
@@ -297,7 +328,7 @@ public sealed class BackupService(InstallStateService installStateService)
                          FileAccess.Write,
                          FileShare.None))
         {
-            await stream.CopyToAsync(fileStream, cancellationToken);
+            await CopyStreamWithProgressAsync(stream, fileStream, totalBytes, cancellationToken);
         }
 
         progress?.Report($"Upload finished. Reading {fileName} and building restore preview...");
@@ -502,6 +533,7 @@ public sealed class BackupService(InstallStateService installStateService)
         IsUploadingRestore = true;
         IsRestoring = false;
         RestoreProgressText = message;
+        RestoreUploadProgressPercent = 0D;
         NotifyChanged();
     }
 
@@ -516,6 +548,8 @@ public sealed class BackupService(InstallStateService installStateService)
         RestorePreview = preview;
         IsUploadingRestore = false;
         RestoreProgressText = message;
+        RestoreUploadProgressPercent = null;
+        LoadArchives();
         NotifyChanged();
     }
 
@@ -524,6 +558,7 @@ public sealed class BackupService(InstallStateService installStateService)
         IsUploadingRestore = false;
         IsRestoring = true;
         RestoreProgressText = message;
+        RestoreUploadProgressPercent = null;
         NotifyChanged();
     }
 
@@ -531,6 +566,7 @@ public sealed class BackupService(InstallStateService installStateService)
     {
         IsRestoring = false;
         RestoreProgressText = message;
+        RestoreUploadProgressPercent = null;
         RefreshToolState();
         LoadArchives();
         NotifyChanged();
@@ -545,6 +581,7 @@ public sealed class BackupService(InstallStateService installStateService)
             RestoreProgressText = message;
         }
 
+        RestoreUploadProgressPercent = null;
         NotifyChanged();
     }
 
@@ -962,6 +999,36 @@ public sealed class BackupService(InstallStateService installStateService)
         }
 
         return output;
+    }
+
+    private async Task CopyStreamWithProgressAsync(
+        Stream source,
+        Stream destination,
+        long totalBytes,
+        CancellationToken cancellationToken)
+    {
+        byte[] buffer = new byte[1024 * 128];
+        long uploadedBytes = 0;
+
+        while (true)
+        {
+            int bytesRead = await source.ReadAsync(buffer, cancellationToken);
+            if (bytesRead <= 0)
+            {
+                break;
+            }
+
+            await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+            uploadedBytes += bytesRead;
+
+            if (totalBytes > 0)
+            {
+                double percent = Math.Clamp((double)uploadedBytes / totalBytes * 100D, 0D, 100D);
+                RestoreUploadProgressPercent = percent;
+                RestoreProgressText = $"Uploading {RestoreSelectedFileName}... {uploadedBytes / 1024D / 1024D:0.#} MB / {totalBytes / 1024D / 1024D:0.#} MB";
+                NotifyChanged();
+            }
+        }
     }
 
     private static double CalculateArchiveProgressPercent(long processedBytes, long totalBytes, int processedFiles, int totalFiles)

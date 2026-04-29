@@ -147,6 +147,9 @@
                     <p class="mt-3 text-sm leading-6 text-neutral-300">
                         Create an archive of <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/server</code>. Export stops <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.service</code>, waits until it is stopped, then saves the archive in <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/backup</code>.
                     </p>
+                    <p class="mt-3 text-sm leading-6 text-neutral-400">
+                        The latest backup slot works the same whether the archive was created here or uploaded below. Once it is in the slot, you can download it, delete it, or load it into restore preview.
+                    </p>
                 </div>
 
                 <div class="flex flex-wrap gap-3">
@@ -214,7 +217,7 @@
                 @if (_zipArchive is not null || _tarGzArchive is not null)
                 {
                     <div class="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
-                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Ready downloads</p>
+                        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">Latest backups</p>
 
                         <div class="mt-4 space-y-4">
                             @if (_zipArchive is not null)
@@ -226,6 +229,12 @@
                                     </div>
 
                                     <div class="flex flex-wrap gap-3">
+                                        <button type="button"
+                                                @onclick="LoadLatestZipRestorePreviewAsync"
+                                                class="inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-5 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20">
+                                            Use for restore
+                                        </button>
+
                                         <a href="/admin/settings/export/download/zip"
                                            class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
                                             Download zip
@@ -249,6 +258,12 @@
                                     </div>
 
                                     <div class="flex flex-wrap gap-3">
+                                        <button type="button"
+                                                @onclick="LoadLatestTarGzRestorePreviewAsync"
+                                                class="inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-5 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20">
+                                            Use for restore
+                                        </button>
+
                                         <a href="/admin/settings/export/download/tar.gz"
                                            class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
                                             Download tar.gz
@@ -285,6 +300,21 @@
                         @if (!string.IsNullOrWhiteSpace(_restoreSelectedFileName) || !string.IsNullOrWhiteSpace(_restoreProgressText))
                         {
                             <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
+                                @if (_isUploadingRestore && _restoreUploadProgressPercent is double restoreUploadProgressPercent)
+                                {
+                                    <div class="mb-4">
+                                        <div class="mb-2 flex items-center justify-between text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-cyan-300">
+                                            <span>Upload</span>
+                                            <span>@($"{Math.Round(restoreUploadProgressPercent)}%")</span>
+                                        </div>
+
+                                        <div class="h-2.5 w-full overflow-hidden rounded-full border border-cyan-300/20 bg-black/40 shadow-[inset_0_0_25px_rgba(34,211,238,0.08)]">
+                                            <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 via-cyan-300 to-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.35)] transition-[width] duration-300 ease-out"
+                                                 style="@($"width: {restoreUploadProgressPercent:0.#}%;")"></div>
+                                        </div>
+                                    </div>
+                                }
+
                                 <div class="flex items-start gap-3">
                                     @if (_isUploadingRestore || _isRestoring)
                                     {
@@ -421,6 +451,7 @@
     private double? _exportProgressPercent => BackupService.ExportProgressPercent;
     private string? _restoreSelectedFileName => BackupService.RestoreSelectedFileName;
     private string? _restoreProgressText => BackupService.RestoreProgressText;
+    private double? _restoreUploadProgressPercent => BackupService.RestoreUploadProgressPercent;
     private bool IsCreatingArchive => BackupService.IsCreatingZip || BackupService.IsCreatingTarGz;
     private string ImportStatusText => (_hasZipTools, _hasTarTools) switch
     {
@@ -543,6 +574,38 @@
         }
     }
 
+    private async Task LoadLatestZipRestorePreviewAsync()
+    {
+        _message = null;
+        _error = null;
+
+        try
+        {
+            await BackupService.LoadRestorePreviewFromLatestArchiveAsync("zip");
+            _message = "Zip backup loaded into restore preview.";
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+    }
+
+    private async Task LoadLatestTarGzRestorePreviewAsync()
+    {
+        _message = null;
+        _error = null;
+
+        try
+        {
+            await BackupService.LoadRestorePreviewFromLatestArchiveAsync("tar.gz");
+            _message = "Tar.gz backup loaded into restore preview.";
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+    }
+
     private void OpenZipToolsDialog()
     {
         _showZipToolsDialog = true;
@@ -624,7 +687,7 @@
             }
 
             await using Stream stream = file.OpenReadStream(MaxRestoreUploadBytes);
-            await BackupService.UploadRestoreArchiveAsync(file.Name, stream);
+            await BackupService.UploadRestoreArchiveAsync(file.Name, file.Size, stream);
             _message = "Archive uploaded. Review the restore preview before continuing.";
         }
         catch (Exception exception)
