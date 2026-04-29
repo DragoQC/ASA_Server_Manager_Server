@@ -13,13 +13,15 @@ public sealed class InstallStateService(
     ILogger<InstallStateService> logger,
     ProtonInstallService protonInstallService,
     ServerConfigService serverConfigService,
-    AdminInstallStateHubService adminInstallStateHubService)
+    AdminInstallStateHubService adminInstallStateHubService,
+    ToastService toastService)
 {
     private readonly IWebHostEnvironment _environment = environment;
     private readonly ILogger<InstallStateService> _logger = logger;
     private readonly ProtonInstallService _protonInstallService = protonInstallService;
     private readonly ServerConfigService _serverConfigService = serverConfigService;
     private readonly AdminInstallStateHubService _adminInstallStateHubService = adminInstallStateHubService;
+    private readonly ToastService _toastService = toastService;
 
     public async Task<InstallWorkspaceSnapshot> LoadAsync(CancellationToken cancellationToken = default)
     {
@@ -74,6 +76,7 @@ public sealed class InstallStateService(
 
     public async Task<InstallAllResponse> InstallAllAsync(CancellationToken cancellationToken = default)
     {
+        _toastService.ShowInfo("Install all started.", "Install");
         await _adminInstallStateHubService.BroadcastProgressAsync(
             new InstallProgressSnapshot(
                 Operation: "install-all",
@@ -87,13 +90,17 @@ public sealed class InstallStateService(
         {
             InstallWorkspaceSnapshot snapshot = await LoadAsync(cancellationToken);
 
+            _toastService.ShowInfo("Installing Proton...", "Install");
             string protonMessage = await _protonInstallService.UpdateAsync(null, cancellationToken);
+            _toastService.ShowSuccess("Proton install finished.", "Install");
             await _adminInstallStateHubService.BroadcastProgressAsync(
                 new InstallProgressSnapshot("install-all", "proton", "Completed", protonMessage, DateTimeOffset.UtcNow),
                 cancellationToken);
             await _adminInstallStateHubService.BroadcastWorkspaceAsync(cancellationToken);
 
+            _toastService.ShowInfo("Installing SteamCMD...", "Install");
             string steamMessage = await InstallSteamAsync(cancellationToken);
+            _toastService.ShowSuccess("SteamCMD install finished.", "Install");
             await _adminInstallStateHubService.BroadcastProgressAsync(
                 new InstallProgressSnapshot("install-all", "steamcmd", "Completed", steamMessage, DateTimeOffset.UtcNow),
                 cancellationToken);
@@ -105,13 +112,17 @@ public sealed class InstallStateService(
                 cancellationToken);
             await _adminInstallStateHubService.BroadcastWorkspaceAsync(cancellationToken);
 
+            _toastService.ShowInfo("Installing asa.service...", "Install");
             await SaveServiceFileAsync(snapshot.ServiceFile.Content, cancellationToken);
+            _toastService.ShowSuccess("asa.service install finished.", "Install");
             await _adminInstallStateHubService.BroadcastProgressAsync(
                 new InstallProgressSnapshot("install-all", "service-file", "Completed", "Service file applied.", DateTimeOffset.UtcNow),
                 cancellationToken);
             await _adminInstallStateHubService.BroadcastWorkspaceAsync(cancellationToken);
 
+            _toastService.ShowInfo("Installing server config...", "Install");
             ServerConfigSettings serverConfig = await _serverConfigService.EnsureExistsAsync(cancellationToken);
+            _toastService.ShowSuccess("Server config install finished.", "Install");
             await _adminInstallStateHubService.BroadcastProgressAsync(
                 new InstallProgressSnapshot("install-all", "server-config", "Completed", "Default server config ensured.", DateTimeOffset.UtcNow),
                 cancellationToken);
@@ -120,6 +131,7 @@ public sealed class InstallStateService(
             await _adminInstallStateHubService.BroadcastProgressAsync(
                 new InstallProgressSnapshot("install-all", "completed", "Completed", "Install all finished.", DateTimeOffset.UtcNow),
                 cancellationToken);
+            _toastService.ShowSuccess("Install all finished.", "Install");
 
             return new InstallAllResponse(
                 ProtonMessage: protonMessage,
