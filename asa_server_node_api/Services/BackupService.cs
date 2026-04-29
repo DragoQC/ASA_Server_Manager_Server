@@ -175,6 +175,21 @@ public sealed class BackupService(InstallStateService installStateService)
         UpdateRestoreProgress($"Ready to restore {RestorePreview.FileName}. Next: confirm restore to replace /opt/asa/server.");
     }
 
+    public Task DeleteLatestArchiveAsync(string format, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        BackupArchiveInfo? archive = GetLatestArchive(format);
+        if (archive is not null && File.Exists(archive.FilePath))
+        {
+            File.Delete(archive.FilePath);
+        }
+
+        LoadArchives();
+        NotifyChanged();
+        return Task.CompletedTask;
+    }
+
     private bool DetectHasZipTools() =>
         ResolveToolPath(ZipToolPaths) is not null &&
         ResolveToolPath(UnzipToolPaths) is not null;

@@ -225,10 +225,18 @@
                                         <p class="mt-1 text-xs leading-5 text-neutral-400">@_zipArchive.FilePath · @_zipArchive.SizeText</p>
                                     </div>
 
-                                    <a href="/admin/settings/export/download/zip"
-                                       class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
-                                        Download zip
-                                    </a>
+                                    <div class="flex flex-wrap gap-3">
+                                        <a href="/admin/settings/export/download/zip"
+                                           class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                                            Download zip
+                                        </a>
+
+                                        <button type="button"
+                                                @onclick="DeleteLatestZipArchiveAsync"
+                                                class="inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20">
+                                            Delete zip
+                                        </button>
+                                    </div>
                                 </div>
                             }
 
@@ -240,10 +248,18 @@
                                         <p class="mt-1 text-xs leading-5 text-neutral-400">@_tarGzArchive.FilePath · @_tarGzArchive.SizeText</p>
                                     </div>
 
-                                    <a href="/admin/settings/export/download/tar.gz"
-                                       class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
-                                        Download tar.gz
-                                    </a>
+                                    <div class="flex flex-wrap gap-3">
+                                        <a href="/admin/settings/export/download/tar.gz"
+                                           class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25">
+                                            Download tar.gz
+                                        </a>
+
+                                        <button type="button"
+                                                @onclick="DeleteLatestTarGzArchiveAsync"
+                                                class="inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20">
+                                            Delete tar.gz
+                                        </button>
+                                    </div>
                                 </div>
                             }
                         </div>
@@ -488,6 +504,38 @@
         {
             BackupArchiveInfo archive = await BackupService.CreateTarGzArchiveAsync();
             _message = $"Tar.gz archive saved at {archive.FilePath}. Download is ready.";
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+    }
+
+    private async Task DeleteLatestZipArchiveAsync()
+    {
+        _message = null;
+        _error = null;
+
+        try
+        {
+            await BackupService.DeleteLatestArchiveAsync("zip");
+            _message = "Latest zip backup deleted.";
+        }
+        catch (Exception exception)
+        {
+            _error = exception.Message;
+        }
+    }
+
+    private async Task DeleteLatestTarGzArchiveAsync()
+    {
+        _message = null;
+        _error = null;
+
+        try
+        {
+            await BackupService.DeleteLatestArchiveAsync("tar.gz");
+            _message = "Latest tar.gz backup deleted.";
         }
         catch (Exception exception)
         {
