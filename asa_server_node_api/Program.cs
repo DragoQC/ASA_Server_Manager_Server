@@ -79,7 +79,7 @@ builder.Services.AddScoped<ConsoleLogService>();
 builder.Services.AddScoped<LogsService>();
 builder.Services.AddScoped<ManagerService>();
 builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<BackupExportService>();
+builder.Services.AddScoped<BackupService>();
 builder.Services.AddScoped<ClusterClientInstallService>();
 builder.Services.AddScoped<GameConfigService>();
 builder.Services.AddScoped<InstallStateService>();
@@ -140,9 +140,9 @@ app.MapPost("/auth/logout",
     .DisableAntiforgery();
 
 app.MapGet("/admin/settings/export/download/{format}",
-    (string format, BackupExportService backupExportService) =>
+    (string format, BackupService backupService) =>
     {
-        asa_server_node_api.Models.BackupArchiveInfo? archive = backupExportService.GetLatestArchive(format);
+        asa_server_node_api.Models.BackupArchiveInfo? archive = backupService.GetLatestArchive(format);
         if (archive is null)
         {
             return Results.NotFound();

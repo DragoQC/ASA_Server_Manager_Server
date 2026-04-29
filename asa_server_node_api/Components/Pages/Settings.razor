@@ -1,6 +1,7 @@
 @page "/admin/settings"
+@implements IDisposable
 @inject asa_server_node_api.Services.AuthService AuthService
-@inject asa_server_node_api.Services.BackupExportService BackupExportService
+@inject asa_server_node_api.Services.BackupService BackupService
 @inject NavigationManager NavigationManager
 @using asa_server_node_api.Constants
 @using asa_server_node_api.Models
@@ -271,7 +272,7 @@
                             </div>
                         }
 
-                        @if (_restorePreview is BackupImportPreview restorePreview)
+                        @if (RestorePreview is BackupImportPreview restorePreview)
                         {
                             <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -284,7 +285,7 @@
 
                                     <button type="button"
                                             @onclick="OpenRestoreDialog"
-                                            disabled="@(_isRestoring || _restorePreview is null)"
+                                            disabled="@(_isRestoring || RestorePreview is null)"
                                             class="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                                         @if (_isRestoring)
                                         {
@@ -353,11 +354,11 @@
             Restore will stop <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.service</code>, move the current <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/server</code> folder into <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/backup</code>, then restore the uploaded archive to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/server</code>.
         </p>
 
-        @if (_restorePreview is not null)
+        @if (RestorePreview is not null)
         {
             <div class="rounded-[1rem] border border-white/10 bg-black/30 p-4">
-                <p class="font-mono text-cyan-100">@_restorePreview.FileName</p>
-                <p class="mt-1 text-xs text-neutral-400">@_restorePreview.EntryCount entries -> @_restorePreview.RestorePath</p>
+                <p class="font-mono text-cyan-100">@RestorePreview.FileName</p>
+                <p class="mt-1 text-xs text-neutral-400">@RestorePreview.EntryCount entries -> @RestorePreview.RestorePath</p>
             </div>
         }
     </div>
@@ -369,24 +370,24 @@
     private string? _error;
     private string? _appApiKey;
     private IReadOnlyList<StoredApiKey> _apiKeys = Array.Empty<StoredApiKey>();
-    private BackupArchiveInfo? _zipArchive;
-    private BackupArchiveInfo? _tarGzArchive;
-    private bool _isCreatingZip;
-    private bool _isCreatingTarGz;
-    private bool _hasZipTools;
-    private bool _hasTarTools;
     private bool _showZipToolsDialog;
     private bool _isInstallingZipTools;
     private bool _showTarToolsDialog;
     private bool _isInstallingTarTools;
-    private BackupImportPreview? _restorePreview;
-    private bool _isUploadingRestore;
     private bool _showRestoreDialog;
-    private bool _isRestoring;
-    private string? _exportProgressText;
-    private string? _restoreSelectedFileName;
-    private string? _restoreProgressText;
-    private bool IsCreatingArchive => _isCreatingZip || _isCreatingTarGz;
+    private BackupArchiveInfo? _zipArchive => BackupService.ZipArchive;
+    private BackupArchiveInfo? _tarGzArchive => BackupService.TarGzArchive;
+    private bool _hasZipTools => BackupService.HasZipTools;
+    private bool _hasTarTools => BackupService.HasTarTools;
+    private bool _isCreatingZip => BackupService.IsCreatingZip;
+    private bool _isCreatingTarGz => BackupService.IsCreatingTarGz;
+    private BackupImportPreview? RestorePreview => BackupService.RestorePreview;
+    private bool _isUploadingRestore => BackupService.IsUploadingRestore;
+    private bool _isRestoring => BackupService.IsRestoring;
+    private string? _exportProgressText => BackupService.ExportProgressText;
+    private string? _restoreSelectedFileName => BackupService.RestoreSelectedFileName;
+    private string? _restoreProgressText => BackupService.RestoreProgressText;
+    private bool IsCreatingArchive => BackupService.IsCreatingZip || BackupService.IsCreatingTarGz;
     private string ImportStatusText => (_hasZipTools, _hasTarTools) switch
     {
         (true, true) => "Ready",
@@ -397,9 +398,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        BackupService.Changed += OnBackupOperationStateChanged;
         await LoadApiKeysAsync();
-        LoadArchives();
-        RefreshBackupToolState();
+        await BackupService.InitializeAsync();
     }
 
     private void OpenResetPasswordPage()
@@ -450,30 +451,14 @@
     {
         _message = null;
         _error = null;
-        _isCreatingZip = true;
-
         try
         {
-            _exportProgressText = "Starting zip backup...";
-            await InvokeAsync(StateHasChanged);
-            await Task.Yield();
-
-            Progress<string> progress = new(message =>
-            {
-                _exportProgressText = message;
-                _ = InvokeAsync(StateHasChanged);
-            });
-
-            _zipArchive = await BackupExportService.CreateZipArchiveAsync(progress);
-            _message = $"Zip archive saved at {_zipArchive.FilePath}. Download is ready.";
+            BackupArchiveInfo archive = await BackupService.CreateZipArchiveAsync();
+            _message = $"Zip archive saved at {archive.FilePath}. Download is ready.";
         }
         catch (Exception exception)
         {
             _error = exception.Message;
-        }
-        finally
-        {
-            _isCreatingZip = false;
         }
     }
 
@@ -481,37 +466,15 @@
     {
         _message = null;
         _error = null;
-        _isCreatingTarGz = true;
-
         try
         {
-            _exportProgressText = "Starting tar.gz backup...";
-            await InvokeAsync(StateHasChanged);
-            await Task.Yield();
-
-            Progress<string> progress = new(message =>
-            {
-                _exportProgressText = message;
-                _ = InvokeAsync(StateHasChanged);
-            });
-
-            _tarGzArchive = await BackupExportService.CreateTarGzArchiveAsync(progress);
-            _message = $"Tar.gz archive saved at {_tarGzArchive.FilePath}. Download is ready.";
+            BackupArchiveInfo archive = await BackupService.CreateTarGzArchiveAsync();
+            _message = $"Tar.gz archive saved at {archive.FilePath}. Download is ready.";
         }
         catch (Exception exception)
         {
             _error = exception.Message;
         }
-        finally
-        {
-            _isCreatingTarGz = false;
-        }
-    }
-
-    private void LoadArchives()
-    {
-        _zipArchive = BackupExportService.GetLatestArchive("zip");
-        _tarGzArchive = BackupExportService.GetLatestArchive("tar.gz");
     }
 
     private void OpenZipToolsDialog()
@@ -533,8 +496,7 @@
 
         try
         {
-            _message = await BackupExportService.InstallZipToolsAsync();
-            RefreshBackupToolState();
+            _message = await BackupService.InstallZipToolsAsync();
             _showZipToolsDialog = false;
         }
         catch (Exception exception)
@@ -566,8 +528,7 @@
 
         try
         {
-            _message = await BackupExportService.InstallTarToolsAsync();
-            RefreshBackupToolState();
+            _message = await BackupService.InstallTarToolsAsync();
             _showTarToolsDialog = false;
         }
         catch (Exception exception)
@@ -584,48 +545,33 @@
     {
         _message = null;
         _error = null;
-        _restorePreview = null;
-        _isUploadingRestore = true;
 
         try
         {
             IBrowserFile file = args.File;
-            _restoreSelectedFileName = file.Name;
-            _restoreProgressText = $"Selected {file.Name}. Preparing upload...";
-            await InvokeAsync(StateHasChanged);
-            await Task.Yield();
-
-            if (NeedsMissingRestoreTool(file.Name))
+            if (BackupService.NeedsMissingRestoreTool(file.Name, out string? errorMessage, out bool openZipDialog, out bool openTarDialog))
             {
+                _error = errorMessage;
+                _showZipToolsDialog = openZipDialog;
+                _showTarToolsDialog = openTarDialog;
                 return;
             }
 
-            Progress<string> progress = new(message =>
-            {
-                _restoreProgressText = message;
-                _ = InvokeAsync(StateHasChanged);
-            });
-
             await using Stream stream = file.OpenReadStream(MaxRestoreUploadBytes);
-            _restorePreview = await BackupExportService.SaveImportArchiveAsync(file.Name, stream, progress);
-            _restoreProgressText = $"Preview ready for {file.Name}. Next: review entries, then click Restore archive.";
+            await BackupService.UploadRestoreArchiveAsync(file.Name, stream);
             _message = "Archive uploaded. Review the restore preview before continuing.";
         }
         catch (Exception exception)
         {
             _error = exception.Message;
         }
-        finally
-        {
-            _isUploadingRestore = false;
-        }
     }
 
     private void OpenRestoreDialog()
     {
-        if (_restorePreview is not null)
+        if (RestorePreview is not null)
         {
-            _restoreProgressText = $"Ready to restore {_restorePreview.FileName}. Next: confirm restore to replace /opt/asa/server.";
+            BackupService.MarkRestoreReadyForConfirmation();
             _showRestoreDialog = true;
         }
     }
@@ -638,7 +584,7 @@
 
     private async Task RestoreArchiveAsync()
     {
-        if (_restorePreview is null)
+        if (RestorePreview is null)
         {
             _showRestoreDialog = false;
             return;
@@ -646,57 +592,25 @@
 
         _message = null;
         _error = null;
-        _isRestoring = true;
 
         try
         {
-            _restoreProgressText = "Restore confirmed. Starting restore flow...";
-            await InvokeAsync(StateHasChanged);
-            await Task.Yield();
-
-            Progress<string> progress = new(message =>
-            {
-                _restoreProgressText = message;
-                _ = InvokeAsync(StateHasChanged);
-            });
-
-            _message = await BackupExportService.RestoreImportArchiveAsync(_restorePreview, progress);
+            _message = await BackupService.RestoreArchiveAsync();
             _showRestoreDialog = false;
         }
         catch (Exception exception)
         {
             _error = exception.Message;
         }
-        finally
-        {
-            _isRestoring = false;
-        }
     }
 
-    private bool NeedsMissingRestoreTool(string fileName)
+    private void OnBackupOperationStateChanged()
     {
-        if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && !_hasZipTools)
-        {
-            _error = "Zip tools are required to restore this archive. Click Prepare zip tools first.";
-            _showZipToolsDialog = true;
-            return true;
-        }
-
-        if ((fileName.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase) ||
-             fileName.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase)) &&
-            !_hasTarTools)
-        {
-            _error = "Tar tools are required to restore this archive. Click Prepare tar tools first.";
-            _showTarToolsDialog = true;
-            return true;
-        }
-
-        return false;
+        _ = InvokeAsync(StateHasChanged);
     }
 
-    private void RefreshBackupToolState()
+    public void Dispose()
     {
-        _hasZipTools = BackupExportService.HasZipTools();
-        _hasTarTools = BackupExportService.HasTarTools();
+        BackupService.Changed -= OnBackupOperationStateChanged;
     }
 }

@@ -350,12 +350,18 @@ public sealed class ServerConfigService
 
 	private static string Unquote(string value)
 	{
-		if (value.Length >= 2 && value.StartsWith('"') && value.EndsWith('"'))
-		{
-			return value[1..^1].Replace("\\\"", "\"", StringComparison.Ordinal);
-		}
+        string normalizedValue = value;
+        if (normalizedValue.StartsWith('"'))
+        {
+            normalizedValue = normalizedValue[1..];
+        }
 
-		return value;
+        if (normalizedValue.EndsWith('"'))
+        {
+            normalizedValue = normalizedValue[..^1];
+        }
+
+		return normalizedValue.Replace("\\\"", "\"", StringComparison.Ordinal);
 	}
 
 	private static string Escape(string value)

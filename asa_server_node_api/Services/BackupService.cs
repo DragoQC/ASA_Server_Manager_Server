@@ -5,7 +5,7 @@ using asa_server_node_api.Models;
 
 namespace asa_server_node_api.Services;
 
-public sealed class BackupExportService(InstallStateService installStateService)
+public sealed class BackupService(InstallStateService installStateService)
 {
     private const string ZipFormat = "zip";
     private const string TarGzFormat = "tar.gz";
@@ -16,11 +16,29 @@ public sealed class BackupExportService(InstallStateService installStateService)
     private static readonly TimeSpan StopTimeout = TimeSpan.FromMinutes(3);
     private readonly InstallStateService _installStateService = installStateService;
 
-    public bool HasZipTools() =>
-        ResolveToolPath(ZipToolPaths) is not null &&
-        ResolveToolPath(UnzipToolPaths) is not null;
+    public event Action? Changed;
 
-    public bool HasTarTools() => ResolveToolPath(TarToolPaths) is not null;
+    public bool HasZipTools { get; private set; }
+    public bool HasTarTools { get; private set; }
+    public BackupArchiveInfo? ZipArchive { get; private set; }
+    public BackupArchiveInfo? TarGzArchive { get; private set; }
+    public bool IsCreatingZip { get; private set; }
+    public bool IsCreatingTarGz { get; private set; }
+    public bool IsUploadingRestore { get; private set; }
+    public bool IsRestoring { get; private set; }
+    public string? ExportProgressText { get; private set; }
+    public string? RestoreSelectedFileName { get; private set; }
+    public string? RestoreProgressText { get; private set; }
+    public BackupImportPreview? RestorePreview { get; private set; }
+
+    public Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RefreshToolState();
+        LoadArchives();
+        NotifyChanged();
+        return Task.CompletedTask;
+    }
 
     public async Task<string> InstallZipToolsAsync(CancellationToken cancellationToken = default)
     {
@@ -29,6 +47,9 @@ public sealed class BackupExportService(InstallStateService installStateService)
             ["-n", InstallStateConstants.PrepareZipToolsScriptPath],
             cancellationToken);
 
+        RefreshToolState();
+        LoadArchives();
+        NotifyChanged();
         return "Zip tools installed. Zip backup and restore are ready.";
     }
 
@@ -39,10 +60,129 @@ public sealed class BackupExportService(InstallStateService installStateService)
             ["-n", InstallStateConstants.PrepareTarToolsScriptPath],
             cancellationToken);
 
+        RefreshToolState();
+        LoadArchives();
+        NotifyChanged();
         return "Tar tools installed. Tar.gz backup and restore are ready.";
     }
 
-    public async Task<BackupArchiveInfo> CreateZipArchiveAsync(
+    public async Task<BackupArchiveInfo> CreateZipArchiveAsync(CancellationToken cancellationToken = default)
+    {
+        StartZipExport("Starting zip backup...");
+        try
+        {
+            Progress<string> progress = new(UpdateExportProgress);
+            ZipArchive = await CreateZipArchiveCoreAsync(progress, cancellationToken);
+            LoadArchives();
+            FinishExport("Zip archive ready. Download is available.");
+            return ZipArchive!;
+        }
+        catch
+        {
+            FailExport();
+            throw;
+        }
+    }
+
+    public async Task<BackupArchiveInfo> CreateTarGzArchiveAsync(CancellationToken cancellationToken = default)
+    {
+        StartTarGzExport("Starting tar.gz backup...");
+        try
+        {
+            Progress<string> progress = new(UpdateExportProgress);
+            TarGzArchive = await CreateTarGzArchiveCoreAsync(progress, cancellationToken);
+            LoadArchives();
+            FinishExport("Tar.gz archive ready. Download is available.");
+            return TarGzArchive!;
+        }
+        catch
+        {
+            FailExport();
+            throw;
+        }
+    }
+
+    public bool NeedsMissingRestoreTool(string fileName, out string? errorMessage, out bool openZipDialog, out bool openTarDialog)
+    {
+        openZipDialog = false;
+        openTarDialog = false;
+        errorMessage = null;
+
+        if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && !HasZipTools)
+        {
+            errorMessage = "Zip tools are required to restore this archive. Click Prepare zip tools first.";
+            openZipDialog = true;
+            return true;
+        }
+
+        if ((fileName.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase) ||
+             fileName.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase)) &&
+            !HasTarTools)
+        {
+            errorMessage = "Tar tools are required to restore this archive. Click Prepare tar tools first.";
+            openTarDialog = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    public async Task<BackupImportPreview> UploadRestoreArchiveAsync(string fileName, Stream stream, CancellationToken cancellationToken = default)
+    {
+        StartRestoreUpload(fileName, $"Selected {fileName}. Preparing upload...");
+        try
+        {
+            Progress<string> progress = new(UpdateRestoreProgress);
+            RestorePreview = await SaveImportArchiveAsync(fileName, stream, progress, cancellationToken);
+            SetRestorePreview(RestorePreview, $"Preview ready for {fileName}. Next: review entries, then click Restore archive.");
+            return RestorePreview;
+        }
+        catch
+        {
+            FailRestore();
+            throw;
+        }
+    }
+
+    public async Task<string> RestoreArchiveAsync(CancellationToken cancellationToken = default)
+    {
+        if (RestorePreview is null)
+        {
+            throw new InvalidOperationException("No restore preview is loaded.");
+        }
+
+        StartRestore("Restore confirmed. Starting restore flow...");
+        try
+        {
+            Progress<string> progress = new(UpdateRestoreProgress);
+            string message = await RestoreImportArchiveAsync(RestorePreview, progress, cancellationToken);
+            FinishRestore("Restore completed. asa.service was left stopped.");
+            return message;
+        }
+        catch
+        {
+            FailRestore();
+            throw;
+        }
+    }
+
+    public void MarkRestoreReadyForConfirmation()
+    {
+        if (RestorePreview is null)
+        {
+            return;
+        }
+
+        UpdateRestoreProgress($"Ready to restore {RestorePreview.FileName}. Next: confirm restore to replace /opt/asa/server.");
+    }
+
+    private bool DetectHasZipTools() =>
+        ResolveToolPath(ZipToolPaths) is not null &&
+        ResolveToolPath(UnzipToolPaths) is not null;
+
+    private bool DetectHasTarTools() => ResolveToolPath(TarToolPaths) is not null;
+
+    public async Task<BackupArchiveInfo> CreateZipArchiveCoreAsync(
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -76,7 +216,7 @@ public sealed class BackupExportService(InstallStateService installStateService)
         return ToArchiveInfo(ZipFormat, archivePath);
     }
 
-    public async Task<BackupArchiveInfo> CreateTarGzArchiveAsync(
+    public async Task<BackupArchiveInfo> CreateTarGzArchiveCoreAsync(
         IProgress<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -259,6 +399,120 @@ public sealed class BackupExportService(InstallStateService installStateService)
             .FirstOrDefault();
 
         return latestFile is null ? null : ToArchiveInfo(format, latestFile.FullName);
+    }
+
+    private void RefreshToolState()
+    {
+        HasZipTools = DetectHasZipTools();
+        HasTarTools = DetectHasTarTools();
+    }
+
+    private void LoadArchives()
+    {
+        ZipArchive = GetLatestArchive(ZipFormat);
+        TarGzArchive = GetLatestArchive(TarGzFormat);
+    }
+
+    private void StartZipExport(string message)
+    {
+        IsCreatingZip = true;
+        IsCreatingTarGz = false;
+        ExportProgressText = message;
+        NotifyChanged();
+    }
+
+    private void StartTarGzExport(string message)
+    {
+        IsCreatingZip = false;
+        IsCreatingTarGz = true;
+        ExportProgressText = message;
+        NotifyChanged();
+    }
+
+    private void UpdateExportProgress(string message)
+    {
+        ExportProgressText = message;
+        NotifyChanged();
+    }
+
+    private void FinishExport(string message)
+    {
+        IsCreatingZip = false;
+        IsCreatingTarGz = false;
+        ExportProgressText = message;
+        RefreshToolState();
+        NotifyChanged();
+    }
+
+    private void FailExport(string? message = null)
+    {
+        IsCreatingZip = false;
+        IsCreatingTarGz = false;
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            ExportProgressText = message;
+        }
+
+        RefreshToolState();
+        NotifyChanged();
+    }
+
+    private void StartRestoreUpload(string fileName, string message)
+    {
+        RestoreSelectedFileName = fileName;
+        RestorePreview = null;
+        IsUploadingRestore = true;
+        IsRestoring = false;
+        RestoreProgressText = message;
+        NotifyChanged();
+    }
+
+    private void UpdateRestoreProgress(string message)
+    {
+        RestoreProgressText = message;
+        NotifyChanged();
+    }
+
+    private void SetRestorePreview(BackupImportPreview preview, string message)
+    {
+        RestorePreview = preview;
+        IsUploadingRestore = false;
+        RestoreProgressText = message;
+        NotifyChanged();
+    }
+
+    private void StartRestore(string message)
+    {
+        IsUploadingRestore = false;
+        IsRestoring = true;
+        RestoreProgressText = message;
+        NotifyChanged();
+    }
+
+    private void FinishRestore(string message)
+    {
+        IsRestoring = false;
+        RestoreProgressText = message;
+        RefreshToolState();
+        LoadArchives();
+        NotifyChanged();
+    }
+
+    private void FailRestore(string? message = null)
+    {
+        IsUploadingRestore = false;
+        IsRestoring = false;
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            RestoreProgressText = message;
+        }
+
+        NotifyChanged();
+    }
+
+    private void NotifyChanged()
+    {
+        Changed?.Invoke();
     }
 
     private async Task StopAsaUntilSafeAsync(CancellationToken cancellationToken, bool requireServerDirectory = true)
