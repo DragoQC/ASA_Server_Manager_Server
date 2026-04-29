@@ -416,8 +416,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
         CancellationToken cancellationToken = default)
     {
         RequireFormatTool(preview.Format);
-        UpdateRestoreProgress("Stopping asa.service before restore...", 0D, 0, null);
-        await StopAsaUntilSafeAsync(cancellationToken, requireServerDirectory: false);
+        UpdateRestoreProgress("Analyzing archive before restore...", null, null, null);
 
         string restoreId = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss");
         string workPath = Path.Combine(InstallStateConstants.BackupRestoreWorkRootPath, restoreId);
@@ -430,6 +429,9 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
                 preview.Format,
                 preview.ArchivePath,
                 cancellationToken);
+
+            UpdateRestoreProgress("Stopping asa.service before restore...", 0D, 0, progressPlan.TotalBytes);
+            await StopAsaUntilSafeAsync(cancellationToken, requireServerDirectory: false);
 
             if (preview.Format == ZipFormat)
             {
