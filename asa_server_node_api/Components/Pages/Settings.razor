@@ -714,11 +714,11 @@
 
         _message = null;
         _error = null;
+        _showRestoreDialog = false;
 
         try
         {
             _message = await BackupService.RestoreArchiveAsync();
-            _showRestoreDialog = false;
         }
         catch (Exception exception)
         {

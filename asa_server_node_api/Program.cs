@@ -79,7 +79,7 @@ builder.Services.AddScoped<ConsoleLogService>();
 builder.Services.AddScoped<LogsService>();
 builder.Services.AddScoped<ManagerService>();
 builder.Services.AddScoped<AuthService>();
-builder.Services.AddScoped<BackupService>();
+builder.Services.AddSingleton<BackupService>();
 builder.Services.AddScoped<ClusterClientInstallService>();
 builder.Services.AddScoped<GameConfigService>();
 builder.Services.AddScoped<InstallStateService>();

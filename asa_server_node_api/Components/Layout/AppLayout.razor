@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject asa_server_node_api.Services.ManagerService ManagerService
+@inject asa_server_node_api.Services.BackupService BackupService
 
 <div class="relative grid min-h-screen grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-transparent text-neutral-100">
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
@@ -64,6 +65,19 @@
                     }
                 </div>
             </nav>
+
+            @if (ShouldShowBackupStatus)
+            {
+                <div class="max-w-3xl">
+                    <ProgressStatus Title="@BackupStatusTitle"
+                                    IsBusy="@IsBackupStatusBusy"
+                                    FileName="@BackupStatusFileName"
+                                    StatusText="@BackupStatusText"
+                                    Percent="@BackupStatusPercent"
+                                    CurrentBytes="@BackupStatusCurrentBytes"
+                                    TotalBytes="@BackupStatusTotalBytes" />
+                </div>
+            }
         </div>
     </header>
 
@@ -96,11 +110,13 @@
     ];
 
     private bool _isAuthenticated;
+
     protected override async Task OnInitializedAsync()
     {
         AuthenticationState authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         _isAuthenticated = authenticationState.User.Identity?.IsAuthenticated == true;
         ManagerService.Changed += HandleManagerChanged;
+        BackupService.Changed += HandleBackupChanged;
         await ManagerService.EnsureStartedAsync();
     }
 
@@ -109,9 +125,63 @@
         _ = InvokeAsync(StateHasChanged);
     }
 
+    private void HandleBackupChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private bool ShouldShowBackupStatus =>
+        !string.IsNullOrWhiteSpace(BackupStatusText) || !string.IsNullOrWhiteSpace(BackupStatusFileName);
+
+    private bool IsBackupStatusBusy =>
+        BackupService.IsUploadingRestore ||
+        BackupService.IsPreparingRestorePreview ||
+        BackupService.IsRestoring ||
+        BackupService.IsCreatingZip ||
+        BackupService.IsCreatingTarGz;
+
+    private string BackupStatusTitle =>
+        BackupService.IsUploadingRestore
+            ? "Upload"
+            : BackupService.IsPreparingRestorePreview
+                ? "Validation"
+                : BackupService.IsRestoring
+                    ? "Restore"
+                    : BackupService.IsCreatingZip || BackupService.IsCreatingTarGz
+                        ? "Compression"
+                        : BackupService.RestorePreview is not null
+                            ? "Restore"
+                            : "Backup";
+
+    private string? BackupStatusFileName =>
+        !string.IsNullOrWhiteSpace(BackupService.RestoreSelectedFileName)
+            ? BackupService.RestoreSelectedFileName
+            : null;
+
+    private string? BackupStatusText =>
+        !string.IsNullOrWhiteSpace(BackupService.RestoreProgressText)
+            ? BackupService.RestoreProgressText
+            : BackupService.ExportProgressText;
+
+    private double? BackupStatusPercent =>
+        BackupService.IsUploadingRestore || BackupService.IsRestoring
+            ? BackupService.RestoreProgressPercent
+            : BackupService.ExportProgressPercent;
+
+    private long? BackupStatusCurrentBytes =>
+        BackupService.IsUploadingRestore || BackupService.IsRestoring
+            ? BackupService.RestoreProgressCurrentBytes
+            : BackupService.ExportProgressCurrentBytes;
+
+    private long? BackupStatusTotalBytes =>
+        BackupService.IsUploadingRestore || BackupService.IsRestoring
+            ? BackupService.RestoreProgressTotalBytes
+            : BackupService.ExportProgressTotalBytes;
+
     public void Dispose()
     {
         ManagerService.Changed -= HandleManagerChanged;
+        BackupService.Changed -= HandleBackupChanged;
     }
 
     private sealed record NavigationItem(string Href, string Label, NavLinkMatch Match = NavLinkMatch.Prefix);

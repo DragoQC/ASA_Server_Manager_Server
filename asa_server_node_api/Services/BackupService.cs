@@ -2,10 +2,11 @@ using System.Diagnostics;
 using System.IO.Compression;
 using asa_server_node_api.Constants;
 using asa_server_node_api.Models;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace asa_server_node_api.Services;
 
-public sealed class BackupService(InstallStateService installStateService)
+public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
 {
     private const string ZipFormat = "zip";
     private const string TarGzFormat = "tar.gz";
@@ -14,7 +15,7 @@ public sealed class BackupService(InstallStateService installStateService)
     private static readonly string[] UnzipToolPaths = ["/usr/bin/unzip", "/bin/unzip"];
     private static readonly string[] TarToolPaths = ["/usr/bin/tar", "/bin/tar"];
     private static readonly TimeSpan StopTimeout = TimeSpan.FromMinutes(3);
-    private readonly InstallStateService _installStateService = installStateService;
+    private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
     private ArchiveFingerprint? _validatedRestoreArchive;
 
     public event Action? Changed;
@@ -709,7 +710,10 @@ public sealed class BackupService(InstallStateService installStateService)
             throw new DirectoryNotFoundException($"{InstallStateConstants.ServerRootPath} does not exist.");
         }
 
-        Models.Asa.AsaServiceStatus status = await _installStateService.GetAsaServiceStatusAsync(cancellationToken);
+        await using AsyncServiceScope scope = _serviceScopeFactory.CreateAsyncScope();
+        InstallStateService installStateService = scope.ServiceProvider.GetRequiredService<InstallStateService>();
+
+        Models.Asa.AsaServiceStatus status = await installStateService.GetAsaServiceStatusAsync(cancellationToken);
         if (status.IsUnavailable)
         {
             throw new InvalidOperationException("asa service status is unavailable. Backup cannot verify the server is stopped.");
@@ -717,7 +721,7 @@ public sealed class BackupService(InstallStateService installStateService)
 
         if (status.CanStop)
         {
-            await _installStateService.StopAsaServiceAsync(cancellationToken);
+            await installStateService.StopAsaServiceAsync(cancellationToken);
         }
         else if (!status.IsStopped && !status.IsFailed)
         {
@@ -727,7 +731,7 @@ public sealed class BackupService(InstallStateService installStateService)
         DateTimeOffset stopDeadline = DateTimeOffset.UtcNow.Add(StopTimeout);
         do
         {
-            status = await _installStateService.GetAsaServiceStatusAsync(cancellationToken);
+            status = await installStateService.GetAsaServiceStatusAsync(cancellationToken);
             if (status.IsStopped || status.IsFailed)
             {
                 return;
