@@ -589,14 +589,29 @@ public sealed class BackupService(InstallStateService installStateService)
     {
         Dictionary<string, long> fileSizes = new(StringComparer.Ordinal);
         long totalBytes = 0;
-
-        foreach (string filePath in Directory.EnumerateFiles(sourceRootPath, "*", SearchOption.AllDirectories))
+        EnumerationOptions enumerationOptions = new()
         {
-            string relativePath = Path.GetRelativePath(sourceRootPath, filePath).Replace('\\', '/');
-            string archiveEntryPath = $"{archiveRootName}/{relativePath}";
-            long sizeBytes = new FileInfo(filePath).Length;
-            fileSizes[archiveEntryPath] = sizeBytes;
-            totalBytes += sizeBytes;
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = FileAttributes.ReparsePoint
+        };
+
+        foreach (string filePath in Directory.EnumerateFiles(sourceRootPath, "*", enumerationOptions))
+        {
+            try
+            {
+                string relativePath = Path.GetRelativePath(sourceRootPath, filePath).Replace('\\', '/');
+                string archiveEntryPath = $"{archiveRootName}/{relativePath}";
+                long sizeBytes = new FileInfo(filePath).Length;
+                fileSizes[archiveEntryPath] = sizeBytes;
+                totalBytes += sizeBytes;
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+            catch (IOException)
+            {
+            }
         }
 
         return new ArchiveProgressPlan(fileSizes, totalBytes, fileSizes.Count);
