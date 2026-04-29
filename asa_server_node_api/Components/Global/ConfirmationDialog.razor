@@ -35,8 +35,12 @@
                     <button type="button"
                             @onclick="OnConfirm"
                             disabled="@IsBusy"
-                            class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                        @(IsBusy ? $"{ConfirmText}..." : ConfirmText)
+                            class="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                        @if (IsBusy)
+                        {
+                            <span class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-300/25 border-t-cyan-200"></span>
+                        }
+                        <span>@(IsBusy ? $"{ConfirmText}..." : ConfirmText)</span>
                     </button>
                 </div>
             </div>

@@ -166,15 +166,23 @@
                     <button type="button"
                             @onclick="CreateZipArchiveAsync"
                             disabled="@(!_hasZipTools || IsCreatingArchive)"
-                            class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                        @(_isCreatingZip ? "Creating zip..." : "Create zip")
+                            class="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                        @if (_isCreatingZip)
+                        {
+                            <span class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-300/25 border-t-cyan-200"></span>
+                        }
+                        <span>@(_isCreatingZip ? "Creating zip..." : "Create zip")</span>
                     </button>
 
                     <button type="button"
                             @onclick="CreateTarGzArchiveAsync"
                             disabled="@(!_hasTarTools || IsCreatingArchive)"
-                            class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                        @(_isCreatingTarGz ? "Creating tar.gz..." : "Create tar.gz")
+                            class="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                        @if (_isCreatingTarGz)
+                        {
+                            <span class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-300/25 border-t-cyan-200"></span>
+                        }
+                        <span>@(_isCreatingTarGz ? "Creating tar.gz..." : "Create tar.gz")</span>
                     </button>
                 </div>
 
@@ -277,8 +285,12 @@
                                     <button type="button"
                                             @onclick="OpenRestoreDialog"
                                             disabled="@(_isRestoring || _restorePreview is null)"
-                                            class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                                        @(_isRestoring ? "Restoring..." : "Restore archive")
+                                            class="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-400/15 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                        @if (_isRestoring)
+                                        {
+                                            <span class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-300/25 border-t-cyan-200"></span>
+                                        }
+                                        <span>@(_isRestoring ? "Restoring..." : "Restore archive")</span>
                                     </button>
                                 </div>
 
