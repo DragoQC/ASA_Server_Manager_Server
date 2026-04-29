@@ -211,6 +211,7 @@ public sealed class InstallStateService(
             ["-n", SystemCommandConstants.SystemctlPath, "enable", "asa"],
             cancellationToken);
 
+        _toastService.ShowSuccess("Systemd enabled.", "Install");
         return "Reloaded systemd and enabled asa.";
     }
 

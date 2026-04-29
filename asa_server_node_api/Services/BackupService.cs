@@ -11,6 +11,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
     private const string ZipFormat = "zip";
     private const string TarGzFormat = "tar.gz";
     private const long MaxImportBytes = 200L * 1024L * 1024L * 1024L;
+    private const long ArchiveSpaceOverheadBytes = 256L * 1024L * 1024L;
     private static readonly string[] ZipToolPaths = ["/usr/bin/zip", "/bin/zip"];
     private static readonly string[] UnzipToolPaths = ["/usr/bin/unzip", "/bin/unzip"];
     private static readonly string[] TarToolPaths = ["/usr/bin/tar", "/bin/tar"];
@@ -271,12 +272,13 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
         CancellationToken cancellationToken = default)
     {
         string zipPath = RequireTool(ZipToolPaths, "zip");
-        UpdateExportProgress("Stopping asa.service before creating zip backup...", 0D);
-        await StopAsaUntilSafeAsync(cancellationToken);
-        Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
         ArchiveProgressPlan progressPlan = BuildArchiveProgressPlan(
             InstallStateConstants.ServerRootPath,
             "server");
+        EnsureEnoughFreeSpaceForBackup(ZipFormat, progressPlan.TotalBytes);
+        UpdateExportProgress("Stopping asa.service before creating zip backup...", 0D);
+        await StopAsaUntilSafeAsync(cancellationToken);
+        Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
         DeleteExistingArchives(ZipFormat);
 
         string archivePath = BuildArchivePath("zip");
@@ -311,12 +313,13 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
         CancellationToken cancellationToken = default)
     {
         string tarPath = RequireTool(TarToolPaths, "tar");
-        UpdateExportProgress("Stopping asa.service before creating tar.gz backup...", 0D);
-        await StopAsaUntilSafeAsync(cancellationToken);
-        Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
         ArchiveProgressPlan progressPlan = BuildArchiveProgressPlan(
             InstallStateConstants.ServerRootPath,
             "server");
+        EnsureEnoughFreeSpaceForBackup(TarGzFormat, progressPlan.TotalBytes);
+        UpdateExportProgress("Stopping asa.service before creating tar.gz backup...", 0D);
+        await StopAsaUntilSafeAsync(cancellationToken);
+        Directory.CreateDirectory(InstallStateConstants.BackupRootPath);
         DeleteExistingArchives(TarGzFormat);
 
         string archivePath = BuildArchivePath("tar.gz");
@@ -403,6 +406,9 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
 
         progress?.Report("Checking archive entries and restore path...");
         ValidateArchiveEntries(entries);
+        progress?.Report("Checking free disk space for restore...");
+        ArchiveProgressPlan progressPlan = await BuildRestoreProgressPlanAsync(format, archivePath, cancellationToken);
+        EnsureEnoughFreeSpaceForRestore(progressPlan.TotalBytes);
 
         progress?.Report($"Preview ready. Found {entries.Count} entries. You can review and restore when ready.");
 
@@ -435,6 +441,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
                 preview.Format,
                 preview.ArchivePath,
                 cancellationToken);
+            EnsureEnoughFreeSpaceForRestore(progressPlan.TotalBytes);
 
             UpdateRestoreProgress("Stopping asa.service before restore...", 0D, 0, progressPlan.TotalBytes);
             await StopAsaUntilSafeAsync(cancellationToken, requireServerDirectory: false);
@@ -907,6 +914,100 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
     {
         FileInfo fileInfo = new(archivePath);
         return new BackupArchiveInfo(format, fileInfo.Name, fileInfo.FullName, fileInfo.Length, fileInfo.LastWriteTimeUtc);
+    }
+
+    private void EnsureEnoughFreeSpaceForBackup(string format, long sourceBytes)
+    {
+        long requiredBytes = checked(sourceBytes + ArchiveSpaceOverheadBytes);
+        long availableBytes = GetAvailableRootFreeBytes() + GetExistingArchiveBytes(format);
+        if (availableBytes >= requiredBytes)
+        {
+            return;
+        }
+
+        ThrowNotEnoughSpace(
+            "Backup",
+            $"Not enough disk space to create this {format} backup. Need about {FormatBytes(requiredBytes)}, have {FormatBytes(availableBytes)} free after replacing the current {format} archive.");
+    }
+
+    private void EnsureEnoughFreeSpaceForRestore(long restoreBytes)
+    {
+        long requiredBytes = checked(restoreBytes + ArchiveSpaceOverheadBytes);
+        long availableBytes = GetAvailableRootFreeBytes();
+        if (availableBytes >= requiredBytes)
+        {
+            return;
+        }
+
+        ThrowNotEnoughSpace(
+            "Restore",
+            $"Not enough disk space to restore this backup. Need about {FormatBytes(requiredBytes)} free to extract it, have {FormatBytes(availableBytes)} free.");
+    }
+
+    private void ThrowNotEnoughSpace(string tag, string message)
+    {
+        _toastService.ShowError(message, tag);
+        throw new InvalidOperationException(message);
+    }
+
+    private static long GetAvailableRootFreeBytes()
+    {
+        DriveInfo rootDrive = new("/");
+        return rootDrive.AvailableFreeSpace;
+    }
+
+    private static long GetExistingArchiveBytes(string format)
+    {
+        if (!Directory.Exists(InstallStateConstants.BackupRootPath))
+        {
+            return 0;
+        }
+
+        string searchPattern = format switch
+        {
+            ZipFormat => "asa-server-*.zip",
+            TarGzFormat => "asa-server-*.tar.gz",
+            _ => string.Empty
+        };
+
+        if (string.IsNullOrWhiteSpace(searchPattern))
+        {
+            return 0;
+        }
+
+        long totalBytes = 0;
+        foreach (string filePath in Directory.EnumerateFiles(
+                     InstallStateConstants.BackupRootPath,
+                     searchPattern,
+                     SearchOption.TopDirectoryOnly))
+        {
+            try
+            {
+                totalBytes += new FileInfo(filePath).Length;
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        return totalBytes;
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        double value = Math.Abs(bytes);
+        int unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.Length - 1)
+        {
+            value /= 1024;
+            unitIndex++;
+        }
+
+        return $"{Math.Sign(bytes) * value:0.##} {units[unitIndex]}";
     }
 
     private bool IsArchiveValidatedForRestore(BackupArchiveInfo archive)
