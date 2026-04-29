@@ -181,7 +181,10 @@
                 @if (!string.IsNullOrWhiteSpace(_exportProgressText))
                 {
                     <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
-                        <p class="text-sm leading-6 text-cyan-100">@_exportProgressText</p>
+                        <div class="flex items-start gap-3">
+                            <span class="mt-1 inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-300/25 border-t-cyan-200"></span>
+                            <p class="text-sm leading-6 text-cyan-100">@_exportProgressText</p>
+                        </div>
                     </div>
                 }
 
@@ -243,15 +246,20 @@
                         @if (!string.IsNullOrWhiteSpace(_restoreSelectedFileName) || !string.IsNullOrWhiteSpace(_restoreProgressText))
                         {
                             <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
-                                @if (!string.IsNullOrWhiteSpace(_restoreSelectedFileName))
-                                {
-                                    <p class="text-sm font-semibold text-white">@_restoreSelectedFileName</p>
-                                }
+                                <div class="flex items-start gap-3">
+                                    <span class="mt-1 inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-cyan-300/25 border-t-cyan-200"></span>
+                                    <div>
+                                        @if (!string.IsNullOrWhiteSpace(_restoreSelectedFileName))
+                                        {
+                                            <p class="text-sm font-semibold text-white">@_restoreSelectedFileName</p>
+                                        }
 
-                                @if (!string.IsNullOrWhiteSpace(_restoreProgressText))
-                                {
-                                    <p class="mt-2 text-sm leading-6 text-cyan-100">@_restoreProgressText</p>
-                                }
+                                        @if (!string.IsNullOrWhiteSpace(_restoreProgressText))
+                                        {
+                                            <p class="mt-2 text-sm leading-6 text-cyan-100">@_restoreProgressText</p>
+                                        }
+                                    </div>
+                                </div>
                             </div>
                         }
 
