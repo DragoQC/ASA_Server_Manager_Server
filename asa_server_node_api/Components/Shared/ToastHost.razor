@@ -1,0 +1,69 @@
+@inject asa_server_node_api.Services.ToastService ToastService
+@implements IDisposable
+
+@if (ToastService.Items.Count > 0)
+{
+    <div class="pointer-events-none fixed right-4 top-4 z-[160] flex w-full max-w-sm flex-col gap-3 sm:right-6 sm:top-6">
+        @foreach (asa_server_node_api.Models.Ui.ToastItem item in ToastService.Items)
+        {
+            <div class="@BuildToastClass(item.Level)">
+                <div class="flex items-start gap-3">
+                    <div class="min-w-0 flex-1">
+                        <p class="@BuildTagClass(item.Level)">@item.Tag</p>
+                        <p class="mt-2 text-sm leading-6 text-neutral-100">@item.Message</p>
+                    </div>
+
+                    <button type="button"
+                            @onclick="() => Dismiss(item.Id)"
+                            class="pointer-events-auto inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm text-neutral-200 transition hover:bg-white/10">
+                        &#10005;
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        ToastService.Changed += OnToastChanged;
+    }
+
+    public void Dispose()
+    {
+        ToastService.Changed -= OnToastChanged;
+    }
+
+    private void OnToastChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void Dismiss(Guid id)
+    {
+        ToastService.Dismiss(id);
+    }
+
+    private static string BuildToastClass(asa_server_node_api.Models.Ui.ToastLevel level)
+    {
+        string accentClass = level switch
+        {
+            asa_server_node_api.Models.Ui.ToastLevel.Success => "border-emerald-300/20 bg-emerald-400/10",
+            asa_server_node_api.Models.Ui.ToastLevel.Error => "border-red-300/20 bg-red-400/10",
+            _ => "border-cyan-300/20 bg-cyan-400/10"
+        };
+
+        return $"pointer-events-auto rounded-[1.4rem] border {accentClass} bg-[#05070d]/95 px-5 py-4 shadow-[0_0_40px_rgba(0,0,0,0.3)] backdrop-blur-xl";
+    }
+
+    private static string BuildTagClass(asa_server_node_api.Models.Ui.ToastLevel level)
+    {
+        return level switch
+        {
+            asa_server_node_api.Models.Ui.ToastLevel.Success => "text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-emerald-200",
+            asa_server_node_api.Models.Ui.ToastLevel.Error => "text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-red-200",
+            _ => "text-[0.65rem] font-semibold uppercase tracking-[0.28em] text-cyan-200"
+        };
+    }
+}

@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace asa_server_node_api.Services;
 
-public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
+public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, ToastService toastService)
 {
     private const string ZipFormat = "zip";
     private const string TarGzFormat = "tar.gz";
@@ -16,6 +16,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
     private static readonly string[] TarToolPaths = ["/usr/bin/tar", "/bin/tar"];
     private static readonly TimeSpan StopTimeout = TimeSpan.FromMinutes(3);
     private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
+    private readonly ToastService _toastService = toastService;
     private ArchiveFingerprint? _validatedRestoreArchive;
 
     public event Action? Changed;
@@ -78,6 +79,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
     public async Task<BackupArchiveInfo> CreateZipArchiveAsync(CancellationToken cancellationToken = default)
     {
         StartZipExport("Starting zip backup...");
+        _toastService.ShowInfo("Zip backup started.", "Backup");
         try
         {
             ZipArchive = await CreateZipArchiveCoreAsync(cancellationToken);
@@ -95,6 +97,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
     public async Task<BackupArchiveInfo> CreateTarGzArchiveAsync(CancellationToken cancellationToken = default)
     {
         StartTarGzExport("Starting tar.gz backup...");
+        _toastService.ShowInfo("Tar.gz backup started.", "Backup");
         try
         {
             TarGzArchive = await CreateTarGzArchiveCoreAsync(cancellationToken);
@@ -163,6 +166,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
         }
 
         StartRestore("Restore confirmed. Starting restore flow...");
+        _toastService.ShowInfo("Restore started.", "Restore");
         try
         {
             Progress<string> progress = new(UpdateRestoreProgress);
@@ -223,6 +227,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
 
         LoadArchives();
         NotifyChanged();
+        _toastService.ShowSuccess($"{format} backup deleted.", "Backup");
         return Task.CompletedTask;
     }
 
@@ -573,6 +578,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
         ExportProgressTotalBytes = null;
         RefreshToolState();
         NotifyChanged();
+        _toastService.ShowSuccess(message, "Backup");
     }
 
     private void FailExport(string? message = null)
@@ -650,6 +656,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory)
         RefreshToolState();
         LoadArchives();
         NotifyChanged();
+        _toastService.ShowSuccess("Restore finished.", "Restore");
     }
 
     private void FailRestore(string? message = null)

@@ -229,8 +229,13 @@
 
                                         <button type="button"
                                                 @onclick="DeleteLatestZipArchiveAsync"
-                                                class="inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20">
-                                            Delete zip
+                                                disabled="@_isDeletingZipArchive"
+                                                class="inline-flex items-center gap-2 rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60">
+                                            @if (_isDeletingZipArchive)
+                                            {
+                                                <span class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-red-300/25 border-t-red-200"></span>
+                                            }
+                                            <span>@(_isDeletingZipArchive ? "Deleting zip..." : "Delete zip")</span>
                                         </button>
                                     </div>
                                 </div>
@@ -258,8 +263,13 @@
 
                                         <button type="button"
                                                 @onclick="DeleteLatestTarGzArchiveAsync"
-                                                class="inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20">
-                                            Delete tar.gz
+                                                disabled="@_isDeletingTarGzArchive"
+                                                class="inline-flex items-center gap-2 rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60">
+                                            @if (_isDeletingTarGzArchive)
+                                            {
+                                                <span class="inline-block h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-red-300/25 border-t-red-200"></span>
+                                            }
+                                            <span>@(_isDeletingTarGzArchive ? "Deleting tar.gz..." : "Delete tar.gz")</span>
                                         </button>
                                     </div>
                                 </div>
@@ -398,6 +408,8 @@
     private bool _showTarToolsDialog;
     private bool _isInstallingTarTools;
     private bool _showRestoreDialog;
+    private bool _isDeletingZipArchive;
+    private bool _isDeletingTarGzArchive;
     private BackupArchiveInfo? _zipArchive => BackupService.ZipArchive;
     private BackupArchiveInfo? _tarGzArchive => BackupService.TarGzArchive;
     private bool _hasZipTools => BackupService.HasZipTools;
@@ -525,6 +537,7 @@
     {
         _message = null;
         _error = null;
+        _isDeletingZipArchive = true;
 
         try
         {
@@ -535,12 +548,17 @@
         {
             _error = exception.Message;
         }
+        finally
+        {
+            _isDeletingZipArchive = false;
+        }
     }
 
     private async Task DeleteLatestTarGzArchiveAsync()
     {
         _message = null;
         _error = null;
+        _isDeletingTarGzArchive = true;
 
         try
         {
@@ -550,6 +568,10 @@
         catch (Exception exception)
         {
             _error = exception.Message;
+        }
+        finally
+        {
+            _isDeletingTarGzArchive = false;
         }
     }
 

@@ -80,6 +80,7 @@ builder.Services.AddScoped<LogsService>();
 builder.Services.AddScoped<ManagerService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddSingleton<BackupService>();
+builder.Services.AddSingleton<ToastService>();
 builder.Services.AddScoped<ClusterClientInstallService>();
 builder.Services.AddScoped<GameConfigService>();
 builder.Services.AddScoped<InstallStateService>();
