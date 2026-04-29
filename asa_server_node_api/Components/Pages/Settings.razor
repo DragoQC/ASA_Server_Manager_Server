@@ -217,9 +217,9 @@
 
                                     <div class="flex flex-wrap gap-3">
                                         <button type="button"
-                                                @onclick="LoadLatestZipRestorePreviewAsync"
+                                                @onclick="UseLatestZipBackupAsync"
                                                 class="inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-5 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20">
-                                            Use for restore
+                                            @LatestZipRestoreActionText
                                         </button>
 
                                         <a href="/admin/settings/export/download/zip"
@@ -246,9 +246,9 @@
 
                                     <div class="flex flex-wrap gap-3">
                                         <button type="button"
-                                                @onclick="LoadLatestTarGzRestorePreviewAsync"
+                                                @onclick="UseLatestTarGzBackupAsync"
                                                 class="inline-flex rounded-full border border-emerald-300/20 bg-emerald-400/10 px-5 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20">
-                                            Use for restore
+                                            @LatestTarGzRestoreActionText
                                         </button>
 
                                         <a href="/admin/settings/export/download/tar.gz"
@@ -419,6 +419,12 @@
     private long? _restoreProgressTotalBytes => BackupService.RestoreProgressTotalBytes;
     private bool IsCreatingArchive => BackupService.IsCreatingZip || BackupService.IsCreatingTarGz;
     private bool IsRestoreProgressBusy => _isUploadingRestore || _isPreparingRestorePreview || _isRestoring;
+    private string LatestZipRestoreActionText => BackupService.IsLatestArchiveValidatedForRestore("zip")
+        ? "Restore"
+        : "Prepare restore";
+    private string LatestTarGzRestoreActionText => BackupService.IsLatestArchiveValidatedForRestore("tar.gz")
+        ? "Restore"
+        : "Prepare restore";
     private string RestoreProgressTitle => _isUploadingRestore
         ? "Upload"
         : _isPreparingRestorePreview
@@ -547,13 +553,20 @@
         }
     }
 
-    private async Task LoadLatestZipRestorePreviewAsync()
+    private async Task UseLatestZipBackupAsync()
     {
         _message = null;
         _error = null;
 
         try
         {
+            if (BackupService.TryPrepareLatestArchiveForRestore("zip"))
+            {
+                _showRestoreDialog = true;
+                _message = "Zip backup is already validated. Ready to restore.";
+                return;
+            }
+
             await BackupService.LoadRestorePreviewFromLatestArchiveAsync("zip");
             _message = "Zip backup loaded into restore preview.";
         }
@@ -563,13 +576,20 @@
         }
     }
 
-    private async Task LoadLatestTarGzRestorePreviewAsync()
+    private async Task UseLatestTarGzBackupAsync()
     {
         _message = null;
         _error = null;
 
         try
         {
+            if (BackupService.TryPrepareLatestArchiveForRestore("tar.gz"))
+            {
+                _showRestoreDialog = true;
+                _message = "Tar.gz backup is already validated. Ready to restore.";
+                return;
+            }
+
             await BackupService.LoadRestorePreviewFromLatestArchiveAsync("tar.gz");
             _message = "Tar.gz backup loaded into restore preview.";
         }

@@ -15,6 +15,7 @@ public sealed class BackupService(InstallStateService installStateService)
     private static readonly string[] TarToolPaths = ["/usr/bin/tar", "/bin/tar"];
     private static readonly TimeSpan StopTimeout = TimeSpan.FromMinutes(3);
     private readonly InstallStateService _installStateService = installStateService;
+    private ArchiveFingerprint? _validatedRestoreArchive;
 
     public event Action? Changed;
 
@@ -185,6 +186,25 @@ public sealed class BackupService(InstallStateService installStateService)
         UpdateRestoreProgress($"Ready to restore {RestorePreview.FileName}. Next: confirm restore to replace /opt/asa/server.");
     }
 
+    public bool IsLatestArchiveValidatedForRestore(string format)
+    {
+        BackupArchiveInfo? archive = GetLatestArchive(format);
+        return archive is not null && IsArchiveValidatedForRestore(archive);
+    }
+
+    public bool TryPrepareLatestArchiveForRestore(string format)
+    {
+        BackupArchiveInfo? archive = GetLatestArchive(format);
+        if (archive is null || RestorePreview is null || !IsArchiveValidatedForRestore(archive))
+        {
+            return false;
+        }
+
+        RestoreSelectedFileName = archive.FileName;
+        MarkRestoreReadyForConfirmation();
+        return true;
+    }
+
     public Task DeleteLatestArchiveAsync(string format, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -193,6 +213,11 @@ public sealed class BackupService(InstallStateService installStateService)
         if (archive is not null && File.Exists(archive.FilePath))
         {
             File.Delete(archive.FilePath);
+        }
+
+        if (archive is not null && IsArchiveValidatedForRestore(archive))
+        {
+            ClearValidatedRestorePreview();
         }
 
         LoadArchives();
@@ -595,6 +620,7 @@ public sealed class BackupService(InstallStateService installStateService)
         RestoreProgressPercent = null;
         RestoreProgressCurrentBytes = null;
         RestoreProgressTotalBytes = null;
+        _validatedRestoreArchive = BuildArchiveFingerprint(preview.ArchivePath);
         LoadArchives();
         NotifyChanged();
     }
@@ -637,6 +663,17 @@ public sealed class BackupService(InstallStateService installStateService)
         RestoreProgressCurrentBytes = null;
         RestoreProgressTotalBytes = null;
         NotifyChanged();
+    }
+
+    private void ClearValidatedRestorePreview()
+    {
+        RestorePreview = null;
+        RestoreSelectedFileName = null;
+        RestoreProgressText = null;
+        RestoreProgressPercent = null;
+        RestoreProgressCurrentBytes = null;
+        RestoreProgressTotalBytes = null;
+        _validatedRestoreArchive = null;
     }
 
     private void StartRestoreValidation(string message)
@@ -855,6 +892,22 @@ public sealed class BackupService(InstallStateService installStateService)
     {
         FileInfo fileInfo = new(archivePath);
         return new BackupArchiveInfo(format, fileInfo.Name, fileInfo.FullName, fileInfo.Length, fileInfo.LastWriteTimeUtc);
+    }
+
+    private bool IsArchiveValidatedForRestore(BackupArchiveInfo archive)
+    {
+        ArchiveFingerprint? currentArchive = BuildArchiveFingerprint(archive.FilePath);
+        return currentArchive is not null &&
+               _validatedRestoreArchive is not null &&
+               currentArchive == _validatedRestoreArchive;
+    }
+
+    private static ArchiveFingerprint? BuildArchiveFingerprint(string archivePath)
+    {
+        FileInfo fileInfo = new(archivePath);
+        return fileInfo.Exists
+            ? new ArchiveFingerprint(fileInfo.FullName, fileInfo.Length, fileInfo.LastWriteTimeUtc)
+            : null;
     }
 
     private static void PromoteCompletedArchive(string temporaryArchivePath, string archivePath)
@@ -1361,4 +1414,9 @@ public sealed class BackupService(InstallStateService installStateService)
         IReadOnlyDictionary<string, long> FileSizes,
         long TotalBytes,
         int TotalFiles);
+
+    private sealed record ArchiveFingerprint(
+        string FullPath,
+        long SizeBytes,
+        DateTimeOffset LastWriteTimeUtc);
 }
