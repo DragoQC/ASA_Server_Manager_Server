@@ -18,6 +18,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
     private static readonly TimeSpan StopTimeout = TimeSpan.FromMinutes(3);
     private readonly IServiceScopeFactory _serviceScopeFactory = serviceScopeFactory;
     private readonly ToastService _toastService = toastService;
+    private CancellationTokenSource? _restorePreparationCancellationTokenSource;
     private CancellationTokenSource? _restoreCancellationTokenSource;
     private ArchiveFingerprint? _validatedRestoreArchive;
 
@@ -146,17 +147,29 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
         CancellationToken cancellationToken = default)
     {
         StartRestoreUpload(fileName, $"Selected {fileName}. Preparing upload...");
+        using CancellationTokenSource linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _restorePreparationCancellationTokenSource = linkedCancellationTokenSource;
         try
         {
             Progress<string> progress = new(UpdateRestoreProgress);
-            RestorePreview = await SaveImportArchiveAsync(fileName, totalBytes, stream, progress, cancellationToken);
+            RestorePreview = await SaveImportArchiveAsync(fileName, totalBytes, stream, progress, linkedCancellationTokenSource.Token);
             SetRestorePreview(RestorePreview, $"Preview ready for {fileName}. Next: review entries, then click Restore archive.");
             return RestorePreview;
+        }
+        catch (OperationCanceledException)
+        {
+            FailRestore("Restore preparation canceled.");
+            _toastService.ShowInfo("Restore preparation canceled.", "Restore");
+            throw new InvalidOperationException("Restore preparation canceled.");
         }
         catch
         {
             FailRestore();
             throw;
+        }
+        finally
+        {
+            _restorePreparationCancellationTokenSource = null;
         }
     }
 
@@ -279,10 +292,30 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
         RestoreProgressText = $"Reading {archive.FileName} and building restore preview...";
         NotifyChanged();
 
+        using CancellationTokenSource linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _restorePreparationCancellationTokenSource = linkedCancellationTokenSource;
         Progress<string> progress = new(UpdateRestoreProgress);
-        RestorePreview = await CreateImportPreviewAsync(archive.FilePath, archive.Format, progress, cancellationToken);
-        SetRestorePreview(RestorePreview, $"Preview ready for {archive.FileName}. Next: review entries, then click Restore archive.");
-        return RestorePreview;
+        try
+        {
+            RestorePreview = await CreateImportPreviewAsync(archive.FilePath, archive.Format, progress, linkedCancellationTokenSource.Token);
+            SetRestorePreview(RestorePreview, $"Preview ready for {archive.FileName}. Next: review entries, then click Restore archive.");
+            return RestorePreview;
+        }
+        catch (OperationCanceledException)
+        {
+            FailRestore("Restore preparation canceled.");
+            _toastService.ShowInfo("Restore preparation canceled.", "Restore");
+            throw new InvalidOperationException("Restore preparation canceled.");
+        }
+        finally
+        {
+            _restorePreparationCancellationTokenSource = null;
+        }
+    }
+
+    public void CancelRestorePreparation()
+    {
+        _restorePreparationCancellationTokenSource?.Cancel();
     }
 
     private bool DetectHasZipTools() =>

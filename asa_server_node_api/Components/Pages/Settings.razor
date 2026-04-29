@@ -440,12 +440,16 @@
         : "Prepare restore";
     private string ZipRestoreButtonText => _isRestoring && IsSelectedRestoreFormat("zip")
         ? "Cancel restore"
+        : _isPreparingRestorePreview && IsSelectedRestoreFormat("zip")
+            ? "Cancel prepare"
         : LatestZipRestoreActionText;
     private string TarGzRestoreButtonText => _isRestoring && IsSelectedRestoreFormat("tar.gz")
         ? "Cancel restore"
+        : _isPreparingRestorePreview && IsSelectedRestoreFormat("tar.gz")
+            ? "Cancel prepare"
         : LatestTarGzRestoreActionText;
-    private bool IsZipRestoreButtonDisabled => _zipArchive is null || (_isRestoring ? !IsSelectedRestoreFormat("zip") : IsBackupActionActive);
-    private bool IsTarGzRestoreButtonDisabled => _tarGzArchive is null || (_isRestoring ? !IsSelectedRestoreFormat("tar.gz") : IsBackupActionActive);
+    private bool IsZipRestoreButtonDisabled => _zipArchive is null || (CanCancelPreparationOrRestore("zip") ? false : IsBackupActionActive);
+    private bool IsTarGzRestoreButtonDisabled => _tarGzArchive is null || (CanCancelPreparationOrRestore("tar.gz") ? false : IsBackupActionActive);
     private bool IsZipDownloadDisabled => _zipArchive is null || IsBackupActionActive;
     private bool IsTarGzDownloadDisabled => _tarGzArchive is null || IsBackupActionActive;
     private bool IsZipDeleteDisabled => _zipArchive is null || _isDeletingZipArchive || IsBackupActionActive;
@@ -474,7 +478,23 @@
 
     private bool IsSelectedRestoreFormat(string format)
     {
-        return string.Equals(RestorePreview?.Format, format, StringComparison.OrdinalIgnoreCase);
+        if (string.Equals(RestorePreview?.Format, format, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return format switch
+        {
+            "zip" => string.Equals(Path.GetExtension(_restoreSelectedFileName), ".zip", StringComparison.OrdinalIgnoreCase),
+            "tar.gz" => _restoreSelectedFileName?.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase) == true ||
+                        _restoreSelectedFileName?.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase) == true,
+            _ => false
+        };
+    }
+
+    private bool CanCancelPreparationOrRestore(string format)
+    {
+        return (_isPreparingRestorePreview || _isRestoring) && IsSelectedRestoreFormat(format);
     }
 
     private void OpenResetPasswordPage()
@@ -598,6 +618,12 @@
         _message = null;
         _error = null;
 
+        if (_isPreparingRestorePreview && IsSelectedRestoreFormat("zip"))
+        {
+            BackupService.CancelRestorePreparation();
+            return;
+        }
+
         if (_isRestoring && IsSelectedRestoreFormat("zip"))
         {
             BackupService.CancelRestore();
@@ -626,6 +652,12 @@
     {
         _message = null;
         _error = null;
+
+        if (_isPreparingRestorePreview && IsSelectedRestoreFormat("tar.gz"))
+        {
+            BackupService.CancelRestorePreparation();
+            return;
+        }
 
         if (_isRestoring && IsSelectedRestoreFormat("tar.gz"))
         {
