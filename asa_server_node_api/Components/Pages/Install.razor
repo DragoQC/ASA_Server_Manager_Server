@@ -50,16 +50,10 @@
         else
         {
             <section class="relative z-[140] rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
-                <button type="button"
-                        @onclick="@(() => _showProtonHelpDialog = true)"
-                        class="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-[0.7rem] font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
-                        aria-label="@($"{_snapshot.Proton.Title} help")">
-                    ?
-                </button>
                 <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                    <div class="space-y-4 pr-14">
-                        <div class="flex flex-wrap items-center gap-3">
-                            <h2 class="text-3xl font-semibold text-white">@_snapshot.Proton.Title</h2>
+                    <div class="space-y-4">
+                        <TitleHelp Title="@_snapshot.Proton.Title"
+                                   Description="Proton is needed to start the Windows ARK dedicated server build on Linux. ASA server binaries are Windows-based, so Proton provides the compatibility layer that lets the game server run on this Debian machine. In this panel, Proton is installed into the workspace and the selected version is what the start flow will use when launching the server. If Proton is missing, the server cannot boot correctly on Linux.">
                             @if (!string.Equals(_snapshot.Proton.VersionLabel, "Missing", StringComparison.OrdinalIgnoreCase))
                             {
                                 <StatusTag Text="@_snapshot.Proton.VersionLabel" />
@@ -68,7 +62,7 @@
                             {
                                 <StatusTag Text="@($"Latest {_snapshot.Proton.LatestVersionLabel}")" />
                             }
-                        </div>
+                        </TitleHelp>
 
                         <p class="max-w-3xl text-base leading-7 text-neutral-300">
                             @_snapshot.Proton.Description
@@ -82,7 +76,7 @@
                         
                     </div>
 
-                    <div class="flex flex-wrap items-end gap-3 pt-10 xl:pt-0">
+                    <div class="flex flex-wrap items-end gap-3">
                         @if (_protonVersions.Count > 0)
                         {
                             <div class="max-w-sm">
@@ -114,15 +108,10 @@
             </section>
 
             <section class="relative z-[20] rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
-                <button type="button"
-                        @onclick="@(() => _showSteamHelpDialog = true)"
-                        class="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-[0.7rem] font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
-                        aria-label="@($"{_snapshot.Steam.Title} help")">
-                    ?
-                </button>
                 <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                    <div class="space-y-4 pr-14">
-                        <h2 class="text-3xl font-semibold text-white">@_snapshot.Steam.Title</h2>
+                    <div class="space-y-4">
+                        <TitleHelp Title="@_snapshot.Steam.Title"
+                                   Description="SteamCMD is used to download and update your ARK server automatically. It is Valve's command-line tool for fetching dedicated server files without using the full Steam desktop client. In this setup, SteamCMD lives in the workspace and is what the install and update flow uses to keep the server files present and current on disk." />
 
                         <p class="max-w-3xl text-base leading-7 text-neutral-300">
                             @_snapshot.Steam.Description
@@ -134,7 +123,7 @@
                         </p>
                     </div>
 
-                    <div class="flex flex-wrap gap-3 pt-10 xl:pt-0">
+                    <div class="flex flex-wrap gap-3">
                         <button type="button"
                                 @onclick="UpdateSteamAsync"
                                 disabled="@(!_snapshot.Steam.CanUpdate || _isRefreshing || _isUpdatingSteam || _isInstallingAll)"
@@ -163,18 +152,50 @@
 
                 <div class="space-y-6">
                     <div class="relative flex h-full flex-col rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
-                        <button type="button"
-                                @onclick="@(() => _showStartScriptHelpDialog = true)"
-                                class="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-[0.7rem] font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
-                                aria-label="@($"{_snapshot.StartScript.Title} help")">
-                            ?
-                        </button>
                         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div class="space-y-3 pr-14">
-                                <div class="flex flex-wrap items-center gap-3">
-                                    <h2 class="text-2xl font-semibold text-white">@_snapshot.StartScript.Title</h2>
-                                    <StatusTag Text="@_snapshot.StartScript.StateLabel" />
-                                </div>
+                            <div class="space-y-3">
+                                <TitleHelp Title="@_snapshot.StartScript.Title"
+                                           TitleClass="text-2xl font-semibold text-white">
+                                    <ChildContent>
+                                        <StatusTag Text="@_snapshot.StartScript.StateLabel" />
+                                    </ChildContent>
+                                    <DescriptionContent>
+                                        <div class="space-y-5">
+                                            <p class="text-base leading-7 text-neutral-300">
+                                                This script is executed under the hood to start the ARK: Survival Ascended server. It reads the live config values and builds the final server launch command, including map, server name, ports, player count, and optional extra args.
+                                            </p>
+
+                                            <p class="text-base leading-7 text-neutral-300">
+                                                The template is already good as-is. If cluster values are empty, it skips cluster launch info. If mod IDs are empty, it skips mod launch args. It also sets the game port, query port, and RCON port from this script.
+                                            </p>
+
+                                            <p class="text-base leading-7 text-neutral-300">
+                                                This file stays editable on purpose. If you know what you are doing, you can customize the launch behavior. If you just want a working ARK server, saving the default script as-is will also work.
+                                            </p>
+
+                                            <div class="rounded-[1.4rem] border border-white/10 bg-black/30 p-4">
+                                                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">asa.env variables used by start-asa.sh</p>
+                                                <div class="mt-3 flex flex-wrap gap-2">
+                                                    @foreach (string environmentVariable in StartScriptEnvironmentVariables)
+                                                    {
+                                                        <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100">
+                                                            @environmentVariable
+                                                        </span>
+                                                    }
+                                                </div>
+                                                <p class="mt-4 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">proton.env variables used by start-asa.sh</p>
+                                                <div class="mt-3 flex flex-wrap gap-2">
+                                                    @foreach (string environmentVariable in ProtonEnvironmentVariables)
+                                                    {
+                                                        <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100">
+                                                            @environmentVariable
+                                                        </span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </DescriptionContent>
+                                </TitleHelp>
 
                                 <p class="text-sm leading-6 text-neutral-300">@_snapshot.StartScript.Description</p>
                                 <p class="text-xs uppercase tracking-[0.28em] text-neutral-500">@_snapshot.StartScript.FilePath</p>
@@ -183,7 +204,7 @@
                             <button type="button"
                                     @onclick="ApplyStartScriptAsync"
                                     disabled="@(_isApplyingStartScript || _isInstallingAll)"
-                                    class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60 lg:mt-10">
+                                    class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                                 @(_isApplyingStartScript ? "Applying..." : "Apply")
                             </button>
                         </div>
@@ -200,18 +221,39 @@
                     </div>
 
                     <div class="relative flex h-full flex-col rounded-[1.6rem] border border-white/10 bg-white/5 p-5">
-                        <button type="button"
-                                @onclick="@(() => _showServiceFileHelpDialog = true)"
-                                class="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-400/15 text-[0.7rem] font-semibold text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25"
-                                aria-label="@($"{_snapshot.ServiceFile.Title} help")">
-                            ?
-                        </button>
                         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div class="space-y-3 pr-14">
-                                <div class="flex flex-wrap items-center gap-3">
-                                    <h2 class="text-2xl font-semibold text-white">@_snapshot.ServiceFile.Title</h2>
-                                    <StatusTag Text="@_snapshot.ServiceFile.StateLabel" />
-                                </div>
+                            <div class="space-y-3">
+                                <TitleHelp Title="@_snapshot.ServiceFile.Title"
+                                           TitleClass="text-2xl font-semibold text-white">
+                                    <ChildContent>
+                                        <StatusTag Text="@_snapshot.ServiceFile.StateLabel" />
+                                    </ChildContent>
+                                    <DescriptionContent>
+                                        <div class="space-y-5">
+                                            <p class="text-base leading-7 text-neutral-300">
+                                                A basic systemd service is the Linux way to define how a background process starts, stops, restarts, and behaves after boot. On Debian, systemd reads this file to know how your ASA server should be launched and managed.
+                                            </p>
+
+                                            <p class="text-base leading-7 text-neutral-300">
+                                                This is the service installed on the Debian machine for the ARK server. It does not contain the full game launch command itself. Instead, it runs the start script configured just above, and that script builds the final server launch with the current ports, map, mods, cluster values, and other args.
+                                            </p>
+
+                                            <p class="text-base leading-7 text-neutral-300">
+                                                This file also stays editable on purpose. If you know what you are doing, you can tune how the Linux service behaves. If you just want a working ARK server, saving the default service as-is will also work.
+                                            </p>
+
+                                            <div class="rounded-[1.4rem] border border-white/10 bg-black/30 p-4">
+                                                <div class="space-y-3 text-sm leading-6 text-neutral-300">
+                                                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Unit]</code> describes what the service is and what it should wait for before starting.</p>
+                                                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Service]</code> defines how the process runs, which user runs it, the working directory, restart behavior, and the command that gets executed.</p>
+                                                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">ExecStart</code> is the important line that points systemd at the launch command or script.</p>
+                                                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">Restart</code> and <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RestartSec</code> control how the service comes back if it stops or crashes.</p>
+                                                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Install]</code> tells systemd how the service should be attached to the machine boot flow when it is enabled.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </DescriptionContent>
+                                </TitleHelp>
 
                                 <p class="text-sm leading-6 text-neutral-300">@_snapshot.ServiceFile.Description</p>
                                 <p class="text-xs uppercase tracking-[0.28em] text-neutral-500">@_snapshot.ServiceFile.FilePath</p>
@@ -220,7 +262,7 @@
                             <button type="button"
                                     @onclick="ApplyServiceFileAsync"
                                     disabled="@(_isApplyingServiceFile || _isInstallingAll)"
-                                    class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60 lg:mt-10">
+                                    class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
                                 @(_isApplyingServiceFile ? "Applying..." : "Apply")
                             </button>
                         </div>
@@ -246,111 +288,6 @@
         }
     </div>
 </section>
-
-<ConfirmationDialog IsOpen="@_showProtonHelpDialog"
-                    IsBusy="false"
-                    Eyebrow="@(_snapshot?.Proton.Title ?? "Proton")"
-                    StatusText="Info"
-                    Title="@(_snapshot?.Proton.Title ?? "Proton")"
-                    ConfirmText="Got it"
-                    CancelText="Close"
-                    OnConfirm="CloseProtonHelpDialog"
-                    OnCancel="CloseProtonHelpDialog"
-                    Message="Proton is needed to start the Windows ARK dedicated server build on Linux. ASA server binaries are Windows-based, so Proton provides the compatibility layer that lets the game server run on this Debian machine. In this panel, Proton is installed into the workspace and the selected version is what the start flow will use when launching the server. If Proton is missing, the server cannot boot correctly on Linux." />
-
-<ConfirmationDialog IsOpen="@_showSteamHelpDialog"
-                    IsBusy="false"
-                    Eyebrow="@(_snapshot?.Steam.Title ?? "SteamCMD")"
-                    StatusText="Info"
-                    Title="@(_snapshot?.Steam.Title ?? "SteamCMD")"
-                    ConfirmText="Got it"
-                    CancelText="Close"
-                    OnConfirm="CloseSteamHelpDialog"
-                    OnCancel="CloseSteamHelpDialog"
-                    Message="SteamCMD is used to download and update your ARK server automatically. It is Valve's command-line tool for fetching dedicated server files without using the full Steam desktop client. In this setup, SteamCMD lives in the workspace and is what the install and update flow uses to keep the server files present and current on disk." />
-
-<ConfirmationDialog IsOpen="@_showStartScriptHelpDialog"
-                    IsBusy="false"
-                    Eyebrow="@(_snapshot?.StartScript.Title ?? "Start script")"
-                    StatusText="Info"
-                    Title="@(_snapshot?.StartScript.Title ?? "Start script")"
-                    ConfirmText="Got it"
-                    CancelText="Close"
-                    OnConfirm="CloseStartScriptHelpDialog"
-                    OnCancel="CloseStartScriptHelpDialog">
-    <ChildContent>
-        <div class="space-y-5">
-            <p class="text-base leading-7 text-neutral-300">
-                This script is executed under the hood to start the ARK: Survival Ascended server. It reads the live config values and builds the final server launch command, including map, server name, ports, player count, and optional extra args.
-            </p>
-
-            <p class="text-base leading-7 text-neutral-300">
-                The template is already good as-is. If cluster values are empty, it skips cluster launch info. If mod IDs are empty, it skips mod launch args. It also sets the game port, query port, and RCON port from this script.
-            </p>
-
-            <p class="text-base leading-7 text-neutral-300">
-                This file stays editable on purpose. If you know what you are doing, you can customize the launch behavior. If you just want a working ARK server, saving the default script as-is will also work.
-            </p>
-
-            <div class="rounded-[1.4rem] border border-white/10 bg-black/30 p-4">
-                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">asa.env variables used by start-asa.sh</p>
-                <div class="mt-3 flex flex-wrap gap-2">
-                    @foreach (string environmentVariable in StartScriptEnvironmentVariables)
-                    {
-                        <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100">
-                            @environmentVariable
-                        </span>
-                    }
-                </div>
-                <p class="mt-4 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">proton.env variables used by start-asa.sh</p>
-                <div class="mt-3 flex flex-wrap gap-2">
-                    @foreach (string environmentVariable in ProtonEnvironmentVariables)
-                    {
-                        <span class="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1.5 font-mono text-xs text-cyan-100">
-                            @environmentVariable
-                        </span>
-                    }
-                </div>
-            </div>
-        </div>
-    </ChildContent>
-</ConfirmationDialog>
-
-<ConfirmationDialog IsOpen="@_showServiceFileHelpDialog"
-                    IsBusy="false"
-                    Eyebrow="@(_snapshot?.ServiceFile.Title ?? "asa.service")"
-                    StatusText="Info"
-                    Title="@(_snapshot?.ServiceFile.Title ?? "asa.service")"
-                    ConfirmText="Got it"
-                    CancelText="Close"
-                    OnConfirm="CloseServiceFileHelpDialog"
-                    OnCancel="CloseServiceFileHelpDialog">
-    <ChildContent>
-        <div class="space-y-5">
-            <p class="text-base leading-7 text-neutral-300">
-                A basic systemd service is the Linux way to define how a background process starts, stops, restarts, and behaves after boot. On Debian, systemd reads this file to know how your ASA server should be launched and managed.
-            </p>
-
-            <p class="text-base leading-7 text-neutral-300">
-                This is the service installed on the Debian machine for the ARK server. It does not contain the full game launch command itself. Instead, it runs the start script configured just above, and that script builds the final server launch with the current ports, map, mods, cluster values, and other args.
-            </p>
-
-            <p class="text-base leading-7 text-neutral-300">
-                This file also stays editable on purpose. If you know what you are doing, you can tune how the Linux service behaves. If you just want a working ARK server, saving the default service as-is will also work.
-            </p>
-
-            <div class="rounded-[1.4rem] border border-white/10 bg-black/30 p-4">
-                <div class="space-y-3 text-sm leading-6 text-neutral-300">
-                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Unit]</code> describes what the service is and what it should wait for before starting.</p>
-                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Service]</code> defines how the process runs, which user runs it, the working directory, restart behavior, and the command that gets executed.</p>
-                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">ExecStart</code> is the important line that points systemd at the launch command or script.</p>
-                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">Restart</code> and <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">RestartSec</code> control how the service comes back if it stops or crashes.</p>
-                    <p><code class="rounded bg-white/10 px-2 py-1 text-neutral-100">[Install]</code> tells systemd how the service should be attached to the machine boot flow when it is enabled.</p>
-                </div>
-            </div>
-        </div>
-    </ChildContent>
-</ConfirmationDialog>
 
 <ConfirmationDialog IsOpen="@_showRestartDialog"
                     IsBusy="@_isRestartingAsa"
@@ -378,10 +315,6 @@
     private string? _serviceFileMessage;
     private IReadOnlyList<string> _protonVersions = Array.Empty<string>();
     private string? _selectedProtonVersion;
-    private bool _showProtonHelpDialog;
-    private bool _showSteamHelpDialog;
-    private bool _showStartScriptHelpDialog;
-    private bool _showServiceFileHelpDialog;
     private bool _showRestartDialog;
     private bool _isRestartingAsa;
     private bool _isUpdatingProton
@@ -709,30 +642,6 @@
 
         await ManagerService.RefreshAsync();
         _showRestartDialog = ManagerService.ShouldPromptForRestart;
-    }
-
-    private Task CloseProtonHelpDialog()
-    {
-        _showProtonHelpDialog = false;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseSteamHelpDialog()
-    {
-        _showSteamHelpDialog = false;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseStartScriptHelpDialog()
-    {
-        _showStartScriptHelpDialog = false;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseServiceFileHelpDialog()
-    {
-        _showServiceFileHelpDialog = false;
-        return Task.CompletedTask;
     }
 
     private Task RestartAsaAsync()
