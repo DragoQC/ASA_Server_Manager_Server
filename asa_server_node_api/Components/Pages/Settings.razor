@@ -587,6 +587,8 @@
         _message = null;
         _error = null;
         _isDeletingZipArchive = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Yield();
 
         try
         {
@@ -608,6 +610,8 @@
         _message = null;
         _error = null;
         _isDeletingTarGzArchive = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Yield();
 
         try
         {
