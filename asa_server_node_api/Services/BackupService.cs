@@ -258,7 +258,9 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
             File.Delete(archive.FilePath);
         }
 
-        if (archive is not null && IsArchiveValidatedForRestore(archive))
+        if (archive is not null &&
+            (IsArchiveValidatedForRestore(archive) ||
+             string.Equals(RestorePreview?.ArchivePath, archive.FilePath, StringComparison.OrdinalIgnoreCase)))
         {
             ClearValidatedRestorePreview();
         }

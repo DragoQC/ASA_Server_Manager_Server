@@ -315,6 +315,17 @@
                                             TotalBytes="@_restoreProgressTotalBytes" />
                         }
 
+                        @if (_isUploadingRestore && !_isRestoring)
+                        {
+                            <div class="flex justify-start">
+                                <button type="button"
+                                        @onclick="CancelRestorePreparation"
+                                        class="inline-flex rounded-full border border-red-300/20 bg-red-400/10 px-5 py-2.5 text-sm font-medium text-red-100 transition hover:bg-red-400/20">
+                                    Cancel upload
+                                </button>
+                            </div>
+                        }
+
                         @if (RestorePreview is BackupImportPreview restorePreview)
                         {
                             <div class="rounded-[1.2rem] border border-cyan-300/15 bg-black/25 p-4">
@@ -771,6 +782,11 @@
         {
             _error = exception.Message;
         }
+    }
+
+    private void CancelRestorePreparation()
+    {
+        BackupService.CancelRestorePreparation();
     }
 
     private void OpenRestoreDialog()
