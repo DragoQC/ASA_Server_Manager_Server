@@ -35,16 +35,20 @@
                     <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                         <div class="space-y-3">
                             <div class="flex flex-wrap items-center gap-3">
-                                <h2 class="text-2xl font-semibold text-white">@file.Title</h2>
-                                <StatusTag Text="@file.StateLabel" />
                                 @if (HasInfoDialog(file))
                                 {
-                                    <button type="button"
-                                            @onclick="() => OpenInfoDialog(file)"
-                                            class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/20 bg-cyan-400/15 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/25"
-                                            aria-label="@($"{file.Title} help")">
-                                        ?
-                                    </button>
+                                    <TitleHelp Title="@file.Title"
+                                               TitleClass="text-2xl font-semibold text-white"
+                                               DescriptionContent="@GetInfoContent(file.Title)">
+                                        <ChildContent>
+                                            <StatusTag Text="@file.StateLabel" />
+                                        </ChildContent>
+                                    </TitleHelp>
+                                }
+                                else
+                                {
+                                    <h2 class="text-2xl font-semibold text-white">@file.Title</h2>
+                                    <StatusTag Text="@file.StateLabel" />
                                 }
                             </div>
 
@@ -121,60 +125,6 @@
                     OnConfirm="RestartAsaAsync"
                     OnCancel="CloseRestartDialog" />
 
-<ConfirmationDialog IsOpen="@_showInfoDialog"
-                    Eyebrow="Game config"
-                    Title="@GetInfoDialogTitle()"
-                    ConfirmText="Close"
-                    HideCancelButton="true"
-                    OnConfirm="CloseInfoDialog"
-                    OnCancel="CloseInfoDialog">
-    <ChildContent>
-        @if (string.Equals(_infoDialogFileTitle, "Game.ini", StringComparison.Ordinal))
-        {
-            <div class="space-y-4 text-sm leading-6 text-neutral-200">
-                <p>
-                    <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">Game.ini</code>
-                    is mainly used for more advanced ARK server behavior. This is where admins usually place things like progression tuning, engram changes, breeding values, XP changes, and other deeper game rules.
-                </p>
-                <p>
-                    Use it when you want to go beyond the simpler server options and start tuning how the game behaves on this node.
-                </p>
-                <p>
-                    Reference:
-                    <a href="https://ark.wiki.gg/wiki/Server_configuration"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
-                        ARK wiki server configuration
-                    </a>
-                </p>
-            </div>
-        }
-        else if (string.Equals(_infoDialogFileTitle, "GameUserSettings.ini", StringComparison.Ordinal))
-        {
-            <div class="space-y-4 text-sm leading-6 text-neutral-200">
-                <p>
-                    <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">GameUserSettings.ini</code>
-                    is used for the more common server options. This is usually where admins manage public-facing server settings and many standard gameplay toggles.
-                </p>
-                <p>
-                    In practice, this file is often the first place to look when you want to change normal server behavior without diving into the more advanced tuning found in
-                    <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">Game.ini</code>.
-                </p>
-                <p>
-                    Reference:
-                    <a href="https://ark.wiki.gg/wiki/Server_configuration"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
-                        ARK wiki server configuration
-                    </a>
-                </p>
-            </div>
-        }
-    </ChildContent>
-</ConfirmationDialog>
-
 @code {
     private IReadOnlyList<asa_server_node_api.Models.GameConfig.GameConfigFileState> _files = Array.Empty<asa_server_node_api.Models.GameConfig.GameConfigFileState>();
     private asa_server_node_api.Models.GameConfig.GameConfigFileState? _editorFile;
@@ -186,9 +136,44 @@
     private bool _isSavingEditor;
     private bool _showRestartDialog;
     private bool _isRestartingAsa;
-    private bool _showInfoDialog;
-    private string? _infoDialogFileTitle;
     private bool _isRefreshingStates;
+    private RenderFragment GameIniInfoContent => @<div class="space-y-4 text-sm leading-6 text-neutral-200">
+        <p>
+            <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">Game.ini</code>
+            is mainly used for more advanced ARK server behavior. This is where admins usually place things like progression tuning, engram changes, breeding values, XP changes, and other deeper game rules.
+        </p>
+        <p>
+            Use it when you want to go beyond the simpler server options and start tuning how the game behaves on this node.
+        </p>
+        <p>
+            Reference:
+            <a href="https://ark.wiki.gg/wiki/Server_configuration"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
+                ARK wiki server configuration
+            </a>
+        </p>
+    </div>;
+    private RenderFragment GameUserSettingsInfoContent => @<div class="space-y-4 text-sm leading-6 text-neutral-200">
+        <p>
+            <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">GameUserSettings.ini</code>
+            is used for the more common server options. This is usually where admins manage public-facing server settings and many standard gameplay toggles.
+        </p>
+        <p>
+            In practice, this file is often the first place to look when you want to change normal server behavior without diving into the more advanced tuning found in
+            <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">Game.ini</code>.
+        </p>
+        <p>
+            Reference:
+            <a href="https://ark.wiki.gg/wiki/Server_configuration"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
+                ARK wiki server configuration
+            </a>
+        </p>
+    </div>;
 
     protected override async Task OnInitializedAsync()
     {
@@ -349,25 +334,13 @@
             || string.Equals(file.Title, "GameUserSettings.ini", StringComparison.Ordinal);
     }
 
-    private Task OpenInfoDialog(asa_server_node_api.Models.GameConfig.GameConfigFileState file)
+    private RenderFragment? GetInfoContent(string fileTitle)
     {
-        _infoDialogFileTitle = file.Title;
-        _showInfoDialog = true;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseInfoDialog()
-    {
-        _showInfoDialog = false;
-        _infoDialogFileTitle = null;
-        return Task.CompletedTask;
-    }
-
-    private string GetInfoDialogTitle()
-    {
-        return string.IsNullOrWhiteSpace(_infoDialogFileTitle)
-            ? "File info"
-            : $"{_infoDialogFileTitle} purpose";
+        return string.Equals(fileTitle, "Game.ini", StringComparison.Ordinal)
+            ? GameIniInfoContent
+            : string.Equals(fileTitle, "GameUserSettings.ini", StringComparison.Ordinal)
+                ? GameUserSettingsInfoContent
+                : null;
     }
 
     private void OnServerStatusChanged()
