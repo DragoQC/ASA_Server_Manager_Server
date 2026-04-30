@@ -5,8 +5,9 @@ using asa_server_node_api.Models.ServerConfig;
 
 namespace asa_server_node_api.Services;
 
-public sealed class ServerConfigService
+public sealed class ServerConfigService(AdminStateHubPublisherService adminStateHubPublisherService)
 {
+	private readonly AdminStateHubPublisherService _adminStateHubPublisherService = adminStateHubPublisherService;
 	private readonly SemaphoreSlim _sync = new(1, 1);
 	private ServerConfigSettings? _cachedSettings;
 	private bool _hasConfigFile;
@@ -112,6 +113,8 @@ public sealed class ServerConfigService
             _cachedSettings = settings.Clone();
             _hasConfigFile = true;
             _lastLoadedWriteTimeUtc = File.GetLastWriteTimeUtc(ServerConfigConstants.EnvFilePath);
+
+            await _adminStateHubPublisherService.BroadcastServerInfoUpdatedAsync(cancellationToken);
         }
         finally
         {
@@ -244,6 +247,8 @@ public sealed class ServerConfigService
         _cachedSettings = settings.Clone();
         _hasConfigFile = true;
         _lastLoadedWriteTimeUtc = File.GetLastWriteTimeUtc(ServerConfigConstants.EnvFilePath);
+
+        await _adminStateHubPublisherService.BroadcastServerInfoUpdatedAsync(cancellationToken);
     }
 
 	private static ServerConfigSettings ParseEnvContent(string? content)

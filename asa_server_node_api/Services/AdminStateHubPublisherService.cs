@@ -37,4 +37,9 @@ public sealed class AdminStateHubPublisherService(
         _lastSnapshot = snapshot;
         _ = _hubContext.Clients.All.SendAsync(AdminStateHubConstants.HostMetricsUpdatedMethod, snapshot);
     }
+
+    public Task BroadcastServerInfoUpdatedAsync(CancellationToken cancellationToken = default)
+    {
+        return _hubContext.Clients.All.SendAsync(AdminStateHubConstants.ServerInfoUpdatedMethod, cancellationToken);
+    }
 }
