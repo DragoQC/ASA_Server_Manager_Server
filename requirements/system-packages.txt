@@ -1,0 +1,15 @@
+# One package per line.
+# Use "|" to express apt alternatives; first available package wins.
+
+git
+curl
+wget
+ca-certificates
+sudo
+libgssapi-krb5-2
+libicu76|libicu72|libicu-dev
+libssl3
+zlib1g
+libc6-i386
+lib32gcc-s1
+lib32stdc++6

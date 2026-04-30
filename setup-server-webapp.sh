@@ -15,6 +15,7 @@ SECTION_COLOR='\033[38;5;141m'
 GIT_COLOR='\033[38;5;45m'
 DOTNET_COLOR='\033[38;5;39m'
 VERBOSE=0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log_webapp() {
   echo -e "${SECTION_COLOR}[WebApp]${RESET} $1"
@@ -42,6 +43,39 @@ log_warn() {
 
 log_error() {
   echo -e "${ERROR_COLOR}✖ $1${RESET}"
+}
+
+load_required_packages() {
+  local requirements_file="$1"
+
+  if [ ! -f "${requirements_file}" ]; then
+    log_error "Requirements file was not found: ${requirements_file}"
+    exit 1
+  fi
+
+  REQUIRED_PACKAGES=()
+
+  while IFS= read -r line || [ -n "${line}" ]; do
+    line="${line%%#*}"
+    line="$(printf '%s' "${line}" | xargs)"
+
+    if [ -z "${line}" ]; then
+      continue
+    fi
+
+    if [[ "${line}" == *"|"* ]]; then
+      IFS='|' read -r -a package_options <<< "${line}"
+      local selected_package
+      selected_package="$(find_first_available_package "${package_options[@]}")" || {
+        log_error "Could not find any supported package for: ${line}"
+        exit 1
+      }
+      REQUIRED_PACKAGES+=("${selected_package}")
+      continue
+    fi
+
+    REQUIRED_PACKAGES+=("${line}")
+  done < "${requirements_file}"
 }
 
 while (($# > 0)); do
@@ -113,6 +147,7 @@ TAR_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Back
 TAR_TOOLS_PREP_SCRIPT_PATH="${BACKUP_DIR}/prepare-tar-tools.sh"
 WIREGUARD_DIR="/etc/wireguard"
 WIREGUARD_CONFIG_LINK_PATH="${WIREGUARD_DIR}/wg0.conf"
+SYSTEM_PACKAGES_FILE="${SYSTEM_PACKAGES_FILE:-$SCRIPT_DIR/requirements/system-packages.txt}"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 if [ "${EUID}" -ne 0 ]; then
@@ -155,23 +190,8 @@ log_webapp "asa_server_node_api – Web App Installer"
 log_webapp "Installing dependencies..."
 run_quiet dpkg --add-architecture i386
 run_quiet apt update
-ICU_PACKAGE="$(find_first_available_package libicu76 libicu72 libicu-dev)" || {
-  log_error "Could not find a supported libicu package in apt."
-  exit 1
-}
-run_quiet apt install -y \
-  git \
-  curl \
-  wget \
-  ca-certificates \
-  sudo \
-  libgssapi-krb5-2 \
-  "${ICU_PACKAGE}" \
-  libssl3 \
-  zlib1g \
-  libc6-i386 \
-  lib32gcc-s1 \
-  lib32stdc++6
+load_required_packages "${SYSTEM_PACKAGES_FILE}"
+run_quiet apt install -y "${REQUIRED_PACKAGES[@]}"
 log_ok "Installed dependencies."
 
 if ! getent group "${GROUP_NAME}" >/dev/null 2>&1; then

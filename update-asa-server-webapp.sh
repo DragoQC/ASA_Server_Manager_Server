@@ -14,6 +14,7 @@ SECTION_COLOR='\033[38;5;141m'
 GIT_COLOR='\033[38;5;45m'
 DOTNET_COLOR='\033[38;5;39m'
 VERBOSE=0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log_webapp() {
   echo -e "${SECTION_COLOR}[WebApp]${RESET} $1"
@@ -37,6 +38,50 @@ log_info() {
 
 log_error() {
   echo -e "${ERROR_COLOR}✖ $1${RESET}"
+}
+
+find_first_available_package() {
+  for package_name in "$@"; do
+    if apt-cache show "${package_name}" >/dev/null 2>&1; then
+      printf '%s\n' "${package_name}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+load_required_packages() {
+  local requirements_file="$1"
+
+  if [ ! -f "${requirements_file}" ]; then
+    log_error "Requirements file was not found: ${requirements_file}"
+    exit 1
+  fi
+
+  REQUIRED_PACKAGES=()
+
+  while IFS= read -r line || [ -n "${line}" ]; do
+    line="${line%%#*}"
+    line="$(printf '%s' "${line}" | xargs)"
+
+    if [ -z "${line}" ]; then
+      continue
+    fi
+
+    if [[ "${line}" == *"|"* ]]; then
+      IFS='|' read -r -a package_options <<< "${line}"
+      local selected_package
+      selected_package="$(find_first_available_package "${package_options[@]}")" || {
+        log_error "Could not find any supported package for: ${line}"
+        exit 1
+      }
+      REQUIRED_PACKAGES+=("${selected_package}")
+      continue
+    fi
+
+    REQUIRED_PACKAGES+=("${line}")
+  done < "${requirements_file}"
 }
 
 while (($# > 0)); do
@@ -83,6 +128,7 @@ APP_DB_PATH="${APP_DATA_ROOT}/asa-manager.db"
 LEGACY_DB_PATH="${PUBLISH_DIR}/Data/asa-manager.db"
 UPDATE_LINK_PATH="${UPDATE_LINK_PATH:-/usr/local/bin/update-asa-server-webapp}"
 SHORT_UPDATE_LINK_PATH="${SHORT_UPDATE_LINK_PATH:-/usr/local/bin/update}"
+SYSTEM_PACKAGES_FILE_RELATIVE_PATH="requirements/system-packages.txt"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 if [ "${EUID}" -ne 0 ]; then
@@ -194,6 +240,12 @@ install_update_command "${UPDATE_LINK_PATH}"
 install_update_command "${SHORT_UPDATE_LINK_PATH}"
 log_ok "Installed ${UPDATE_LINK_PATH} updater command."
 log_ok "Installed ${SHORT_UPDATE_LINK_PATH} updater command."
+
+log_webapp "Updating apt requirements..."
+run_quiet apt update
+load_required_packages "${REPO_DIR}/${SYSTEM_PACKAGES_FILE_RELATIVE_PATH}"
+run_quiet apt install -y "${REQUIRED_PACKAGES[@]}"
+log_ok "Updated dependencies."
 
 log_dotnet "Publishing web app..."
 run_quiet rm -rf "${NEXT_PUBLISH_DIR}"

@@ -226,7 +226,6 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
         }
 
         UpdateRestoreProgress($"Ready to restore {RestorePreview.FileName}. Next: confirm restore to replace /opt/asa/server.");
-        _toastService.ShowInfo("Ready to restore.", "Restore");
     }
 
     public bool IsLatestArchiveValidatedForRestore(string format)
@@ -698,7 +697,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
         _validatedRestoreArchive = BuildArchiveFingerprint(preview.ArchivePath);
         LoadArchives();
         NotifyChanged();
-        _toastService.ShowSuccess("Restore preparation done.", "Restore");
+        _toastService.ShowSuccess("Restore capabilities validated.", "Restore");
     }
 
     private void StartRestore(string message)
