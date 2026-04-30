@@ -6,7 +6,7 @@ namespace asa_server_node_api.Services;
 
 public sealed class GameConfigService
 {
-    private static readonly SearchValues<char> InvalidIniKeyCharacters = SearchValues.Create("/\\[]");
+    private static readonly SearchValues<char> InvalidIniKeyCharacters = SearchValues.Create("/\\");
     private static readonly SearchValues<char> InvalidIniSectionCharacters = SearchValues.Create("[]");
 
     public bool HasGameIniFile()

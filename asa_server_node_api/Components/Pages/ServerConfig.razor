@@ -64,24 +64,17 @@
                     </section>
 
                     <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
-                        <div class="mb-5 flex items-start justify-between gap-4">
-                            <div>
-                                <h2 class="text-2xl font-semibold text-white">Mods and cluster</h2>
-                                <p class="mt-2 text-sm text-neutral-400">Comma-separated mods and optional cluster setup. The cluster folder path is managed internally.</p>
-                                <a href="https://www.curseforge.com/ark-survival-ascended"
-                                   target="_blank"
-                                   rel="noopener noreferrer"
-                                   class="mt-3 inline-flex text-sm font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
-                                    Find mods on CurseForge
-                                </a>
-                            </div>
-
-                            <button type="button"
-                                    @onclick="OpenModsAndClusterInfoDialog"
-                                    class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/20 bg-cyan-400/15 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/25"
-                                    aria-label="Mods and cluster help">
-                                ?
-                            </button>
+                        <div class="mb-5">
+                            <TitleHelp Title="Mods and cluster"
+                                       TitleClass="text-2xl font-semibold text-white"
+                                       DescriptionContent="@ModsAndClusterInfoContent" />
+                            <p class="mt-2 text-sm text-neutral-400">Comma-separated mods and optional cluster setup. The cluster folder path is managed internally.</p>
+                            <a href="https://www.curseforge.com/ark-survival-ascended"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="mt-3 inline-flex text-sm font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
+                                Find mods on CurseForge
+                            </a>
                         </div>
 
                         <div class="grid gap-4 md:grid-cols-2">
@@ -96,24 +89,17 @@
                     </section>
 
                     <section class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
-                        <div class="mb-5 flex items-start justify-between gap-4">
-                            <div>
-                                <h2 class="text-2xl font-semibold text-white">Extra flags</h2>
-                                <p class="mt-2 text-sm text-neutral-400">Raw <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">EXTRA_ARGS</code> from the env file.</p>
-                                <a href="https://ark.wiki.gg/wiki/Server_configuration"
-                                   target="_blank"
-                                   rel="noopener noreferrer"
-                                   class="mt-3 inline-flex text-sm font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
-                                    ASA server configuration reference
-                                </a>
-                            </div>
-
-                            <button type="button"
-                                    @onclick="OpenExtraFlagsInfoDialog"
-                                    class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/20 bg-cyan-400/15 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/25"
-                                    aria-label="Extra flags help">
-                                ?
-                            </button>
+                        <div class="mb-5">
+                            <TitleHelp Title="Extra flags"
+                                       TitleClass="text-2xl font-semibold text-white"
+                                       DescriptionContent="@ExtraFlagsInfoContent" />
+                            <p class="mt-2 text-sm text-neutral-400">Raw <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">EXTRA_ARGS</code> from the env file.</p>
+                            <a href="https://ark.wiki.gg/wiki/Server_configuration"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="mt-3 inline-flex text-sm font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">
+                                ASA server configuration reference
+                            </a>
                         </div>
 
                         <div class="grid gap-4">
@@ -137,64 +123,6 @@
                     OnConfirm="RestartAsaAsync"
                     OnCancel="CloseRestartDialog" />
 
-<ConfirmationDialog IsOpen="@_showModsAndClusterInfoDialog"
-                    Eyebrow="Mods and cluster"
-                    Title="How do mods and cluster settings work?"
-                    ConfirmText="Close"
-                    HideCancelButton="true"
-                    OnConfirm="CloseModsAndClusterInfoDialog"
-                    OnCancel="CloseModsAndClusterInfoDialog">
-    <ChildContent>
-        <div class="space-y-4 text-sm leading-6 text-neutral-200">
-            <p>
-                These values are also executed by the
-                <a href="/admin/install" class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">Install page</a>
-                start script when it builds the final ASA launch command.
-            </p>
-            <p>
-                <strong class="text-white">Mod IDs</strong> is a comma-separated list of CurseForge mod IDs to load on server start.
-                If this value is empty, the start script skips mod launch arguments.
-            </p>
-            <p>
-                <strong class="text-white">Cluster ID</strong> is the shared identifier used by each clustered server so they can communicate with each other.
-                The cluster folder is set to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/cluster</code>, so if you build a cluster manually those files must be able to touch each other there.
-            </p>
-            <p>
-                If you use the cluster helper and the control app, you normally do not need to touch cluster setup at all. We set up WireGuard, NFS, and pass the cluster folder to connected machines for you.
-            </p>
-            <p>
-                When the control app manages the node, the cluster ID is also set automatically from the remote side.
-            </p>
-        </div>
-    </ChildContent>
-</ConfirmationDialog>
-
-<ConfirmationDialog IsOpen="@_showExtraFlagsInfoDialog"
-                    Eyebrow="Extra flags"
-                    Title="What are extra flags used for?"
-                    ConfirmText="Close"
-                    HideCancelButton="true"
-                    OnConfirm="CloseExtraFlagsInfoDialog"
-                    OnCancel="CloseExtraFlagsInfoDialog">
-    <ChildContent>
-        <div class="space-y-4 text-sm leading-6 text-neutral-200">
-            <p>
-                Extra flags are used to manage the server starting behavior. They are written into
-                <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">EXTRA_ARGS</code>
-                and then passed by the
-                <a href="/admin/install" class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">Install page</a>
-                start script when the final ASA launch command is built.
-            </p>
-            <p>
-                This is the place for optional launch flags such as BattlEye, crossplay, and other ASA startup behavior that is not already covered by the core fields above.
-            </p>
-            <p>
-                If you know what you are doing, you can edit these flags directly. If you leave this empty, the server still starts normally with the default script behavior.
-            </p>
-        </div>
-    </ChildContent>
-</ConfirmationDialog>
-
 @code {
     private asa_server_node_api.Models.ServerConfig.ServerConfigSettings _model = asa_server_node_api.Models.ServerConfig.ServerConfigSettings.Default();
     private string? _statusMessage;
@@ -203,8 +131,6 @@
     private bool _showRestartDialog;
     private bool _isRestartingAsa;
     private bool _isClusterIdManagedByVpn;
-    private bool _showModsAndClusterInfoDialog;
-    private bool _showExtraFlagsInfoDialog;
     private RenderFragment CoreValuesInfoContent => @<div class="space-y-4 text-sm leading-6 text-neutral-200">
         <p>
             These values are written into <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">asa.env</code> and then used by the
@@ -223,6 +149,42 @@
         </p>
         <p>
             If you know what you are doing, you can edit these values. If you just want a working ARK server, saving the defaults as-is will also work.
+        </p>
+    </div>;
+    private RenderFragment ModsAndClusterInfoContent => @<div class="space-y-4 text-sm leading-6 text-neutral-200">
+        <p>
+            These values are also executed by the
+            <a href="/admin/install" class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">Install page</a>
+            start script when it builds the final ASA launch command.
+        </p>
+        <p>
+            <strong class="text-white">Mod IDs</strong> is a comma-separated list of CurseForge mod IDs to load on server start.
+            If this value is empty, the start script skips mod launch arguments.
+        </p>
+        <p>
+            <strong class="text-white">Cluster ID</strong> is the shared identifier used by each clustered server so they can communicate with each other.
+            The cluster folder is set to <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/opt/asa/cluster</code>, so if you build a cluster manually those files must be able to touch each other there.
+        </p>
+        <p>
+            If you use the cluster helper and the control app, you normally do not need to touch cluster setup at all. We set up WireGuard, NFS, and pass the cluster folder to connected machines for you.
+        </p>
+        <p>
+            When the control app manages the node, the cluster ID is also set automatically from the remote side.
+        </p>
+    </div>;
+    private RenderFragment ExtraFlagsInfoContent => @<div class="space-y-4 text-sm leading-6 text-neutral-200">
+        <p>
+            Extra flags are used to manage the server starting behavior. They are written into
+            <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">EXTRA_ARGS</code>
+            and then passed by the
+            <a href="/admin/install" class="font-medium text-cyan-200 underline decoration-cyan-300/50 underline-offset-4 transition hover:text-cyan-100">Install page</a>
+            start script when the final ASA launch command is built.
+        </p>
+        <p>
+            This is the place for optional launch flags such as BattlEye, crossplay, and other ASA startup behavior that is not already covered by the core fields above.
+        </p>
+        <p>
+            If you know what you are doing, you can edit these flags directly. If you leave this empty, the server still starts normally with the default script behavior.
         </p>
     </div>;
 
@@ -336,27 +298,4 @@
         return Task.CompletedTask;
     }
 
-    private Task OpenModsAndClusterInfoDialog()
-    {
-        _showModsAndClusterInfoDialog = true;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseModsAndClusterInfoDialog()
-    {
-        _showModsAndClusterInfoDialog = false;
-        return Task.CompletedTask;
-    }
-
-    private Task OpenExtraFlagsInfoDialog()
-    {
-        _showExtraFlagsInfoDialog = true;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseExtraFlagsInfoDialog()
-    {
-        _showExtraFlagsInfoDialog = false;
-        return Task.CompletedTask;
-    }
 }
