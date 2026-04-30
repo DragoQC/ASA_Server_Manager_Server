@@ -65,105 +65,131 @@
             </div>
         </section>
 
-        <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
-            <div class="space-y-6">
-                <div class="flex flex-wrap items-start justify-between gap-4">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <h2 class="text-3xl font-semibold text-white">VPN config</h2>
-                        <StatusTag Text="@(_hasWireGuardConfig ? "wg0.conf present" : "wg0.conf missing")" />
+        @if (!_hasWireGuardClientInstall)
+        {
+            <section class="rounded-[1.6rem] border border-app-300/15 bg-black/40 p-6 shadow-[0_0_40px_rgba(34,211,238,0.1)] backdrop-blur-md">
+                <div class="flex flex-col items-center justify-center gap-5 text-center">
+                    <div class="space-y-3">
+                        <h2 class="text-2xl font-semibold text-white">WireGuard not installed</h2>
+                        <p class="mx-auto max-w-3xl text-sm leading-6 text-neutral-300">
+                            Install the cluster client tools first. Once WireGuard is installed, this page will show the <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">wg0.conf</code> state and let you fetch the config.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        }
+        else
+        {
+            <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                <div class="space-y-6">
+                    <div class="flex flex-wrap items-start justify-between gap-4">
+                        <div class="space-y-3">
+                            <TitleHelp Title="VPN config"
+                                       DescriptionContent="@VpnInfoContent">
+                                <ChildContent>
+                                    <StatusTag Text="@(_hasWireGuardConfig ? "wg0.conf present" : "wg0.conf missing")" />
+                                </ChildContent>
+                            </TitleHelp>
+                        </div>
                     </div>
 
-                    <button type="button"
-                            @onclick="OpenVpnInfoDialog"
-                            class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/20 bg-cyan-400/15 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/25"
-                            aria-label="VPN config help">
-                        ?
-                    </button>
-                </div>
+                    <TextField Label="VPN invite URL"
+                               @bind-Value="_vpnInviteUrl"
+                               placeholder="https://control.dragoqc.com/api/vpn/invite/your-one-time-key"
+                               Hint="Paste the full VPN invite link from the control app."
+                               disabled="@(!_hasClusterClientInstall || _isFetchingVpnConfig)"
+                               autocomplete="off" />
 
-                <TextField Label="VPN invite URL"
-                           @bind-Value="_vpnInviteUrl"
-                           placeholder="https://control.dragoqc.com/api/vpn/invite/your-one-time-key"
-                           Hint="Paste the full VPN invite link from the control app."
-                           disabled="@(!_hasClusterClientInstall || _isFetchingVpnConfig)"
-                           autocomplete="off" />
-
-                <div class="flex flex-wrap gap-3">
-                    <button type="button"
-                            @onclick="GetVpnConfigAsync"
-                            disabled="@(!_hasClusterClientInstall || _isFetchingVpnConfig || string.IsNullOrWhiteSpace(_vpnInviteUrl))"
-                            class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                        @(_isFetchingVpnConfig ? "Getting config..." : "Get config")
-                    </button>
-                </div>
-
-                <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <h3 class="text-2xl font-semibold text-white">wg0.conf</h3>
-                        <StatusTag Text="@(_hasWireGuardConfig ? "Present" : "Missing")" />
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button"
+                                @onclick="GetVpnConfigAsync"
+                                disabled="@(!_hasClusterClientInstall || _isFetchingVpnConfig || string.IsNullOrWhiteSpace(_vpnInviteUrl))"
+                                class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                            @(_isFetchingVpnConfig ? "Getting config..." : "Get config")
+                        </button>
                     </div>
 
-                    <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-300">
-                        Current local WireGuard client configuration from <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/opt/asa/vpn/wg0.conf</code>. The system link points <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/etc/wireguard/wg0.conf</code> to this file.
-                    </p>
+                    <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h3 class="text-2xl font-semibold text-white">wg0.conf</h3>
+                            <StatusTag Text="@(_hasWireGuardConfig ? "Present" : "Missing")" />
+                        </div>
 
-                    <textarea value="@(_wireGuardConfigContent ?? string.Empty)"
-                              readonly
-                              placeholder="No wg0.conf file yet."
-                              class="mt-5 h-[28rem] w-full rounded-[1.3rem] border border-white/10 bg-black/40 p-4 font-mono text-sm leading-6 text-app-100 outline-none"></textarea>
+                        <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-300">
+                            Current local WireGuard client configuration from <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/opt/asa/vpn/wg0.conf</code>. The system link points <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/etc/wireguard/wg0.conf</code> to this file.
+                        </p>
+
+                        <textarea value="@(_wireGuardConfigContent ?? string.Empty)"
+                                  readonly
+                                  placeholder="No wg0.conf file yet."
+                                  class="mt-5 h-[28rem] w-full rounded-[1.3rem] border border-white/10 bg-black/40 p-4 font-mono text-sm leading-6 text-app-100 outline-none"></textarea>
+                    </div>
                 </div>
-            </div>
-        </section>
+            </section>
+        }
 
-        <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
-            <div class="space-y-6">
-                <div class="flex flex-wrap items-start justify-between gap-4">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <h2 class="text-3xl font-semibold text-white">NFS config</h2>
-                        <StatusTag Text="@(_hasNfsClientConfig ? "client.mount.conf present" : "client.mount.conf missing")" />
+        @if (!_hasNfsClientInstall)
+        {
+            <section class="rounded-[1.6rem] border border-app-300/15 bg-black/40 p-6 shadow-[0_0_40px_rgba(34,211,238,0.1)] backdrop-blur-md">
+                <div class="flex flex-col items-center justify-center gap-5 text-center">
+                    <div class="space-y-3">
+                        <h2 class="text-2xl font-semibold text-white">NFS client not installed</h2>
+                        <p class="mx-auto max-w-3xl text-sm leading-6 text-neutral-300">
+                            Install the cluster client tools first. Once the NFS client is installed, this page will show the <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">client.mount.conf</code> state and let you fetch the config.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        }
+        else
+        {
+            <section class="rounded-[1.8rem] border border-white/10 bg-black/20 p-6 backdrop-blur">
+                <div class="space-y-6">
+                    <div class="flex flex-wrap items-start justify-between gap-4">
+                        <div class="space-y-3">
+                            <TitleHelp Title="NFS config"
+                                       DescriptionContent="@NfsInfoContent">
+                                <ChildContent>
+                                    <StatusTag Text="@(_hasNfsClientConfig ? "client.mount.conf present" : "client.mount.conf missing")" />
+                                </ChildContent>
+                            </TitleHelp>
+                        </div>
                     </div>
 
-                    <button type="button"
-                            @onclick="OpenNfsInfoDialog"
-                            class="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-full border border-cyan-300/20 bg-cyan-400/15 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-400/25"
-                            aria-label="NFS config help">
-                        ?
-                    </button>
-                </div>
+                    <TextField Label="NFS invite URL"
+                               @bind-Value="_nfsInviteUrl"
+                               placeholder="https://control.dragoqc.com/api/nfs/invite/your-one-time-key"
+                               Hint="@GetNfsInviteHint()"
+                               disabled="@(!CanFetchNfsConfig)"
+                               autocomplete="off" />
 
-                <TextField Label="NFS invite URL"
-                           @bind-Value="_nfsInviteUrl"
-                           placeholder="https://control.dragoqc.com/api/nfs/invite/your-one-time-key"
-                           Hint="@GetNfsInviteHint()"
-                           disabled="@(!CanFetchNfsConfig)"
-                           autocomplete="off" />
-
-                <div class="flex flex-wrap gap-3">
-                    <button type="button"
-                            @onclick="GetNfsConfigAsync"
-                            disabled="@(!CanFetchNfsConfig || string.IsNullOrWhiteSpace(_nfsInviteUrl))"
-                            class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                        @(_isFetchingNfsConfig ? "Getting config..." : "Get config")
-                    </button>
-                </div>
-
-                <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <h3 class="text-2xl font-semibold text-white">client.mount.conf</h3>
-                        <StatusTag Text="@(_hasNfsClientConfig ? "Present" : "Missing")" />
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button"
+                                @onclick="GetNfsConfigAsync"
+                                disabled="@(!CanFetchNfsConfig || string.IsNullOrWhiteSpace(_nfsInviteUrl))"
+                                class="inline-flex rounded-full border border-app-300/30 bg-app-400/15 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-app-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-app-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                            @(_isFetchingNfsConfig ? "Getting config..." : "Get config")
+                        </button>
                     </div>
 
-                    <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-300">
-                        Current local NFS client config from <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/opt/asa/nfs/client.mount.conf</code>. Applying the NFS invite updates <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/etc/fstab</code> from this saved file.
-                    </p>
+                    <div class="rounded-[1.6rem] border border-white/10 bg-white/5 p-6">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h3 class="text-2xl font-semibold text-white">client.mount.conf</h3>
+                            <StatusTag Text="@(_hasNfsClientConfig ? "Present" : "Missing")" />
+                        </div>
 
-                    <textarea value="@(_nfsClientConfigContent ?? string.Empty)"
-                              readonly
-                              placeholder="No client.mount.conf file yet."
-                              class="mt-5 h-[18rem] w-full rounded-[1.3rem] border border-white/10 bg-black/40 p-4 font-mono text-sm leading-6 text-app-100 outline-none"></textarea>
+                        <p class="mt-3 max-w-3xl text-sm leading-6 text-neutral-300">
+                            Current local NFS client config from <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/opt/asa/nfs/client.mount.conf</code>. Applying the NFS invite updates <code class="rounded bg-white/10 px-2 py-1 text-neutral-200">/etc/fstab</code> from this saved file.
+                        </p>
+
+                        <textarea value="@(_nfsClientConfigContent ?? string.Empty)"
+                                  readonly
+                                  placeholder="No client.mount.conf file yet."
+                                  class="mt-5 h-[18rem] w-full rounded-[1.3rem] border border-white/10 bg-black/40 p-4 font-mono text-sm leading-6 text-app-100 outline-none"></textarea>
+                    </div>
                 </div>
-            </div>
-        </section>
+            </section>
+        }
     </div>
 </section>
 
@@ -177,60 +203,8 @@
                     OnConfirm="EnableClusterClientAsync"
                     OnCancel="CloseEnableDialog" />
 
-<ConfirmationDialog IsOpen="@_showVpnInfoDialog"
-                    Eyebrow="VPN config"
-                    Title="Why is WireGuard used here?"
-                    ConfirmText="Close"
-                    HideCancelButton="true"
-                    OnConfirm="CloseVpnInfoDialog"
-                    OnCancel="CloseVpnInfoDialog">
-    <ChildContent>
-        <div class="space-y-4 text-sm leading-6 text-neutral-200">
-            <p>
-                You can get the VPN config from an invite link generated by the control panel. This page fetches that link and saves the returned
-                <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">wg0.conf</code>
-                for this node.
-            </p>
-            <p>
-                WireGuard is the VPN used for cluster networking here. It is a good fit because we only need a simple one-to-one machine connection between the control side and each ASA server node.
-            </p>
-            <p>
-                We use the VPN so the cluster traffic and storage traffic can go through a private network path instead of trying to expose internal services directly to the public internet.
-            </p>
-        </div>
-    </ChildContent>
-</ConfirmationDialog>
-
-<ConfirmationDialog IsOpen="@_showNfsInfoDialog"
-                    Eyebrow="NFS config"
-                    Title="Why does NFS depend on the VPN?"
-                    ConfirmText="Close"
-                    HideCancelButton="true"
-                    OnConfirm="CloseNfsInfoDialog"
-                    OnCancel="CloseNfsInfoDialog">
-    <ChildContent>
-        <div class="space-y-4 text-sm leading-6 text-neutral-200">
-            <p>
-                You can get the NFS config from an invite link generated by the control panel. This page fetches that link, saves the returned client mount config, and applies it to
-                <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/etc/fstab</code>.
-            </p>
-            <p>
-                NFS depends on the VPN because the shared cluster folder is only meant to be reachable through the private WireGuard network. Without the VPN, the NFS share will not be reachable in the expected safe path.
-            </p>
-            <p>
-                ARK clustering needs each server to read and write to the exact same cluster folder path so cluster data can be shared correctly across machines.
-            </p>
-            <p>
-                That is why this setup uses both a VPN and an NFS share: WireGuard connects the machines together, and NFS gives each server the same shared folder to use for cluster data.
-            </p>
-        </div>
-    </ChildContent>
-</ConfirmationDialog>
-
 @code {
     private bool _showEnableDialog;
-    private bool _showVpnInfoDialog;
-    private bool _showNfsInfoDialog;
     private bool _isFetchingVpnConfig;
     private bool _isFetchingNfsConfig;
     private bool _hasClusterClientInstall;
@@ -246,6 +220,34 @@
     private bool _statusIsError;
     private bool IsInstallingClusterClient => ClusterClientInstallService.IsInstalling;
     private bool CanFetchNfsConfig => _hasClusterClientInstall && _hasWireGuardConfig && !_isFetchingNfsConfig;
+    private RenderFragment VpnInfoContent => @<div class="space-y-4 text-sm leading-6 text-neutral-200">
+        <p>
+            You can get the VPN config from an invite link generated by the control panel. This page fetches that link and saves the returned
+            <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">wg0.conf</code>
+            for this node.
+        </p>
+        <p>
+            WireGuard is the VPN used for cluster networking here. It is a good fit because we only need a simple one-to-one machine connection between the control side and each ASA server node.
+        </p>
+        <p>
+            We use the VPN so the cluster traffic and storage traffic can go through a private network path instead of trying to expose internal services directly to the public internet.
+        </p>
+    </div>;
+    private RenderFragment NfsInfoContent => @<div class="space-y-4 text-sm leading-6 text-neutral-200">
+        <p>
+            You can get the NFS config from an invite link generated by the control panel. This page fetches that link, saves the returned client mount config, and applies it to
+            <code class="rounded bg-white/10 px-2 py-1 text-neutral-100">/etc/fstab</code>.
+        </p>
+        <p>
+            NFS depends on the VPN because the shared cluster folder is only meant to be reachable through the private WireGuard network. Without the VPN, the NFS share will not be reachable in the expected safe path.
+        </p>
+        <p>
+            ARK clustering needs each server to read and write to the exact same cluster folder path so cluster data can be shared correctly across machines.
+        </p>
+        <p>
+            That is why this setup uses both a VPN and an NFS share: WireGuard connects the machines together, and NFS gives each server the same shared folder to use for cluster data.
+        </p>
+    </div>;
 
     protected override async Task OnInitializedAsync()
     {
@@ -255,30 +257,6 @@
     private void OpenEnableDialog()
     {
         _showEnableDialog = true;
-    }
-
-    private Task OpenVpnInfoDialog()
-    {
-        _showVpnInfoDialog = true;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseVpnInfoDialog()
-    {
-        _showVpnInfoDialog = false;
-        return Task.CompletedTask;
-    }
-
-    private Task OpenNfsInfoDialog()
-    {
-        _showNfsInfoDialog = true;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseNfsInfoDialog()
-    {
-        _showNfsInfoDialog = false;
-        return Task.CompletedTask;
     }
 
     private Task CloseEnableDialog()
