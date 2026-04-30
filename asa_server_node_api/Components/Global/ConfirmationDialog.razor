@@ -1,7 +1,9 @@
 @if (IsOpen)
 {
-    <div class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
-        <div class="w-full max-w-2xl rounded-[1.8rem] border border-cyan-200/12 bg-[#05070d]/94 p-6 shadow-[0_0_80px_rgba(0,255,255,0.16)] backdrop-blur-xl">
+    <div class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm"
+         @onclick="HandleBackdropClick">
+        <div class="w-full max-w-2xl rounded-[1.8rem] border border-cyan-200/12 bg-[#05070d]/94 p-6 shadow-[0_0_80px_rgba(0,255,255,0.16)] backdrop-blur-xl"
+             @onclick:stopPropagation="true">
             <div class="space-y-4">
                 <div class="flex flex-wrap items-center gap-3">
                     <p class="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300">@Eyebrow</p>
@@ -84,4 +86,17 @@
 
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public bool CloseOnBackdropClick { get; set; }
+
+    private Task HandleBackdropClick()
+    {
+        if (!CloseOnBackdropClick)
+        {
+            return Task.CompletedTask;
+        }
+
+        return OnCancel.InvokeAsync();
+    }
 }
