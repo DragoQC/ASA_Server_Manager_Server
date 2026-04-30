@@ -79,6 +79,7 @@ builder.Services.AddScoped<ConsoleLogService>();
 builder.Services.AddScoped<LogsService>();
 builder.Services.AddScoped<ManagerService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<HelpDialogService>();
 builder.Services.AddSingleton<BackupService>();
 builder.Services.AddSingleton<ToastService>();
 builder.Services.AddScoped<ClusterClientInstallService>();

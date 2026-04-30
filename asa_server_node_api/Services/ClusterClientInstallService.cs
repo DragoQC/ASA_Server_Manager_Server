@@ -2,8 +2,9 @@ using asa_server_node_api.Constants;
 
 namespace asa_server_node_api.Services;
 
-public sealed class ClusterClientInstallService
+public sealed class ClusterClientInstallService(ToastService toastService)
 {
+    private readonly ToastService _toastService = toastService;
     public bool IsInstalling { get; private set; }
 
     public bool HasWireGuardClientInstall()
@@ -32,6 +33,7 @@ public sealed class ClusterClientInstallService
         }
 
         IsInstalling = true;
+        _toastService.ShowInfo("Cluster client install started.", "Cluster");
 
         try
         {
@@ -40,6 +42,7 @@ public sealed class ClusterClientInstallService
                 ["-n", InstallStateConstants.PrepareClusterClientScriptPath],
                 cancellationToken);
 
+            _toastService.ShowSuccess("Cluster client install finished.", "Cluster");
             return "Installed cluster client tools. This node is ready to receive WireGuard and NFS configuration.";
         }
         finally

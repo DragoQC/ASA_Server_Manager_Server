@@ -1,0 +1,48 @@
+@inject asa_server_node_api.Services.HelpDialogService HelpDialogService
+@implements IDisposable
+
+<ConfirmationDialog IsOpen="@HelpDialogService.IsOpen"
+                    IsBusy="false"
+                    Eyebrow="@HelpDialogService.Title"
+                    StatusText="Info"
+                    Title="@HelpDialogService.Title"
+                    ConfirmText="Close"
+                    HideCancelButton="true"
+                    OnConfirm="CloseDialog"
+                    OnCancel="CloseDialog">
+    <ChildContent>
+        @if (HelpDialogService.DescriptionContent is not null)
+        {
+            @HelpDialogService.DescriptionContent
+        }
+        else if (!string.IsNullOrWhiteSpace(HelpDialogService.Description))
+        {
+            <div class="space-y-5">
+                <p class="text-base leading-7 text-neutral-300">@HelpDialogService.Description</p>
+            </div>
+        }
+    </ChildContent>
+</ConfirmationDialog>
+
+@code {
+    protected override void OnInitialized()
+    {
+        HelpDialogService.Changed += OnChanged;
+    }
+
+    private Task CloseDialog()
+    {
+        HelpDialogService.Close();
+        return Task.CompletedTask;
+    }
+
+    private void OnChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        HelpDialogService.Changed -= OnChanged;
+    }
+}

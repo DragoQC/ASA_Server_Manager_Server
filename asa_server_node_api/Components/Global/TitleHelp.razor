@@ -15,31 +15,9 @@
     }
 </div>
 
-<ConfirmationDialog IsOpen="@_isDialogOpen"
-                    IsBusy="false"
-                    Eyebrow="@Title"
-                    StatusText="Info"
-                    Title="@Title"
-                    ConfirmText="Got it"
-                    CancelText="Close"
-                    OnConfirm="CloseDialog"
-                    OnCancel="CloseDialog">
-    <ChildContent>
-        @if (DescriptionContent is not null)
-        {
-            @DescriptionContent
-        }
-        else if (!string.IsNullOrWhiteSpace(Description))
-        {
-            <div class="space-y-5">
-                <p class="text-base leading-7 text-neutral-300">@Description</p>
-            </div>
-        }
-    </ChildContent>
-</ConfirmationDialog>
-
 @code {
-    private bool _isDialogOpen;
+    [Inject]
+    public asa_server_node_api.Services.HelpDialogService HelpDialogService { get; set; } = default!;
 
     [Parameter, EditorRequired]
     public string Title { get; set; } = "";
@@ -58,13 +36,7 @@
 
     private Task OpenDialog()
     {
-        _isDialogOpen = true;
-        return Task.CompletedTask;
-    }
-
-    private Task CloseDialog()
-    {
-        _isDialogOpen = false;
+        HelpDialogService.Show(Title, Description, DescriptionContent);
         return Task.CompletedTask;
     }
 }
