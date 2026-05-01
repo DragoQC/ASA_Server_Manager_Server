@@ -1,6 +1,7 @@
 [Unit]
 Description=ARK Survival Ascended Server
 After=network.target
+StartLimitIntervalSec=0
 
 [Service]
 TimeoutStartSec=0
@@ -13,7 +14,7 @@ ExecStartPre=/opt/asa/steam/steamcmd.sh +@sSteamCmdForcePlatformType windows +fo
 ExecStart=/opt/asa/start-asa.sh
 Restart=on-failure
 SuccessExitStatus=0 3
-RestartSec=10
+RestartSec=30
 TimeoutStopSec=120
 KillSignal=SIGTERM
 

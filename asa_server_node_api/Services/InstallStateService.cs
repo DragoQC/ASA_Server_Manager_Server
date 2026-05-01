@@ -197,6 +197,10 @@ public sealed class InstallStateService(
     public async Task SaveServiceFileAsync(string content, CancellationToken cancellationToken = default)
     {
         await SaveFileAsync(InstallStateConstants.ServiceFilePath, content, makeExecutable: false, cancellationToken);
+        await RunProcessAsync(
+            SystemCommandConstants.SudoPath,
+            ["-n", SystemCommandConstants.SystemctlPath, "daemon-reload"],
+            cancellationToken);
     }
 
     public async Task<string> EnableAsaServiceAsync(CancellationToken cancellationToken = default)
