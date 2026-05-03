@@ -1,6 +1,6 @@
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthenticationStateProvider
-@inject asa_server_node_api.Services.AuthService AuthService
+@inject AuthService AuthService
 
 @if (_canRender)
 {
@@ -23,11 +23,11 @@
         bool isAuthenticated = authenticationState.User.Identity?.IsAuthenticated == true;
         bool mustChangePassword = isAuthenticated && await AuthService.MustChangePasswordAsync(authenticationState.User);
 
-        bool isLoginPage = RouteData.PageType == typeof(asa_server_node_api.Components.Pages.Login);
-        bool isResetPasswordPage = RouteData.PageType == typeof(asa_server_node_api.Components.Pages.ResetPassword);
-        bool isPublicPage = RouteData.PageType == typeof(asa_server_node_api.Components.Pages.Home) ||
-                            RouteData.PageType == typeof(asa_server_node_api.Components.Pages.NotFound) ||
-                            RouteData.PageType == typeof(asa_server_node_api.Components.Pages.Error);
+        bool isLoginPage = RouteData.PageType == typeof(Login);
+        bool isResetPasswordPage = RouteData.PageType == typeof(ResetPassword);
+        bool isPublicPage = RouteData.PageType == typeof(Home) ||
+                            RouteData.PageType == typeof(NotFound) ||
+                            RouteData.PageType == typeof(Error);
 
         _canRender = false;
 

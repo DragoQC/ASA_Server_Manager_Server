@@ -1,5 +1,5 @@
 @implements IDisposable
-@inject asa_server_node_api.Services.ServerMonitorService ServerMonitor
+@inject ServerMonitorService ServerMonitor
 
 <section class="space-y-8">
     <div class="flex flex-wrap items-center gap-4">
@@ -29,10 +29,10 @@
 </section>
 
 @code {
-    private asa_server_node_api.Models.AsaServerStatusSnapshot _snapshot = asa_server_node_api.Models.AsaServerStatusSnapshot.Default("asa");
+    private AsaServerStatusSnapshot _snapshot = AsaServerStatusSnapshot.Default("asa");
 
     [Parameter, EditorRequired]
-    public RenderFragment<asa_server_node_api.Models.AsaServerStatusSnapshot> ChildContent { get; set; } = default!;
+    public RenderFragment<AsaServerStatusSnapshot> ChildContent { get; set; } = default!;
 
     [Parameter]
     public string Eyebrow { get; set; } = "Management";

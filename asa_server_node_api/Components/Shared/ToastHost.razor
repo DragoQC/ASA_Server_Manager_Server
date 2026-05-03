@@ -1,10 +1,10 @@
-@inject asa_server_node_api.Services.ToastService ToastService
+@inject ToastService ToastService
 @implements IDisposable
 
 @if (ToastService.Items.Count > 0)
 {
     <div class="pointer-events-none fixed right-4 top-4 z-[160] flex w-full max-w-sm flex-col gap-3 sm:right-6 sm:top-6">
-        @foreach (asa_server_node_api.Models.Ui.ToastItem item in ToastService.Items)
+        @foreach (ToastItem item in ToastService.Items)
         {
             <div class="@BuildToastClass(item.Level)">
                 <div class="flex items-start gap-3">
