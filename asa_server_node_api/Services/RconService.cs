@@ -75,59 +75,10 @@ public sealed class RconService(ServerConfigService serverConfigService, GameCon
             throw new InvalidOperationException("GameUserSettings.ini missing.");
         }
 
-        string content = await File.ReadAllTextAsync(GameConfigConstants.GameUserSettingsIniPath, cancellationToken);
-        Dictionary<string, string> values = ParseServerSettings(content);
+        IReadOnlyDictionary<string, string> values = await _gameConfigService.LoadGameUserServerSettingsAsync(cancellationToken);
         RconSettings settings = BuildSettings(values, fallbackPort);
         RconStatus status = BuildStatus(values, settings);
         return new RconContext(settings, status);
-    }
-
-    private static Dictionary<string, string> ParseServerSettings(string content)
-    {
-        Dictionary<string, string> values = new(StringComparer.OrdinalIgnoreCase);
-        bool inServerSettings = false;
-
-        foreach (string rawLine in content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
-        {
-            string line = rawLine.Trim();
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith(';') || line.StartsWith('#'))
-            {
-                continue;
-            }
-
-            if (line.StartsWith('[') && line.EndsWith(']'))
-            {
-                inServerSettings = string.Equals(line, "[ServerSettings]", StringComparison.OrdinalIgnoreCase);
-                continue;
-            }
-
-            if (!inServerSettings)
-            {
-                continue;
-            }
-
-            int separatorIndex = line.IndexOf('=');
-            if (separatorIndex <= 0)
-            {
-                continue;
-            }
-
-            string key = line[..separatorIndex].Trim();
-            string value = line[(separatorIndex + 1)..].Trim();
-            values[key] = Unquote(value);
-        }
-
-        return values;
-    }
-
-    private static string Unquote(string value)
-    {
-        if (value.Length >= 2 && value.StartsWith('"') && value.EndsWith('"'))
-        {
-            return value[1..^1];
-        }
-
-        return value;
     }
 
     private static RconSettings BuildSettings(IReadOnlyDictionary<string, string> values, int fallbackPort)

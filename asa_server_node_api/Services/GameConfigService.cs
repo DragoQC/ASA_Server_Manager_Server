@@ -62,6 +62,17 @@ public sealed class GameConfigService
         return SaveValidatedIniAsync(GameConfigConstants.GameUserSettingsIniPath, content, cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<string, string>> LoadGameUserServerSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        if (!HasGameUserSettingsIniFile())
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        string content = await File.ReadAllTextAsync(GameConfigConstants.GameUserSettingsIniPath, cancellationToken);
+        return ParseServerSettings(content);
+    }
+
     private GameConfigFileState GetGameIniFileState(bool hasConfigDirectory)
     {
         bool exists = HasGameIniFile();
@@ -167,5 +178,53 @@ public sealed class GameConfigService
     private static string NormalizeContent(string content)
     {
         return content.Replace("\r\n", "\n", StringComparison.Ordinal);
+    }
+
+    private static IReadOnlyDictionary<string, string> ParseServerSettings(string content)
+    {
+        Dictionary<string, string> values = new(StringComparer.OrdinalIgnoreCase);
+        bool inServerSettings = false;
+
+        foreach (string rawLine in NormalizeContent(content).Split('\n'))
+        {
+            string line = rawLine.Trim();
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith(';') || line.StartsWith('#'))
+            {
+                continue;
+            }
+
+            if (line.StartsWith('[') && line.EndsWith(']'))
+            {
+                inServerSettings = string.Equals(line, "[ServerSettings]", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+
+            if (!inServerSettings)
+            {
+                continue;
+            }
+
+            int separatorIndex = line.IndexOf('=');
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
+
+            string key = line[..separatorIndex].Trim();
+            string value = line[(separatorIndex + 1)..].Trim();
+            values[key] = Unquote(value);
+        }
+
+        return values;
+    }
+
+    private static string Unquote(string value)
+    {
+        if (value.Length >= 2 && value.StartsWith('"') && value.EndsWith('"'))
+        {
+            return value[1..^1];
+        }
+
+        return value;
     }
 }

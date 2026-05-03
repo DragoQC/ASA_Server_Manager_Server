@@ -7,4 +7,6 @@ public sealed record ServerInfoSnapshot(
     int MaxPlayers,
     int CpuCount,
     IReadOnlyList<string> ModIds,
+    bool IsPasswordProtected,
+    string ServerPassword,
     DateTimeOffset CheckedAtUtc);

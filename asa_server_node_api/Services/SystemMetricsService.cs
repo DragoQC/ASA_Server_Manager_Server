@@ -3,9 +3,10 @@ using asa_server_node_api.Models.SystemMetrics;
 
 namespace asa_server_node_api.Services;
 
-public sealed class SystemMetricsService(ServerConfigService serverConfigService)
+public sealed class SystemMetricsService(ServerConfigService serverConfigService, GameConfigService gameConfigService)
 {
     private readonly ServerConfigService _serverConfigService = serverConfigService;
+    private readonly GameConfigService _gameConfigService = gameConfigService;
     private Sample? _previousSample;
 
     public async Task<ServerInfoSnapshot> LoadServerInfoAsync(CancellationToken cancellationToken = default)
@@ -14,6 +15,11 @@ public sealed class SystemMetricsService(ServerConfigService serverConfigService
 
         Models.ServerConfig.ServerConfigSettings settings = await _serverConfigService.LoadAsync(cancellationToken);
         IReadOnlyList<string> modIds = await _serverConfigService.LoadModIdsAsync(cancellationToken);
+        IReadOnlyDictionary<string, string> gameUserSettings = await _gameConfigService.LoadGameUserServerSettingsAsync(cancellationToken);
+        string serverPassword = gameUserSettings.TryGetValue("ServerPassword", out string? configuredServerPassword)
+            ? configuredServerPassword ?? string.Empty
+            : string.Empty;
+        bool isPasswordProtected = !string.IsNullOrWhiteSpace(serverPassword);
 
         ServerInfoSnapshot snapshot = new(
             ServerName: settings.ServerName,
@@ -22,6 +28,8 @@ public sealed class SystemMetricsService(ServerConfigService serverConfigService
             MaxPlayers: settings.MaxPlayers,
             CpuCount: Environment.ProcessorCount,
             ModIds: modIds,
+            IsPasswordProtected: isPasswordProtected,
+            ServerPassword: serverPassword,
             CheckedAtUtc: DateTimeOffset.UtcNow);
 
         return snapshot;

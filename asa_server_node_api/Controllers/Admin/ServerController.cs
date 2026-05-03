@@ -35,6 +35,8 @@ public sealed class ServerController(
             maxPlayers = serverInfo.MaxPlayers,
             cpuCount = serverInfo.CpuCount,
             modIds = serverInfo.ModIds,
+            isPasswordProtected = serverInfo.IsPasswordProtected,
+            serverPassword = serverInfo.ServerPassword,
             totalRam = capacity.RamTotal,
             ramUsage = metrics.RamUsage,
             ramUsed = metrics.RamUsed,

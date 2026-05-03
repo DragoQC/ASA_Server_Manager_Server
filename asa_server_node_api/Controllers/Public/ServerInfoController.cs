@@ -23,6 +23,7 @@ public sealed class ServerInfoController(SystemMetricsService systemMetricsServi
 			gamePort = snapshot.GamePort,
 			maxPlayers = snapshot.MaxPlayers,
 			modIds = snapshot.ModIds,
+            isPasswordProtected = snapshot.IsPasswordProtected,
 			checkedAtUtc = snapshot.CheckedAtUtc
 		});
 	}
