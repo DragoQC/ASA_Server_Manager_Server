@@ -2,18 +2,18 @@ namespace asa_server_node_api.Models.Admin;
 
 public sealed record AdminHostMetricsSnapshot(
     string CpuUsage,
-    string RamPercentage,
-    string RamTotal,
-    string DiskTotal,
+    string RamUsage,
+    string RamUsed,
+    string DiskUsage,
     string DiskUsed,
     DateTimeOffset CheckedAtUtc)
 {
     public static AdminHostMetricsSnapshot Default() =>
         new(
             CpuUsage: "0%",
-            RamPercentage: "0%",
-            RamTotal: "0 B",
-            DiskTotal: "0 B",
+            RamUsage: "0%",
+            RamUsed: "0 B",
+            DiskUsage: "0%",
             DiskUsed: "0 B",
             CheckedAtUtc: DateTimeOffset.UtcNow);
 }

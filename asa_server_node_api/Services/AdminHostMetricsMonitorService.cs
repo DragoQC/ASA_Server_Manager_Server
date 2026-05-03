@@ -9,11 +9,13 @@ public sealed class AdminHostMetricsMonitorService(ILogger<AdminHostMetricsMonit
 
     private readonly ILogger<AdminHostMetricsMonitorService> _logger = logger;
     private volatile AdminHostMetricsSnapshot _current = AdminHostMetricsSnapshot.Default();
+    private volatile AdminHostCapacitySnapshot _currentCapacity = AdminHostCapacitySnapshot.Default();
     private Sample? _previousSample;
 
     public event Action? Changed;
 
     public AdminHostMetricsSnapshot GetSnapshot() => _current;
+    public AdminHostCapacitySnapshot GetCapacitySnapshot() => _currentCapacity;
 
     public Task RefreshNowAsync(CancellationToken cancellationToken = default) => RefreshAsync(cancellationToken);
 
@@ -49,14 +51,20 @@ public sealed class AdminHostMetricsMonitorService(ILogger<AdminHostMetricsMonit
             double ramUsagePercentage = totalRamBytes <= 0
                 ? 0
                 : Math.Clamp((double)usedRamBytes / totalRamBytes * 100D, 0D, 100D);
+            double diskUsagePercentage = totalDiskBytes <= 0
+                ? 0
+                : Math.Clamp((double)usedDiskBytes / totalDiskBytes * 100D, 0D, 100D);
 
             _current = new AdminHostMetricsSnapshot(
                 CpuUsage: $"{cpuUsagePercentage:0.#}%",
-                RamPercentage: $"{ramUsagePercentage:0.#}%",
-                RamTotal: FormatBytes(totalRamBytes),
-                DiskTotal: FormatBytes(totalDiskBytes),
+                RamUsage: $"{ramUsagePercentage:0.#}%",
+                RamUsed: FormatBytes(usedRamBytes),
+                DiskUsage: $"{diskUsagePercentage:0.#}%",
                 DiskUsed: FormatBytes(usedDiskBytes),
                 CheckedAtUtc: currentSample.TimestampUtc);
+            _currentCapacity = new AdminHostCapacitySnapshot(
+                RamTotal: FormatBytes(totalRamBytes),
+                DiskTotal: FormatBytes(totalDiskBytes));
 
             Changed?.Invoke();
         }
@@ -189,4 +197,13 @@ public sealed class AdminHostMetricsMonitorService(ILogger<AdminHostMetricsMonit
     private sealed record Sample(
         DateTimeOffset TimestampUtc,
         CpuTicks CpuTicks);
+}
+
+public sealed record AdminHostCapacitySnapshot(
+    string RamTotal,
+    string DiskTotal)
+{
+    public static AdminHostCapacitySnapshot Default() => new(
+        RamTotal: "0 B",
+        DiskTotal: "0 B");
 }

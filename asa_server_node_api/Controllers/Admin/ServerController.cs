@@ -24,6 +24,7 @@ public sealed class ServerController(
         Models.SystemMetrics.ServerInfoSnapshot serverInfo =
             await _systemMetricsService.LoadServerInfoAsync(cancellationToken);
         Models.Admin.AdminHostMetricsSnapshot metrics = _adminHostMetricsMonitorService.GetSnapshot();
+        AdminHostCapacitySnapshot capacity = _adminHostMetricsMonitorService.GetCapacitySnapshot();
 
         return Ok(new
         {
@@ -34,10 +35,12 @@ public sealed class ServerController(
             maxPlayers = serverInfo.MaxPlayers,
             cpuCount = serverInfo.CpuCount,
             modIds = serverInfo.ModIds,
-            totalRam = metrics.RamTotal,
-            ramPercentage = metrics.RamPercentage,
+            totalRam = capacity.RamTotal,
+            ramUsage = metrics.RamUsage,
+            ramUsed = metrics.RamUsed,
             cpuUsage = metrics.CpuUsage,
-            diskTotal = metrics.DiskTotal,
+            diskTotal = capacity.DiskTotal,
+            diskUsage = metrics.DiskUsage,
             diskUsed = metrics.DiskUsed,
             checkedAtUtc = metrics.CheckedAtUtc
         });
