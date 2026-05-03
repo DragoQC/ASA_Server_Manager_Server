@@ -6,4 +6,5 @@ public sealed record PatchServerConfigRequest(
     int? MaxPlayers,
     int? GamePort,
     IReadOnlyList<string>? ModIds,
-    string? ClusterId);
+    string? ClusterId,
+    string? CustomExtraArgs);

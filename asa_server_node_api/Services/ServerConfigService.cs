@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
 using asa_server_node_api.Constants;
 using asa_server_node_api.Contracts.Api.Admin;
 using asa_server_node_api.Models.ServerConfig;
@@ -7,6 +8,10 @@ namespace asa_server_node_api.Services;
 
 public sealed class ServerConfigService(AdminStateHubPublisherService adminStateHubPublisherService)
 {
+    private static readonly Regex ExtraArgTokenPattern = new(
+        @"^-[A-Za-z0-9][A-Za-z0-9_-]*(=[^\s]+)?$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
 	private readonly AdminStateHubPublisherService _adminStateHubPublisherService = adminStateHubPublisherService;
 	private readonly SemaphoreSlim _sync = new(1, 1);
 	private ServerConfigSettings? _cachedSettings;
@@ -75,7 +80,9 @@ public sealed class ServerConfigService(AdminStateHubPublisherService adminState
 		await _sync.WaitAsync(cancellationToken);
 		try
 		{
-			await SaveInternalAsync(settings.Clone(), cancellationToken);
+            ServerConfigSettings normalizedSettings = settings.Clone();
+            normalizedSettings.CustomExtraArgs = NormalizeCustomExtraArgs(normalizedSettings.CustomExtraArgs);
+			await SaveInternalAsync(normalizedSettings, cancellationToken);
 		}
 		finally
 		{
@@ -177,6 +184,11 @@ public sealed class ServerConfigService(AdminStateHubPublisherService adminState
         if (request.ClusterId is not null)
         {
             settings.ClusterId = NormalizeClusterId(request.ClusterId);
+        }
+
+        if (request.CustomExtraArgs is not null)
+        {
+            settings.CustomExtraArgs = NormalizeCustomExtraArgs(request.CustomExtraArgs);
         }
 
         ValidateSettings(settings);
@@ -476,6 +488,34 @@ public sealed class ServerConfigService(AdminStateHubPublisherService adminState
         }
 
         return normalizedClusterDir;
+    }
+
+    private static string NormalizeCustomExtraArgs(string? customExtraArgs)
+    {
+        if (string.IsNullOrWhiteSpace(customExtraArgs))
+        {
+            return string.Empty;
+        }
+
+        if (customExtraArgs.IndexOfAny(['\0', '\r', '\n', '\u001a']) >= 0)
+        {
+            throw new ArgumentException("Extra args contain invalid characters.");
+        }
+
+        string trimmedArgs = customExtraArgs.Trim();
+        string[] tokens = trimmedArgs.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (string token in tokens)
+        {
+            if (ExtraArgTokenPattern.IsMatch(token))
+            {
+                continue;
+            }
+
+            throw new ArgumentException("Extra args must use -word or -word=value format.");
+        }
+
+        return trimmedArgs;
     }
 
 	private static void ValidateRawContent(string content)
