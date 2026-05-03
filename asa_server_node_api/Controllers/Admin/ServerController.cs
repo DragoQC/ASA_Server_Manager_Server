@@ -1,3 +1,5 @@
+using asa_server_node_api.Models.Admin;
+using asa_server_node_api.Models.SystemMetrics;
 using asa_server_node_api.Infrastructure.Auth;
 using asa_server_node_api.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -21,9 +23,8 @@ public sealed class ServerController(
     [HttpGet]
     public async Task<IActionResult> Info(CancellationToken cancellationToken)
     {
-        Models.SystemMetrics.ServerInfoSnapshot serverInfo =
-            await _systemMetricsService.LoadServerInfoAsync(cancellationToken);
-        Models.Admin.AdminHostMetricsSnapshot metrics = _adminHostMetricsMonitorService.GetSnapshot();
+        ServerInfoSnapshot serverInfo = await _systemMetricsService.LoadServerInfoAsync(cancellationToken);
+        AdminHostMetricsSnapshot metrics = _adminHostMetricsMonitorService.GetSnapshot();
         AdminHostCapacitySnapshot capacity = _adminHostMetricsMonitorService.GetCapacitySnapshot();
 
         return Ok(new

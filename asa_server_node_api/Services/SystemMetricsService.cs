@@ -1,4 +1,5 @@
 using System.Globalization;
+using asa_server_node_api.Models.ServerConfig;
 using asa_server_node_api.Models.SystemMetrics;
 
 namespace asa_server_node_api.Services;
@@ -13,7 +14,7 @@ public sealed class SystemMetricsService(ServerConfigService serverConfigService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        Models.ServerConfig.ServerConfigSettings settings = await _serverConfigService.LoadAsync(cancellationToken);
+        ServerConfigSettings settings = await _serverConfigService.LoadAsync(cancellationToken);
         IReadOnlyList<string> modIds = await _serverConfigService.LoadModIdsAsync(cancellationToken);
         IReadOnlyDictionary<string, string> gameUserSettings = await _gameConfigService.LoadGameUserServerSettingsAsync(cancellationToken);
         string serverPassword = gameUserSettings.TryGetValue("ServerPassword", out string? configuredServerPassword)

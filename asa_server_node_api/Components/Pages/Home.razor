@@ -1,8 +1,8 @@
 @page "/"
 @implements IAsyncDisposable
-@inject asa_server_node_api.Services.ServerConfigService ServerConfigService
-@inject asa_server_node_api.Services.ManagerService ManagerService
-@inject asa_server_node_api.Services.PlayerCountMonitorService PlayerCountMonitorService
+@inject ServerConfigService ServerConfigService
+@inject ManagerService ManagerService
+@inject PlayerCountMonitorService PlayerCountMonitorService
 
 <PageTitle>ASA Server</PageTitle>
 
@@ -52,9 +52,8 @@
 </section>
 
 @code {
-    private asa_server_node_api.Models.ServerConfig.ServerConfigSettings _settings = asa_server_node_api.Models.ServerConfig.ServerConfigSettings.Default();
-    private asa_server_node_api.Models.Players.PlayerCountSnapshot _playerCountSnapshot =
-        asa_server_node_api.Models.Players.PlayerCountSnapshot.Default();
+    private ServerConfigSettings _settings = ServerConfigSettings.Default();
+    private PlayerCountSnapshot _playerCountSnapshot = PlayerCountSnapshot.Default();
     private List<string> _mods = [];
     private bool _isLoadingConfig = true;
 

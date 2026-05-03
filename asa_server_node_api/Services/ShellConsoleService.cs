@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using asa_server_node_api.Infrastructure.Shell;
+using asa_server_node_api.Models.Actions;
 using asa_server_node_api.Models.Shell;
 
 namespace asa_server_node_api.Services;
@@ -26,7 +27,7 @@ public sealed class ShellConsoleService(ActionMappingService actionMappingServic
     public async Task ExecuteAsync(string key, string requestedWorkingDirectory, string command, CancellationToken cancellationToken = default)
     {
         ShellSession session = _sessions.GetOrAdd(key, _ => new ShellSession(requestedWorkingDirectory, () => SessionChanged?.Invoke(key)));
-        Models.Actions.ActionMapping? actionMapping = await _actionMappingService.ResolveAsync(command, cancellationToken);
+        ActionMapping? actionMapping = await _actionMappingService.ResolveAsync(command, cancellationToken);
         if (actionMapping is not null)
         {
             switch (actionMapping.ActionType)

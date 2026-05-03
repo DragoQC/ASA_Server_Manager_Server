@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO.Compression;
 using asa_server_node_api.Constants;
+using asa_server_node_api.Models.Asa;
 using asa_server_node_api.Models;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -788,7 +789,7 @@ public sealed class BackupService(IServiceScopeFactory serviceScopeFactory, Toas
         await using AsyncServiceScope scope = _serviceScopeFactory.CreateAsyncScope();
         InstallStateService installStateService = scope.ServiceProvider.GetRequiredService<InstallStateService>();
 
-        Models.Asa.AsaServiceStatus status = await installStateService.GetAsaServiceStatusAsync(cancellationToken);
+        AsaServiceStatus status = await installStateService.GetAsaServiceStatusAsync(cancellationToken);
         if (status.IsUnavailable)
         {
             throw new InvalidOperationException("asa service status is unavailable. Backup cannot verify the server is stopped.");

@@ -1,3 +1,4 @@
+using asa_server_node_api.Constants;
 using asa_server_node_api.Contracts.Api.Admin;
 using asa_server_node_api.Infrastructure.Auth;
 using asa_server_node_api.Services;
@@ -38,7 +39,7 @@ public sealed class ServerConfigController(
     public Task<IActionResult> GetGameIni(CancellationToken cancellationToken)
     {
         return LoadGameConfigAsync(
-            Constants.GameConfigConstants.GameIniPath,
+            GameConfigConstants.GameIniPath,
             "Game.ini",
             cancellationToken);
     }
@@ -47,7 +48,7 @@ public sealed class ServerConfigController(
     public Task<IActionResult> GetGameUserSettingsIni(CancellationToken cancellationToken)
     {
         return LoadGameConfigAsync(
-            Constants.GameConfigConstants.GameUserSettingsIniPath,
+            GameConfigConstants.GameUserSettingsIniPath,
             "GameUserSettings.ini",
             cancellationToken);
     }

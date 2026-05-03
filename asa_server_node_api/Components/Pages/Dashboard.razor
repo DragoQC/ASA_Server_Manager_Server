@@ -1,7 +1,7 @@
 @page "/admin/dashboard"
 @implements IAsyncDisposable
-@inject asa_server_node_api.Services.PlayerCountMonitorService PlayerCountMonitorService
-@inject asa_server_node_api.Services.SystemMetricsService SystemMetricsService
+@inject PlayerCountMonitorService PlayerCountMonitorService
+@inject SystemMetricsService SystemMetricsService
 
 
 <PageTitle>ASA Dashboard</PageTitle>
@@ -62,9 +62,8 @@
 </section>
 
 @code {
-    private asa_server_node_api.Models.SystemMetrics.SystemMetricsSnapshot? _snapshot;
-    private asa_server_node_api.Models.Players.PlayerCountSnapshot _playerCountSnapshot =
-        asa_server_node_api.Models.Players.PlayerCountSnapshot.Default();
+    private SystemMetricsSnapshot? _snapshot;
+    private PlayerCountSnapshot _playerCountSnapshot = PlayerCountSnapshot.Default();
     private CancellationTokenSource? _refreshLoopCancellationTokenSource;
     private bool _isRefreshing;
 

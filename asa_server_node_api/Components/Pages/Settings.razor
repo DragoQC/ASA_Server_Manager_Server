@@ -1,7 +1,7 @@
 @page "/admin/settings"
 @implements IDisposable
-@inject asa_server_node_api.Services.AuthService AuthService
-@inject asa_server_node_api.Services.BackupService BackupService
+@inject AuthService AuthService
+@inject BackupService BackupService
 @inject NavigationManager NavigationManager
 @using asa_server_node_api.Components.Global
 @using asa_server_node_api.Constants
@@ -515,7 +515,7 @@
 
     private void GenerateAppApiKey()
     {
-        _appApiKey = asa_server_node_api.Services.AuthService.GenerateRemoteApiKey();
+        _appApiKey = AuthService.GenerateRemoteApiKey();
         _message = "Generated a new app API key. Save it to apply.";
         _error = null;
     }

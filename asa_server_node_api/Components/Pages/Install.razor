@@ -1,8 +1,7 @@
 @page "/admin/install"
-@using asa_server_node_api.Constants
-@inject asa_server_node_api.Services.InstallStateService InstallStateService
-@inject asa_server_node_api.Services.ManagerService ManagerService
-@inject asa_server_node_api.Services.ProtonInstallService ProtonInstallService
+@inject InstallStateService InstallStateService
+@inject ManagerService ManagerService
+@inject ProtonInstallService ProtonInstallService
 
 <PageTitle>Install</PageTitle>
 
@@ -300,7 +299,7 @@
                     OnCancel="CloseRestartDialog" />
 
 @code {
-    private asa_server_node_api.Models.Install.InstallWorkspaceSnapshot? _snapshot;
+    private InstallWorkspaceSnapshot? _snapshot;
     private string _startScriptContent = string.Empty;
     private string _serviceFileContent = string.Empty;
     private bool _isRefreshing;
@@ -394,7 +393,7 @@
             _startScriptMessage = "Applying start script...";
             _serviceFileMessage = "Applying service file...";
 
-            asa_server_node_api.Contracts.Api.Admin.InstallAllResponse response = await InstallStateService.InstallAllAsync();
+            InstallAllResponse response = await InstallStateService.InstallAllAsync();
             _protonMessage = response.ProtonMessage;
             _steamMessage = response.SteamMessage;
             _startScriptMessage = response.StartScriptMessage;
@@ -465,7 +464,7 @@
 
         try
         {
-            asa_server_node_api.Models.Install.InstallToolState proton = await ProtonInstallService.LoadStateAsync();
+            InstallToolState proton = await ProtonInstallService.LoadStateAsync();
             _snapshot = _snapshot with
             {
                 Proton = proton,
@@ -531,7 +530,7 @@
 
         try
         {
-            asa_server_node_api.Models.Install.InstallToolState steam = await InstallStateService.LoadSteamStateAsync();
+            InstallToolState steam = await InstallStateService.LoadSteamStateAsync();
             _snapshot = _snapshot with
             {
                 Steam = steam,

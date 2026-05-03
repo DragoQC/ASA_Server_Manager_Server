@@ -1,8 +1,8 @@
 @page "/admin/config"
 @page "/admin/game-config"
-@inject asa_server_node_api.Services.GameConfigService GameConfigService
-@inject asa_server_node_api.Services.ServerMonitorService ServerMonitorService
-@inject asa_server_node_api.Services.ManagerService ManagerService
+@inject GameConfigService GameConfigService
+@inject ServerMonitorService ServerMonitorService
+@inject ManagerService ManagerService
 @implements IDisposable
 
 <PageTitle>Game Config</PageTitle>
@@ -29,7 +29,7 @@
         }
 
         <div class="space-y-6">
-            @foreach (asa_server_node_api.Models.GameConfig.GameConfigFileState file in _files)
+            @foreach (GameConfigFileState file in _files)
             {
                 <section class="rounded-[1.6rem] border border-cyan-200/12 bg-black/40 p-6 shadow-[0_0_40px_rgba(0,255,255,0.08)] backdrop-blur-md">
                     <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -126,8 +126,8 @@
                     OnCancel="CloseRestartDialog" />
 
 @code {
-    private IReadOnlyList<asa_server_node_api.Models.GameConfig.GameConfigFileState> _files = Array.Empty<asa_server_node_api.Models.GameConfig.GameConfigFileState>();
-    private asa_server_node_api.Models.GameConfig.GameConfigFileState? _editorFile;
+    private IReadOnlyList<GameConfigFileState> _files = Array.Empty<GameConfigFileState>();
+    private GameConfigFileState? _editorFile;
     private string _editorContent = string.Empty;
     private string? _statusMessage;
     private bool _statusIsError;
@@ -200,7 +200,7 @@
         }
     }
 
-    private async Task OpenEditorAsync(asa_server_node_api.Models.GameConfig.GameConfigFileState file)
+    private async Task OpenEditorAsync(GameConfigFileState file)
     {
         try
         {
@@ -238,11 +238,11 @@
 
         try
         {
-            if (string.Equals(_editorFile.FilePath, asa_server_node_api.Constants.GameConfigConstants.GameIniPath, StringComparison.Ordinal))
+            if (string.Equals(_editorFile.FilePath, GameConfigConstants.GameIniPath, StringComparison.Ordinal))
             {
                 await GameConfigService.SaveGameIniAsync(_editorContent);
             }
-            else if (string.Equals(_editorFile.FilePath, asa_server_node_api.Constants.GameConfigConstants.GameUserSettingsIniPath, StringComparison.Ordinal))
+            else if (string.Equals(_editorFile.FilePath, GameConfigConstants.GameUserSettingsIniPath, StringComparison.Ordinal))
             {
                 await GameConfigService.SaveGameUserSettingsIniAsync(_editorContent);
             }
@@ -328,7 +328,7 @@
         return Task.CompletedTask;
     }
 
-    private static bool HasInfoDialog(asa_server_node_api.Models.GameConfig.GameConfigFileState file)
+    private static bool HasInfoDialog(GameConfigFileState file)
     {
         return string.Equals(file.Title, "Game.ini", StringComparison.Ordinal)
             || string.Equals(file.Title, "GameUserSettings.ini", StringComparison.Ordinal);

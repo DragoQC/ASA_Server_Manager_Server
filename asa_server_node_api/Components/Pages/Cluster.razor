@@ -1,10 +1,9 @@
 @page "/admin/cluster"
 @page "/admin/vpn"
-@inject asa_server_node_api.Services.ClusterClientInstallService ClusterClientInstallService
-@inject asa_server_node_api.Services.InstallStateService InstallStateService
-@inject asa_server_node_api.Services.VpnConfigService VpnConfigService
-@inject asa_server_node_api.Services.NfsConfigService NfsConfigService
-@using asa_server_node_api.Contracts.Api.Admin
+@inject ClusterClientInstallService ClusterClientInstallService
+@inject InstallStateService InstallStateService
+@inject VpnConfigService VpnConfigService
+@inject NfsConfigService NfsConfigService
 
 <PageTitle>Cluster</PageTitle>
 
@@ -356,8 +355,8 @@
         _hasWireGuardClientInstall = ClusterClientInstallService.HasWireGuardClientInstall();
         _hasNfsClientInstall = ClusterClientInstallService.HasNfsClientInstall();
         _hasClusterClientInstall = ClusterClientInstallService.HasClusterClientInstall();
-        _hasWireGuardConfig = File.Exists(asa_server_node_api.Constants.InstallStateConstants.WireGuardConfigFilePath);
-        _hasNfsClientConfig = File.Exists(asa_server_node_api.Constants.InstallStateConstants.NfsClientConfigFilePath);
+        _hasWireGuardConfig = File.Exists(InstallStateConstants.WireGuardConfigFilePath);
+        _hasNfsClientConfig = File.Exists(InstallStateConstants.NfsClientConfigFilePath);
         _wireGuardConfigContent = await VpnConfigService.LoadConfigContentAsync();
         _nfsClientConfigContent = await NfsConfigService.LoadConfigContentAsync();
     }

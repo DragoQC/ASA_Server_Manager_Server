@@ -1,6 +1,6 @@
 @page "/admin/validate"
-@inject asa_server_node_api.Services.InstallStateService InstallStateService
-@inject asa_server_node_api.Services.ManagerService ManagerService
+@inject InstallStateService InstallStateService
+@inject ManagerService ManagerService
 
 <PageTitle>Validate</PageTitle>
 
@@ -122,11 +122,11 @@
             CreateCheck(
                 title: "Proton",
                 description: "Checks whether a Proton version folder exists and contains the Proton launcher binary.",
-                asa_server_node_api.Services.InstallStateService.HasInstalledProton()),
+                InstallStateService.HasInstalledProton()),
             CreateCheck(
                 title: "SteamCMD",
                 description: "Checks whether steamcmd.sh exists at the Steam root and the linux32 runtime folder is present.",
-                asa_server_node_api.Services.InstallStateService.HasSteamInstall()),
+                InstallStateService.HasSteamInstall()),
             CreateCheck(
                 title: "Start script",
                 description: "Checks whether /opt/asa/start-asa.sh is present.",
@@ -159,4 +159,3 @@
         string Description,
         string StatusText);
 }
-@using asa_server_node_api.Constants

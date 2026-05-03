@@ -1,7 +1,7 @@
 @page "/admin/server-config"
-@inject asa_server_node_api.Services.ServerConfigService ServerConfigService
-@inject asa_server_node_api.Services.InstallStateService InstallStateService
-@inject asa_server_node_api.Services.ManagerService ManagerService
+@inject ServerConfigService ServerConfigService
+@inject InstallStateService InstallStateService
+@inject ManagerService ManagerService
 
 <PageTitle>Server Config</PageTitle>
 
@@ -124,7 +124,7 @@
                     OnCancel="CloseRestartDialog" />
 
 @code {
-    private asa_server_node_api.Models.ServerConfig.ServerConfigSettings _model = asa_server_node_api.Models.ServerConfig.ServerConfigSettings.Default();
+    private ServerConfigSettings _model = ServerConfigSettings.Default();
     private string? _statusMessage;
     private bool _statusIsError;
     private bool _hasConfigFile;
@@ -193,14 +193,14 @@
         try
         {
             _hasConfigFile = ServerConfigService.HasConfigFile();
-            _isClusterIdManagedByVpn = File.Exists(asa_server_node_api.Constants.InstallStateConstants.WireGuardConfigFilePath);
+            _isClusterIdManagedByVpn = File.Exists(InstallStateConstants.WireGuardConfigFilePath);
             _model = await ServerConfigService.LoadAsync();
             _statusMessage = _hasConfigFile ? null : "asa.env is missing. Showing built-in defaults until you save.";
             _statusIsError = false;
         }
         catch (Exception exception)
         {
-            _model = asa_server_node_api.Models.ServerConfig.ServerConfigSettings.Default();
+            _model = ServerConfigSettings.Default();
             _statusMessage = exception.Message;
             _statusIsError = true;
         }
@@ -228,7 +228,7 @@
     private async Task ResetDefaults()
     {
         string currentClusterId = _model.ClusterId;
-        _model = asa_server_node_api.Models.ServerConfig.ServerConfigSettings.Default();
+        _model = ServerConfigSettings.Default();
         if (_isClusterIdManagedByVpn)
         {
             _model.ClusterId = currentClusterId;
