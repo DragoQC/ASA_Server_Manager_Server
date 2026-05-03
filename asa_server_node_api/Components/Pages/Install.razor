@@ -13,13 +13,29 @@
                 <StatusTag Text="Workspace" />
             </div>
 
-            <button type="button"
-                    @onclick="InstallAllAsync"
-                    disabled="@(_isRefreshing || _isInstallingAll || _isUpdatingProton || _snapshot is null)"
-                    class="inline-flex items-center rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                @(_isInstallingAll ? "Installing..." : "Install All")
-            </button>
+            <div class="flex flex-wrap items-center gap-3">
+                <button type="button"
+                        @onclick="EnableSystemdAsync"
+                        disabled="@(!CanEnableSystemd || _isEnablingSystemd)"
+                        class="inline-flex items-center rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                    @(_isEnablingSystemd ? "Enabling..." : "Enable systemd")
+                </button>
+
+                <button type="button"
+                        @onclick="InstallAllAsync"
+                        disabled="@(_isRefreshing || _isInstallingAll || _isUpdatingProton || _snapshot is null)"
+                        class="inline-flex items-center rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                    @(_isInstallingAll ? "Installing..." : "Install All")
+                </button>
+            </div>
         </div>
+
+        @if (!string.IsNullOrWhiteSpace(_systemdMessage))
+        {
+            <div class="@GetSystemdMessageClass()">
+                @_systemdMessage
+            </div>
+        }
 
         <div>
             <h1 class="text-4xl font-semibold tracking-tight text-white md:text-5xl">Install workspace</h1>
@@ -258,12 +274,21 @@
                                 <p class="text-xs uppercase tracking-[0.28em] text-neutral-500">@_snapshot.ServiceFile.FilePath</p>
                             </div>
 
-                            <button type="button"
-                                    @onclick="ApplyServiceFileAsync"
-                                    disabled="@(_isApplyingServiceFile || _isInstallingAll)"
-                                    class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
-                                @(_isApplyingServiceFile ? "Applying..." : "Apply")
-                            </button>
+                            <div class="flex flex-wrap gap-3">
+                                <button type="button"
+                                        @onclick="EnableSystemdAsync"
+                                        disabled="@(!CanEnableSystemd || _isEnablingSystemd)"
+                                        class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                    @(_isEnablingSystemd ? "Enabling..." : "Enable systemd")
+                                </button>
+
+                                <button type="button"
+                                        @onclick="ApplyServiceFileAsync"
+                                        disabled="@(_isApplyingServiceFile || _isInstallingAll)"
+                                        class="inline-flex rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.3)] transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60">
+                                    @(_isApplyingServiceFile ? "Applying..." : "Apply")
+                                </button>
+                            </div>
                         </div>
 
                         @if (!string.IsNullOrWhiteSpace(_serviceFileMessage))
@@ -307,15 +332,19 @@
     private bool _isApplyingStartScript;
     private bool _isApplyingServiceFile;
     private bool _isInstallingAll;
+    private bool _isEnablingSystemd;
     private string? _loadError;
     private string? _protonMessage;
     private string? _steamMessage;
     private string? _startScriptMessage;
     private string? _serviceFileMessage;
+    private string? _systemdMessage;
+    private bool _systemdMessageIsError;
     private IReadOnlyList<string> _protonVersions = Array.Empty<string>();
     private string? _selectedProtonVersion;
     private bool _showRestartDialog;
     private bool _isRestartingAsa;
+    private bool CanEnableSystemd => File.Exists(InstallStateConstants.ServiceFilePath) && !_isRefreshing && !_isInstallingAll && !_isApplyingServiceFile;
     private bool _isUpdatingProton
     {
         get => ProtonInstallService.IsUpdating;
@@ -630,6 +659,47 @@
         {
             _isApplyingServiceFile = false;
         }
+    }
+
+    private async Task EnableSystemdAsync()
+    {
+        if (_isEnablingSystemd || !CanEnableSystemd)
+        {
+            return;
+        }
+
+        IReadOnlyList<string> missingItems = InstallStateService.GetMissingValidationItems();
+        if (missingItems.Count > 0)
+        {
+            _systemdMessage = $"Cannot enable asa. Missing: {string.Join(", ", missingItems)}.";
+            _systemdMessageIsError = true;
+            return;
+        }
+
+        _isEnablingSystemd = true;
+
+        try
+        {
+            _systemdMessage = await ManagerService.EnableAsync();
+            _systemdMessageIsError = false;
+        }
+        catch (Exception exception)
+        {
+            _systemdMessage = exception.Message;
+            _systemdMessageIsError = true;
+        }
+        finally
+        {
+            _isEnablingSystemd = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private string GetSystemdMessageClass()
+    {
+        return _systemdMessageIsError
+            ? "rounded-[1.6rem] border border-red-300/20 bg-red-400/10 p-4 text-sm text-red-100"
+            : "rounded-[1.6rem] border border-cyan-300/20 bg-cyan-400/10 p-4 text-sm text-cyan-100";
     }
 
     private async Task OpenRestartDialogIfNeededAsync(bool hadExistingFile)
