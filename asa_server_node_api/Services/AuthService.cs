@@ -75,6 +75,15 @@ public sealed class AuthService(UserManager<ApplicationUser> userManager, IDbCon
 			});
 		}
 
+		foreach (IPasswordValidator<ApplicationUser> passwordValidator in _userManager.PasswordValidators)
+		{
+			IdentityResult passwordValidationResult = await passwordValidator.ValidateAsync(_userManager, user, newPassword);
+			if (!passwordValidationResult.Succeeded)
+			{
+				return passwordValidationResult;
+			}
+		}
+
 		string passwordHash = _userManager.PasswordHasher.HashPassword(user, newPassword);
 		user.PasswordHash = passwordHash;
 		user.SecurityStamp = Guid.NewGuid().ToString("N");

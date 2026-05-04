@@ -2,30 +2,29 @@
     string text = (Text ?? Label ?? Status ?? "Unknown").Trim();
     string normalized = text.ToUpperInvariant();
 
-    bool isOk = normalized == "OK" ||
-                normalized == "RUNNING" ||
-                normalized == "CONNECTED";
-    bool isMissing = normalized.Contains("MISSING", StringComparison.Ordinal);
-    bool isWarning = normalized.Contains("WARN", StringComparison.Ordinal) ||
-                     normalized.Contains("STARTING", StringComparison.Ordinal) ||
-                     normalized.Contains("STOPPING", StringComparison.Ordinal);
-    bool isBad = normalized.Contains("FAILED", StringComparison.Ordinal) ||
-                 normalized.Contains("ERROR", StringComparison.Ordinal) ||
-                 normalized.Contains("FAULT", StringComparison.Ordinal) ||
-                 normalized.Contains("FAULTED", StringComparison.Ordinal) ||
-                 normalized.Contains("WRONG", StringComparison.Ordinal) ||
-                 normalized.Contains("INVALID", StringComparison.Ordinal) ||
-                 normalized.Contains("UNAVAILABLE", StringComparison.Ordinal);
+    string baseCss = "inline-flex items-center rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em]";
+    string variantCss = normalized switch
+    {
+        "OK" or "RUNNING" or "CONNECTED"
+            => "border-emerald-300/30 bg-emerald-400/15 text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.35)]",
+        _ when normalized.Contains("MISSING", StringComparison.Ordinal)
+            => "border-white/20 bg-white/10 text-neutral-200 shadow-[0_0_18px_rgba(255,255,255,0.18)]",
+        _ when normalized.Contains("WARN", StringComparison.Ordinal) ||
+               normalized.Contains("STARTING", StringComparison.Ordinal) ||
+               normalized.Contains("STOPPING", StringComparison.Ordinal)
+            => "border-amber-300/30 bg-amber-400/15 text-amber-200 shadow-[0_0_18px_rgba(251,191,36,0.35)]",
+        _ when normalized.Contains("FAILED", StringComparison.Ordinal) ||
+               normalized.Contains("ERROR", StringComparison.Ordinal) ||
+               normalized.Contains("FAULT", StringComparison.Ordinal) ||
+               normalized.Contains("FAULTED", StringComparison.Ordinal) ||
+               normalized.Contains("WRONG", StringComparison.Ordinal) ||
+               normalized.Contains("INVALID", StringComparison.Ordinal) ||
+               normalized.Contains("UNAVAILABLE", StringComparison.Ordinal)
+            => "border-red-300/30 bg-red-400/15 text-red-200 shadow-[0_0_18px_rgba(248,113,113,0.35)]",
+        _ => "border-app-300/30 bg-app-400/15 text-app-200 shadow-[0_0_18px_rgba(34,211,238,0.35)]"
+    };
 
-    string css = isOk
-        ? "rounded-full border border-emerald-300/30 bg-emerald-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200 shadow-[0_0_18px_rgba(52,211,153,0.35)]"
-        : isMissing
-            ? "rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-neutral-200 shadow-[0_0_18px_rgba(255,255,255,0.18)]"
-            : isWarning
-                ? "rounded-full border border-amber-300/30 bg-amber-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-amber-200 shadow-[0_0_18px_rgba(251,191,36,0.35)]"
-                : isBad
-                    ? "rounded-full border border-red-300/30 bg-red-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-red-200 shadow-[0_0_18px_rgba(248,113,113,0.35)]"
-                    : "rounded-full border border-app-300/30 bg-app-400/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-app-200 shadow-[0_0_18px_rgba(34,211,238,0.35)]";
+    string css = $"{baseCss} {variantCss}";
 }
 
 <span class="@css">@text</span>

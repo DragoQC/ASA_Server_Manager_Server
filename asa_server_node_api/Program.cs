@@ -130,16 +130,14 @@ app.MapPost("/auth/login",
         return result.Succeeded
             ? Results.LocalRedirect(mustChangePassword ? "/admin/reset-password?firstLogin=true" : "/admin/dashboard")
             : Results.LocalRedirect("/admin/login?error=Invalid%20username%20or%20password.");
-    })
-    .DisableAntiforgery();
+    });
 
 app.MapPost("/auth/logout",
     async (SignInManager<ApplicationUser> signInManager) =>
     {
         await signInManager.SignOutAsync();
         return Results.LocalRedirect("/admin/login?message=Logged%20out.");
-    })
-    .DisableAntiforgery();
+    });
 
 app.MapGet("/admin/settings/export/download/{format}",
     (string format, BackupService backupService) =>
