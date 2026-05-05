@@ -65,7 +65,7 @@ public sealed class StateHubPublisherService(
     private void OnPlayerCountChanged()
     {
         PlayerCountSnapshot snapshot = _playerCountMonitorService.GetSnapshot();
-        if (snapshot == _lastPlayerCountSnapshot)
+        if (AreSnapshotsEquivalent(snapshot, _lastPlayerCountSnapshot))
         {
             return;
         }
@@ -82,7 +82,18 @@ public sealed class StateHubPublisherService(
 
     private Task BroadcastPlayerCountAsync(PlayerCountSnapshot snapshot)
     {
-        return _hubContext.Clients.All.SendAsync(AsaStateHubConstants.PlayerCountUpdatedMethod, snapshot.CurrentPlayers);
+        return Task.WhenAll(
+            _hubContext.Clients.All.SendAsync(AsaStateHubConstants.PlayerCountUpdatedMethod, snapshot.CurrentPlayers),
+            _hubContext.Clients.All.SendAsync(AsaStateHubConstants.PlayerListUpdatedMethod, snapshot.Players));
+    }
+
+    private static bool AreSnapshotsEquivalent(PlayerCountSnapshot left, PlayerCountSnapshot right)
+    {
+        return left.CurrentPlayers == right.CurrentPlayers &&
+               left.MaxPlayers == right.MaxPlayers &&
+               string.Equals(left.StatusLabel, right.StatusLabel, StringComparison.Ordinal) &&
+               string.Equals(left.Message, right.Message, StringComparison.Ordinal) &&
+               left.Players.SequenceEqual(right.Players);
     }
 
     private async Task RunRconPollingLoopAsync(CancellationToken cancellationToken)

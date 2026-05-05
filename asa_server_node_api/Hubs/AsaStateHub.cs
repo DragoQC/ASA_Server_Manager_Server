@@ -22,6 +22,7 @@ public sealed class AsaStateHub(
         bool canSendRconCommand = await ResolveCanSendRconCommandAsync(Context.ConnectionAborted);
         await Clients.Caller.SendAsync(AsaStateHubConstants.StateUpdatedMethod, status);
         await Clients.Caller.SendAsync(AsaStateHubConstants.PlayerCountUpdatedMethod, playerCountSnapshot.CurrentPlayers);
+        await Clients.Caller.SendAsync(AsaStateHubConstants.PlayerListUpdatedMethod, playerCountSnapshot.Players);
         await Clients.Caller.SendAsync(AsaStateHubConstants.CanSendRconCommandUpdatedMethod, canSendRconCommand);
         await base.OnConnectedAsync();
     }

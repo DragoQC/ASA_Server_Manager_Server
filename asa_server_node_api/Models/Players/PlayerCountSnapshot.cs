@@ -5,6 +5,7 @@ public sealed record PlayerCountSnapshot(
     int MaxPlayers,
     string StatusLabel,
     string Message,
+    IReadOnlyList<OnlinePlayerSnapshot> Players,
     DateTimeOffset UpdatedAtUtc)
 {
     public static PlayerCountSnapshot Default(int maxPlayers = 20) =>
@@ -13,5 +14,6 @@ public sealed record PlayerCountSnapshot(
             MaxPlayers: maxPlayers,
             StatusLabel: "Waiting",
             Message: "Waiting for first player poll.",
+            Players: [],
             UpdatedAtUtc: DateTimeOffset.UtcNow);
 }

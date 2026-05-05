@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using asa_server_node_api.Constants;
 using asa_server_node_api.Infrastructure.Rcon;
+using asa_server_node_api.Models.Players;
 using asa_server_node_api.Models.Rcon;
 
 namespace asa_server_node_api.Services;
@@ -65,6 +66,12 @@ public sealed class RconService(ServerConfigService serverConfigService, GameCon
     {
         string response = await ExecuteCoreAsync("ListPlayers", formatEmptyResponse: false, cancellationToken);
         return ParseOnlinePlayerCount(response);
+    }
+
+    public async Task<IReadOnlyList<OnlinePlayerSnapshot>> GetOnlinePlayersAsync(CancellationToken cancellationToken = default)
+    {
+        string response = await ExecuteCoreAsync("ListPlayers", formatEmptyResponse: false, cancellationToken);
+        return ParseOnlinePlayers(response);
     }
 
     private async Task<RconContext> LoadContextAsync(CancellationToken cancellationToken)
@@ -175,6 +182,12 @@ public sealed class RconService(ServerConfigService serverConfigService, GameCon
 
     private static int ParseOnlinePlayerCount(string response)
     {
+        IReadOnlyList<OnlinePlayerSnapshot> players = ParseOnlinePlayers(response);
+        if (players.Count > 0)
+        {
+            return players.Count;
+        }
+
         string[] lines = response
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -197,6 +210,24 @@ public sealed class RconService(ServerConfigService serverConfigService, GameCon
         return structuredPlayerLines > 0
             ? structuredPlayerLines
             : meaningfulLines.Count;
+    }
+
+    private static IReadOnlyList<OnlinePlayerSnapshot> ParseOnlinePlayers(string response)
+    {
+        string[] lines = response
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        List<OnlinePlayerSnapshot> players = [];
+        foreach (string line in lines)
+        {
+            if (TryParseOnlinePlayer(line, out OnlinePlayerSnapshot player))
+            {
+                players.Add(player);
+            }
+        }
+
+        return players;
     }
 
     private static bool IsNonPlayerLine(string line)
@@ -230,6 +261,40 @@ public sealed class RconService(ServerConfigService serverConfigService, GameCon
         }
 
         return trimmed.Contains(',', StringComparison.Ordinal);
+    }
+
+    private static bool TryParseOnlinePlayer(string line, out OnlinePlayerSnapshot player)
+    {
+        player = null!;
+
+        string trimmed = line.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed) || IsNonPlayerLine(trimmed))
+        {
+            return false;
+        }
+
+        int dotIndex = trimmed.IndexOf('.');
+        if (dotIndex <= 0 || !int.TryParse(trimmed[..dotIndex], out _))
+        {
+            return false;
+        }
+
+        string payload = trimmed[(dotIndex + 1)..].Trim();
+        int separatorIndex = payload.LastIndexOf(',');
+        if (separatorIndex <= 0 || separatorIndex >= payload.Length - 1)
+        {
+            return false;
+        }
+
+        string name = payload[..separatorIndex].Trim();
+        string playerId = payload[(separatorIndex + 1)..].Trim();
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(playerId))
+        {
+            return false;
+        }
+
+        player = new OnlinePlayerSnapshot(name, playerId);
+        return true;
     }
 
     private static async Task<RconConnection> ConnectAndAuthenticateAsync(int port, string password, CancellationToken cancellationToken)

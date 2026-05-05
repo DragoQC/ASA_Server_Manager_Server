@@ -60,6 +60,7 @@ public sealed class PlayerCountMonitorService(
                     MaxPlayers: maxPlayers,
                     StatusLabel: asaStatus.StatusLabel,
                     Message: "ASA is not running.",
+                    Players: [],
                     UpdatedAtUtc: DateTimeOffset.UtcNow);
             }
 
@@ -70,6 +71,7 @@ public sealed class PlayerCountMonitorService(
                     MaxPlayers: maxPlayers,
                     StatusLabel: "Missing",
                     Message: "GameUserSettings.ini missing.",
+                    Players: [],
                     UpdatedAtUtc: DateTimeOffset.UtcNow);
             }
 
@@ -82,16 +84,19 @@ public sealed class PlayerCountMonitorService(
                     MaxPlayers: maxPlayers,
                     StatusLabel: rconStatus.StateLabel,
                     Message: rconStatus.Message,
+                    Players: [],
                     UpdatedAtUtc: DateTimeOffset.UtcNow);
             }
 
-            int currentPlayers = await rconService.GetOnlinePlayerCountAsync(cancellationToken);
+            IReadOnlyList<OnlinePlayerSnapshot> players = await rconService.GetOnlinePlayersAsync(cancellationToken);
+            int currentPlayers = players.Count;
 
             return new PlayerCountSnapshot(
                 CurrentPlayers: currentPlayers,
                 MaxPlayers: maxPlayers,
                 StatusLabel: "Running",
                 Message: currentPlayers == 1 ? "1 player online." : $"{currentPlayers} players online.",
+                Players: players,
                 UpdatedAtUtc: DateTimeOffset.UtcNow);
         }
         catch (Exception ex)
@@ -103,6 +108,7 @@ public sealed class PlayerCountMonitorService(
                 MaxPlayers: _current.MaxPlayers,
                 StatusLabel: "Unavailable",
                 Message: ex.Message,
+                Players: [],
                 UpdatedAtUtc: DateTimeOffset.UtcNow);
         }
     }
