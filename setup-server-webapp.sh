@@ -18,7 +18,7 @@ VERBOSE=0
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 log_webapp() {
-  echo -e "${SECTION_COLOR}[WebApp]${RESET} $1"
+  echo -e "${SECTION_COLOR}[ASA Server Node API]${RESET} $1"
 }
 
 log_git() {
