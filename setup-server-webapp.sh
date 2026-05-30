@@ -15,7 +15,8 @@ SECTION_COLOR='\033[38;5;141m'
 GIT_COLOR='\033[38;5;45m'
 DOTNET_COLOR='\033[38;5;39m'
 VERBOSE=0
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_SOURCE="${BASH_SOURCE[0]:-$0}"
+SCRIPT_DIR="$(cd "$(dirname "${SCRIPT_SOURCE}")" && pwd)"
 
 log_webapp() {
   echo -e "${SECTION_COLOR}[ASA Server Node API]${RESET} $1"
@@ -48,7 +49,7 @@ log_error() {
 load_required_packages() {
   local requirements_file="$1"
 
-  if [ ! -f "${requirements_file}" ]; then
+  if [ ! -r "${requirements_file}" ]; then
     log_error "Requirements file was not found: ${requirements_file}"
     exit 1
   fi
