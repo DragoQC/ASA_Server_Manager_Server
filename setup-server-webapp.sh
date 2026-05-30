@@ -147,7 +147,7 @@ TAR_TOOLS_PREP_SCRIPT_TEMPLATE_RELATIVE_PATH="asa_server_node_api/Templates/Back
 TAR_TOOLS_PREP_SCRIPT_PATH="${BACKUP_DIR}/prepare-tar-tools.sh"
 WIREGUARD_DIR="/etc/wireguard"
 WIREGUARD_CONFIG_LINK_PATH="${WIREGUARD_DIR}/wg0.conf"
-SYSTEM_PACKAGES_FILE="${SYSTEM_PACKAGES_FILE:-$SCRIPT_DIR/requirements/system-packages.txt}"
+SYSTEM_PACKAGES_FILE_URL="${SYSTEM_PACKAGES_FILE_URL:-https://raw.githubusercontent.com/DragoQC/asa_server_node_api/main/requirements/system-packages.txt}"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 if [ "${EUID}" -ne 0 ]; then
@@ -190,7 +190,10 @@ log_webapp "asa_server_node_api – Web App Installer"
 log_webapp "Installing dependencies..."
 run_quiet dpkg --add-architecture i386
 run_quiet apt update
-load_required_packages "${SYSTEM_PACKAGES_FILE}"
+load_required_packages <(curl -fsSL "${SYSTEM_PACKAGES_FILE_URL}") || {
+  log_error "Could not download requirements file: ${SYSTEM_PACKAGES_FILE_URL}"
+  exit 1
+}
 run_quiet apt install -y "${REQUIRED_PACKAGES[@]}"
 log_ok "Installed dependencies."
 
