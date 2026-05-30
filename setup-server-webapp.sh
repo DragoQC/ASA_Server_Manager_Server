@@ -15,8 +15,6 @@ SECTION_COLOR='\033[38;5;141m'
 GIT_COLOR='\033[38;5;45m'
 DOTNET_COLOR='\033[38;5;39m'
 VERBOSE=0
-SCRIPT_SOURCE="${BASH_SOURCE[0]:-$0}"
-SCRIPT_DIR="$(cd "$(dirname "${SCRIPT_SOURCE}")" && pwd)"
 
 log_webapp() {
   echo -e "${SECTION_COLOR}[ASA Server Node API]${RESET} $1"
@@ -46,10 +44,25 @@ log_error() {
   echo -e "${ERROR_COLOR}✖ $1${RESET}"
 }
 
+download_required_packages_file() {
+  local requirements_url="$1"
+  local temp_file
+
+  temp_file="$(mktemp)"
+
+  if ! curl -fsSL "${requirements_url}" -o "${temp_file}"; then
+    rm -f "${temp_file}"
+    log_error "Could not download requirements file: ${requirements_url}"
+    exit 1
+  fi
+
+  printf '%s\n' "${temp_file}"
+}
+
 load_required_packages() {
   local requirements_file="$1"
 
-  if [ ! -r "${requirements_file}" ]; then
+  if [ ! -f "${requirements_file}" ]; then
     log_error "Requirements file was not found: ${requirements_file}"
     exit 1
   fi
@@ -191,10 +204,9 @@ log_webapp "asa_server_node_api – Web App Installer"
 log_webapp "Installing dependencies..."
 run_quiet dpkg --add-architecture i386
 run_quiet apt update
-load_required_packages <(curl -fsSL "${SYSTEM_PACKAGES_FILE_URL}") || {
-  log_error "Could not download requirements file: ${SYSTEM_PACKAGES_FILE_URL}"
-  exit 1
-}
+TEMP_SYSTEM_PACKAGES_FILE="$(download_required_packages_file "${SYSTEM_PACKAGES_FILE_URL}")"
+load_required_packages "${TEMP_SYSTEM_PACKAGES_FILE}"
+rm -f "${TEMP_SYSTEM_PACKAGES_FILE}"
 run_quiet apt install -y "${REQUIRED_PACKAGES[@]}"
 log_ok "Installed dependencies."
 
